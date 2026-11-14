@@ -476,7 +476,7 @@ type InstallOptions struct {
 }
 
 // skill 模板的源文件名（不含 sunshine- 前缀）。
-var autoSkillNames = []string{"before-dev", "brainstorm", "break-loop", "check", "update-spec"}
+var autoSkillNames = []string{"before-dev", "brainstorm", "break-loop", "check", "update-spec", "spec-import"}
 
 // command 模板的源文件名。
 var commandNames = []string{"continue", "finish-work", "start"}
@@ -1086,6 +1086,7 @@ var skillDescriptions = map[string]string{
 	"check":       "全面质量核查：规范符合性、Lint、类型检查、测试、跨层数据流、代码复用与一致性。适用于代码写完需要质量核查、提交前，或长会话中需要发现上下文漂移时。",
 	"break-loop":  "深度 Bug 分析，打破“修了忘、忘了再修”的循环。分析根因类别、修复失败的原因、预防机制，并把知识沉淀进规范。适用于修完 Bug 后防止同类 Bug 再次出现。",
 	"update-spec": "把可执行的契约与编码约定沉淀进 .sunshine/spec/ 文档。适用于从调试、实现或讨论中学到值得保留的东西时。",
+	"spec-import": "把用户已有的文档（设计稿、接口文档、README、导出的 wiki）整理成 Sunshine 的规范文件，落到 .sunshine/spec/ 并配好文件头上的索引。适用于接手已有文档的项目、第一次跑 sunshine init 之后。",
 }
 
 // wrapSkillFrontmatter 给解析后的 skill 内容包上 YAML frontmatter

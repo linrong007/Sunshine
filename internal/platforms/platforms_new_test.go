@@ -13,10 +13,10 @@ import (
 // 文件数来自各规格的最终生成文件完整清单（A1/B/A3/C 路）。
 func TestInstallNewPlatforms(t *testing.T) {
 	wantCounts := map[string]int{
-		"kiro": 51, "gemini": 50, "qoder": 50,
-		"pi": 52, "zcode": 50, "trae": 50, "omp": 50, "snow": 55,
-		"opencode": 57, "dsh": 47, "reasonix": 47, "grok": 50, "kimi": 54,
-		"kilo": 46, "antigravity": 46, "devin": 46,
+		"kiro": 52, "gemini": 51, "qoder": 51,
+		"pi": 53, "zcode": 51, "trae": 51, "omp": 51, "snow": 56,
+		"opencode": 58, "dsh": 48, "reasonix": 48, "grok": 51, "kimi": 55,
+		"kilo": 47, "antigravity": 47, "devin": 47,
 	}
 	for _, id := range []string{
 		"kiro", "gemini", "qoder", "pi", "zcode", "trae", "omp", "snow",
@@ -311,8 +311,8 @@ func TestInstallNewPlatformsSpotChecks(t *testing.T) {
 				dirs[strings.Split(strings.TrimPrefix(rel, ".reasonix/skills/"), "/")[0]] = true
 			}
 		}
-		if len(dirs) != 13 {
-			t.Errorf("reasonix skill 目录数 = %d，期望 13（7 工作流 + 4 bundled + 2 子代理）", len(dirs))
+		if len(dirs) != 14 {
+			t.Errorf("reasonix skill 目录数 = %d，期望 14（8 工作流 + 4 bundled + 2 子代理）", len(dirs))
 		}
 	})
 

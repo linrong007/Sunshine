@@ -1773,6 +1773,10 @@ The tech-selection section (outline design, lines 55–64) only writes constrain
 
 The design package is reviewed before any split. The review is the 1.5 final planning summary — the whole planning package laid out for confirmation, and only then does anything `task start`:
 
+The opening line needs no step number: the agent locates the step from the project state (design done, not yet split, so it is the review), with no task name, requirement IDs, or prototype paths:
+
+> **You:** The design is done. Please review it following the sunshine workflow and give me the final planning summary for confirmation.
+
 > **Claude Code:** Final planning summary for confirmation: the goal is a coupon-carrying web store built from zero, design-first; the scope is all five requirements R-001–R-005; out of scope are payments, login, coupon issuing / claiming / redemption, automatic expiry cleanup, database, and cache; the key decisions are leaving the stack to the backend-foundation sub-task, keeping the cart in localStorage, requiring the address, and the four-step coupon validation order; the deliverables are prd.md, the requirements list (49 lines), the outline design (78 lines), a 4-page prototype plus mock, and 6 sub-tasks already created and validated, in order backend foundation → product list → adding to cart → checkout → using a coupon → coupon list. Once you confirm, I'll start them one by one. OK?
 >
 > **You:** OK, go ahead.
@@ -2005,6 +2009,10 @@ The designer revisits six places:
 | 6 | `doc/prototype/mock.js` | 14 | MAN100JIAN10 `threshold: 10000` → `threshold: 20000` (the shared prototype mock updates; the coupon page renders from the mock, so it follows automatically) |
 
 A grep afterwards confirms: the old value "10000" remains only in the change log and risk lines, where it is history; "16800" is gone entirely; "满100减10" remains only as the coupon name itself (deliberately not renamed).
+
+The opening line again needs no step number — the agent locates it from the project state (already split, with a `[变更]` note, so it is the change-only review):
+
+> **You:** The changes are done. Please review them following the sunshine workflow, only the changed parts.
 
 The change task's 1.5 reviews only the changed part (prd.md + the design changes above); once confirmed, `task start`. implement.jsonl / check.jsonl have 3 / 2 entries (requirements list R-004 and change log, outline design acceptance and risks, this task's prd.md with `[变更]`), and `task validate` passes. The implementation changes three places:
 

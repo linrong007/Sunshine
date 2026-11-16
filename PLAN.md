@@ -2830,3 +2830,20 @@ pre-commit install       # 在仓库根目录执行一次
 **实施（2026-11-16）**：8 个文件。①新 hook 事件 `post-tool-use`（`internal/hook/post_tool_use.go` + 测试）：Edit/Write 按 file_path 单文件同步；Bash 走整目录同步（命令串判断不可靠）；非 Edit/Write/Bash、坏 JSON、缺 file_path 一律静默返回 nil。②`internal/cli/hook.go` 注册事件并更新帮助。③`RunSessionStart` 开头加 `SyncDir` 兜底。④Claude settings.json 加 PostToolUse（matcher `Edit|Write|Bash`，timeout 10）。只改 Go 代码与 Claude 模板，未动 workflow/skill 文本（手动步骤留作兜底）。实施后改强制（用户定，见方案）：hook 与兜底由 `SyncFileIfIndexed`/`SyncDirIfIndexed` 换成完整 `SyncFile`/`SyncDir`（无索引节也补一个），`HasIndex`/`SyncFileIfIndexed`/`SyncDirIfIndexed` 三个 helper 随之删除（只存在于未提交的工作树里，未进过任何版本）；hook 测试 `TestPostToolUse_EditSpecWithoutIndexUntouched` 改名 `TestPostToolUse_EditSpecWithoutIndexGetsIndex`，断言改为补索引。索引“可选”的说法只出现在刚写的两处注释里，已同步改掉；workflow/skill 文本里没有“索引可选”的说法，无需改。
 
 **验证（2026-11-16）**：go build/vet/gofmt/test 全量过（21 包）；新测试 8 个全过（specindex 3 个 + hook 5 个）。新二进制 /tmp/sunshine-autoindex 在 /tmp/autoindex-test 端到端实测：Edit 改 backend.md 加一节后调 hook，索引表里出现新节；Bash 改 frontend.md 加一节后调 hook，索引同步；无索引节的 extra.md 加节后调 hook，原样不动；system.md（有索引）新节进索引；改非 spec 文件不触发；坏输入退出 0。SessionStart 兜底实测：把 backend 索引行删掉变旧，跑 session-start 后索引行回来。**改强制后重验**：go 全量 21 包全过；hook 测试 5 个全过（含改名的 GetsIndex；3 个 specindex 测试随 helper 删除）；新二进制 /tmp/sunshine-mandindex 在 /tmp/mandindex-test 实测：backend.md 删索引节后加“优惠券结算”一节、调 post-tool-use，索引被补上且含新节；frontend.md 删索引节后跑 session-start，索引回来；hook 退出 0。已随 v0.5.14 发布（主提交 41fe63c，发布记录见“四处工具发现”节末）。
+
+## 1.5 评审加两条同步核对（2026-11-16，实施中）
+
+**起因**：用户拿一个全流程 demo（奶茶商城后台，sunshine-demo8）验证：设计做完、没详审没拆解，`.sunshine/tasks/` 里只有一个父任务 `11-16-milktea-admin`（planning，children 为空），没有拆解——符合预期。但顺手发现一处不一致：需求列表 R-004 是 7 列含成本价（变更记录写了“按追加需求增加成本价列，表格由 6 列扩为 7 列”），父任务 prd.md 的 R-004 验收标准还写着 6 列；原型表头已是 7 列含成本价；prd.md 全文 0 处“成本价”、0 处“变更”。即变更只进了需求列表与原型，没进父任务。
+
+**根因**：prd.md 与需求列表.md 是两份手写文件，没有自动同步机制，全靠 agent 同一轮两边都改；追加类变更（先 6 列、后加成本价）最容易漏一边。流程文字上早有要求（循环里“答案立即记进 prd.md，该条写进需求列表”；变更流程“先在 prd.md 记一笔 [变更] 再改 doc/”），但没有一个关口去验。
+
+**用户追问的场景**：设计人员反场（开发中途需求变更）第一件事改需求列表与原型；如果父任务与已拆出的子任务不做记录/变更，设计人员退场后开发人员没法做变更——要不要重走评审、重新拆解？答：不用。变更流程本来就是针对性回炉（只改变化的部分）+ 1.5 只审变更的部分 + 子任务原地改（planning 直接改、in_progress 暂停回炉不停状态、已归档不 reopen 而是新建子任务），新增需求走迷你一轮 1.1 → 1.2 → 1.4 → 1.5 挂新子任务；不重走全量评审、不重新拆解。但这套成立的前提是任务侧同步真的发生了——demo 证明它会被漏掉，所以要在 1.5 的两个关口上加可核对的清单，让关口去抓，而不是再写一遍“要同步”。
+
+**方案**：只改三份 workflow 模板（native/tdd/channel-driven）的 1.5 节，两处（两句原文三份完全相同，脚本断言各命中 1 次后追加）：
+- 全量评审（设计阶段）：`需求评审` 段“确认后才往下走。”后加——“呈报前先逐条核对：父任务 `prd.md` 与 `doc/design/需求列表.md` 一致（每条需求的描述、验收标准、对应原型页；需求列表的变更记录与 `prd.md` 里的 `[变更]` 对得上）。不一致先补齐，不带矛盾进评审。”
+- 只审变更（设计人员反场）：`需求变更` 段“回到 1.5 只评审变更的部分，评审通过再动手。”后加——“只审变更时逐项核对：①父任务 `prd.md` 已记 `[变更 YYYY-MM-DD]`（改了什么、为什么、谁定的）；②受影响的子任务 `prd.md` / `design.md` / `implement.md` 已同步改，范围与清单已更新（`set-scope` / `add-context`）；③新文件已进 jsonl；④未受影响的子任务未动。设计人员反场先改 `doc/` 也可以，但退场前任务侧必须补齐——缺一项就不通过，开发不许动手。”
+- 顺序说明：变更流程原有的“prd [变更] → doc/ → 子任务”仍是推荐顺序；新加的只是关口核对——反场先改 doc/ 不算违规，但退场前任务侧必须补齐，关口按清单验。
+
+**实施（2026-11-16）**：3 个文件（只改 workflow 模板，不动 Go 代码、不动 skill、不动教程 §12.6——§12.6 正文是实录不可改写）。demo 本身用户说不用管，未动 demo 文件。
+
+**验证（2026-11-16）**：grep 两句在三份模板各 1 处，A/B 两句三份 md5 一致；go build/vet/gofmt/test 全量过（21 包）。未提交未发版，等用户点选（惯例下一版 v0.5.15）。

@@ -2758,6 +2758,7 @@ pre-commit install       # 在仓库根目录执行一次
 
 **发布 v0.5.12（2026-11-14，已发布，已验证）**：主提交一笔——四处工具发现修复（本地 ad9c649 → 远端 fb8edc6，tree 9aa2050，父 5140541，作者 linrong007，4 个文件，58 插入/0 删除）。tag v0.5.12 对象 223a438 → fb8edc6。Release：https://github.com/linrong007/Sunshine/releases/tag/v0.5.12，6 个资产非草稿，changelog 含主提交 fb8edc6。发布 run 43612380096 success。验证：darwin arm64 checksum 对上；Mach-O 64-bit arm64 确认；一键装装上 v0.5.12；v0.5.11 二进制 upgrade --dry-run 查到 0.5.12；新版 spec index 命令在位。
 **发布 v0.5.13（2026-11-16，已发布，已验证）**：主提交一笔——最少实现梯子（36 个 agent 定义文件）+ .sunshine/memory/ 长期记忆第一条（6 个文件：新模板 memory/index.md + 三份 workflow 模板 3.3 节 + update-spec skill 两份步骤 6），只改模板未动 Go 代码（本地 b135167 → 远端 b7429d7，tree 34a1d80，父 cb47675，作者 linrong007，43 个文件，355 插入/49 删除）。tag v0.5.13 对象 bd70685 → b7429d7。Release：https://github.com/linrong007/Sunshine/releases/tag/v0.5.13，6 个资产非草稿，changelog 含主提交 b7429d7。发布 run 43787218976 success。验证：darwin arm64 checksum 23405a8b…e5d7b0 对上；Mach-O 64-bit arm64 确认；linux amd64 二进制报“Sunshine 版本 0.5.13”；一键装装上 v0.5.13；v0.5.12 二进制 upgrade --dry-run 查到 0.5.13。CI：一路 43787219007 success，另一路 43787194444 在“运行单元测试”步 failure（同提交另一路已过、本地 21 包全过，属已知抖动，非代码问题；token 无 Actions 重跑权限）。
+**发布 v0.5.14（2026-11-16，已发布，已验证）**：主提交一笔——两处 s6-loop 遗留（task start 降级补 `.runtime/` 目录一行、init 生成根 `.gitignore`）+ spec 索引自动同步（新 hook 事件 post-tool-use + SessionStart 兜底；索引是强制的，`.sunshine/spec/` 下全部文件都要带索引，无索引节也补一个）（本地 3133895 → 远端 41fe63c，tree 4f94eed，父 c46fe1d，作者 linrong007，8 个文件，251 插入/2 删除）。tag v0.5.14 对象 eece6a0 → 41fe63c。Release：https://github.com/linrong007/Sunshine/releases/tag/v0.5.14，6 个资产非草稿，changelog 含主提交 41fe63c。发布 run 43796272172 success；持续集成 43796272158 success。验证：darwin arm64 checksum 40cec20a…58042f6 对上；Mach-O 64-bit arm64 确认；linux amd64 二进制报“Sunshine 版本 0.5.14”；一键装装上 v0.5.14；v0.5.13 二进制 upgrade --dry-run 查到 0.5.14。
 
 ## 最少实现梯子（2026-11-16，已发布 v0.5.13）
 
@@ -2805,7 +2806,7 @@ pre-commit install       # 在仓库根目录执行一次
 
 **验证（2026-11-16）**：grep 核对 6 个文件全部在位（workflow 三份各 1、skill 两份步骤 6 各 1、index.md 模板在位）；go build/vet/gofmt/test 全量过（21 包）。新二进制 /tmp/sunshine-mem 在 /tmp/mem-test init 新项目：`.sunshine/memory/index.md` 在位、内容与模板一致；`.sunshine/workflow.md` 第 647 行有 memory 行；update-spec skill 第 151 行有步骤 6；梯子也在（Claude implement 含“最少实现”2 处、check 含“查超范围代码”1 处，合并验证通过）。不覆盖验证：填一条测试条目后普通 init 不动它（增量模式）；`init -f` 后 index.md 回到空模板、测试条目消失，tasks 同样被清——证实 -f 是既有全清行为。已随 v0.5.13 发布（主提交 b7429d7，发布记录见“四处工具发现”节末）。
 
-## 两处 s6-loop 遗留（2026-11-16，实施中）
+## 两处 s6-loop 遗留（2026-11-16，已发布 v0.5.14）
 
 2026-11-13 s6-loop 发现、2026-11-15 摆给用户三选一未答、2026-11-16 用户说“动吧”后实施（未再追问选项，按最稳妥的取舍做）。
 
@@ -2813,9 +2814,9 @@ pre-commit install       # 在仓库根目录执行一次
 
 **② init 不生成根 .gitignore**：只生成 `.sunshine/.gitignore`；奶茶那轮根 `.gitignore` 只有 `node_modules/` 一行、后端子任务后补，教程 §12.6 实录写明“否则 `node_modules/` 会进工作区”。修复：scaffold 加 `writeRootGitignore`（Go 常量，不进模板 WalkDir），init 末尾无条件调，只在文件不存在时写，已有内容绝不覆盖、`-f` 也不覆盖（与 writeDesignTemplates 同规矩）。内容取舍：Sunshine 自身生成的文件都在 `.sunshine/` 里（由 `.sunshine/.gitignore` 管）、根目录没有 Sunshine 自有项，所以“只写 Sunshine 自有项”会是空文件、修不了真实问题；按真实踩坑写三项通用项：`node_modules/`（奶茶那轮差点进库）、`.env`（防密钥进库）、`.DS_Store`（macOS 通用）。Trellis 只写 `.trellis/.gitignore`、不生成根 `.gitignore`，本次是超出 Trellis 的改进。
 
-**验证（2026-11-16）**：go build/vet/gofmt/test 全量过（21 包）。新二进制 /tmp/sunshine-s6fix 在 /tmp/s6fix-test：init 后根 `.gitignore` 在位（三项 + 说明行）；追加自定义行后 `init -f`，自定义行与三项都在，未覆盖。降级 start 实测（`env -u SUNSHINE_CONTEXT_ID task start test-task --allow-empty-context`）：状态 planning → in_progress（降级），`.sunshine/.runtime/` 已建，`.runtime/sessions/` 不存在（未补造 session 文件），`.current-task` 已写。未提交未发版，等用户点选（惯例下一版 v0.5.14，需确认）。
+**验证（2026-11-16）**：go build/vet/gofmt/test 全量过（21 包）。新二进制 /tmp/sunshine-s6fix 在 /tmp/s6fix-test：init 后根 `.gitignore` 在位（三项 + 说明行）；追加自定义行后 `init -f`，自定义行与三项都在，未覆盖。降级 start 实测（`env -u SUNSHINE_CONTEXT_ID task start test-task --allow-empty-context`）：状态 planning → in_progress（降级），`.sunshine/.runtime/` 已建，`.runtime/sessions/` 不存在（未补造 session 文件），`.current-task` 已写。已随 v0.5.14 发布（主提交 41fe63c，发布记录见“四处工具发现”节末）。
 
-## spec 索引自动同步（2026-11-16，实施中）
+## spec 索引自动同步（2026-11-16，已发布 v0.5.14）
 
 **起因**：用户 2026-11-16 指出，设计阶段增补原型时 spec、prd、task 都会改；spec 改了之后索引要靠 agent 记得跑 `sunshine spec index`，忘了就不同步。用户定：做成自动的。
 
@@ -2828,4 +2829,4 @@ pre-commit install       # 在仓库根目录执行一次
 
 **实施（2026-11-16）**：8 个文件。①新 hook 事件 `post-tool-use`（`internal/hook/post_tool_use.go` + 测试）：Edit/Write 按 file_path 单文件同步；Bash 走整目录同步（命令串判断不可靠）；非 Edit/Write/Bash、坏 JSON、缺 file_path 一律静默返回 nil。②`internal/cli/hook.go` 注册事件并更新帮助。③`RunSessionStart` 开头加 `SyncDir` 兜底。④Claude settings.json 加 PostToolUse（matcher `Edit|Write|Bash`，timeout 10）。只改 Go 代码与 Claude 模板，未动 workflow/skill 文本（手动步骤留作兜底）。实施后改强制（用户定，见方案）：hook 与兜底由 `SyncFileIfIndexed`/`SyncDirIfIndexed` 换成完整 `SyncFile`/`SyncDir`（无索引节也补一个），`HasIndex`/`SyncFileIfIndexed`/`SyncDirIfIndexed` 三个 helper 随之删除（只存在于未提交的工作树里，未进过任何版本）；hook 测试 `TestPostToolUse_EditSpecWithoutIndexUntouched` 改名 `TestPostToolUse_EditSpecWithoutIndexGetsIndex`，断言改为补索引。索引“可选”的说法只出现在刚写的两处注释里，已同步改掉；workflow/skill 文本里没有“索引可选”的说法，无需改。
 
-**验证（2026-11-16）**：go build/vet/gofmt/test 全量过（21 包）；新测试 8 个全过（specindex 3 个 + hook 5 个）。新二进制 /tmp/sunshine-autoindex 在 /tmp/autoindex-test 端到端实测：Edit 改 backend.md 加一节后调 hook，索引表里出现新节；Bash 改 frontend.md 加一节后调 hook，索引同步；无索引节的 extra.md 加节后调 hook，原样不动；system.md（有索引）新节进索引；改非 spec 文件不触发；坏输入退出 0。SessionStart 兜底实测：把 backend 索引行删掉变旧，跑 session-start 后索引行回来。**改强制后重验**：go 全量 21 包全过；hook 测试 5 个全过（含改名的 GetsIndex；3 个 specindex 测试随 helper 删除）；新二进制 /tmp/sunshine-mandindex 在 /tmp/mandindex-test 实测：backend.md 删索引节后加“优惠券结算”一节、调 post-tool-use，索引被补上且含新节；frontend.md 删索引节后跑 session-start，索引回来；hook 退出 0。未提交未发版；工作树里还有上一批两处 s6-loop 遗留未推，等用户点选（两批合在一起推，惯例下一版 v0.5.14）。
+**验证（2026-11-16）**：go build/vet/gofmt/test 全量过（21 包）；新测试 8 个全过（specindex 3 个 + hook 5 个）。新二进制 /tmp/sunshine-autoindex 在 /tmp/autoindex-test 端到端实测：Edit 改 backend.md 加一节后调 hook，索引表里出现新节；Bash 改 frontend.md 加一节后调 hook，索引同步；无索引节的 extra.md 加节后调 hook，原样不动；system.md（有索引）新节进索引；改非 spec 文件不触发；坏输入退出 0。SessionStart 兜底实测：把 backend 索引行删掉变旧，跑 session-start 后索引行回来。**改强制后重验**：go 全量 21 包全过；hook 测试 5 个全过（含改名的 GetsIndex；3 个 specindex 测试随 helper 删除）；新二进制 /tmp/sunshine-mandindex 在 /tmp/mandindex-test 实测：backend.md 删索引节后加“优惠券结算”一节、调 post-tool-use，索引被补上且含新节；frontend.md 删索引节后跑 session-start，索引回来；hook 退出 0。已随 v0.5.14 发布（主提交 41fe63c，发布记录见“四处工具发现”节末）。

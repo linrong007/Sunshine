@@ -183,6 +183,36 @@ func InitWithOptions(cwd, user string, opts InitOptions) error {
 			return err
 		}
 	}
+	// 仓库根 .gitignore：只在不存在时写（已有内容绝不覆盖，-f 也不覆盖）。
+	if err := writeRootGitignore(cwd); err != nil {
+		return err
+	}
+	return nil
+}
+
+// rootGitignore 是 init 生成的仓库根 .gitignore 内容。Sunshine 自身
+// 生成的文件都在 .sunshine/ 里（由 .sunshine/.gitignore 管），根目录
+// 没有 Sunshine 自有项；这里只放真实踩过的坑与通用项，不多加：
+// node_modules/ 是奶茶那轮差点进库的一项，.env 防密钥进库，
+// .DS_Store 是 macOS 通用项。
+const rootGitignore = `# Sunshine：init 生成的项目根忽略；文件已存在时绝不覆盖。
+node_modules/
+.env
+.DS_Store
+`
+
+// writeRootGitignore 在项目根写 .gitignore，只在文件不存在时写：
+// 已有内容绝不覆盖，-f 重建也不覆盖（与 writeDesignTemplates 同规矩）。
+func writeRootGitignore(cwd string) error {
+	dest := filepath.Join(cwd, ".gitignore")
+	if _, err := os.Stat(dest); err == nil {
+		return nil
+	} else if !os.IsNotExist(err) {
+		return fmt.Errorf("检查 .gitignore 失败：%w", err)
+	}
+	if err := os.WriteFile(dest, []byte(rootGitignore), 0o644); err != nil {
+		return fmt.Errorf("写入 .gitignore 失败：%w", err)
+	}
 	return nil
 }
 

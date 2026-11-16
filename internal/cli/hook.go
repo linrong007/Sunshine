@@ -34,6 +34,9 @@ var hookCmd = &cobra.Command{
   shell-session      shell 执行前：待执行命令调用 sunshine task 命令时，
                      写一张 30 秒票据把会话身份桥接给子进程
   statusline         Claude Code 状态栏：输出 1-2 行状态
+  post-tool-use      文件写盘后：刚改的 spec 文件立即同步索引一次
+                     （无索引节也补一个，索引是强制的），不用再记得
+                     跑 sunshine spec index（PostToolUse）
 
 各事件都从 stdin 读 hook JSON。无 .sunshine/ 时静默退出 0；任何失败
 都静默退出 0，绝不阻断 agent 会话。`,
@@ -61,8 +64,10 @@ var hookCmd = &cobra.Command{
 			_ = hook.RunShellSession(os.Stdin, opts)
 		case "statusline":
 			_ = hook.RunStatusline(os.Stdin, opts)
+		case "post-tool-use":
+			_ = hook.RunPostToolUse(os.Stdin, opts)
 		default:
-			fmt.Fprintf(os.Stderr, "未知 hook 事件 %q，可用事件为 session-start、workflow-state、subagent-context、subagent-stop、shell-session、statusline\n", args[0])
+			fmt.Fprintf(os.Stderr, "未知 hook 事件 %q，可用事件为 session-start、workflow-state、subagent-context、subagent-stop、shell-session、statusline、post-tool-use\n", args[0])
 		}
 	},
 }

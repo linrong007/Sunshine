@@ -10,6 +10,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/linrong007/Sunshine/internal/specindex"
 )
 
 // RunSessionStart 实现 sunshine hook session-start，对应
@@ -26,6 +28,11 @@ func RunSessionStart(r io.Reader, opts Options) error {
 	if root == "" {
 		return nil
 	}
+	// 兜底：会话开始时把 spec 索引同步一次（PostToolUse 覆盖不到的
+	// 改动——平台无该事件、编辑发生在 agent 之外、hook 没触发——在
+	// 这里补上；保证本次注入读到的索引是新鲜的。索引是强制的，无
+	// 索引节的文件也补一个，与手动 sunshine spec index 一致）。
+	_, _ = specindex.SyncDir(filepath.Join(root, ".sunshine", "spec"))
 	platform := DetectPlatform(input)
 	contextKey := ResolveContextKey(input, platform)
 	persistContextKeyForBash(contextKey)

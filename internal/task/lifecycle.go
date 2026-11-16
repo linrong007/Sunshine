@@ -540,6 +540,9 @@ func (r *Runner) Start(dir string, allowEmptyContext bool) int {
 	taskJSONPath := filepath.Join(fullPath, FileTaskJSON)
 	if key := ResolveContextKey(r.Root, "start", dir); key == "" {
 		// 降级模式：无会话身份，不写 session 文件；仍翻状态、记分支。
+		// 但保证 .sunshine/.runtime/ 存在：serve 与 hook 按该目录读活动流
+		// 与会话票据；只建目录，不补造任何会话记录。
+		_ = os.MkdirAll(filepath.Join(r.Root, DirSunshine, ".runtime"), 0o755)
 		fmt.Fprintln(r.errOut(), "ℹ 会话身份不可用；本次不持久化当前任务指针（降级模式），AI 仍可按对话上下文继续。")
 		fmt.Fprintln(r.errOut(), "提示：在能提供会话身份的 AI 会话内运行，或先设置 SUNSHINE_CONTEXT_ID 再执行 sunshine task start。")
 		if _, err := os.Stat(taskJSONPath); err == nil {

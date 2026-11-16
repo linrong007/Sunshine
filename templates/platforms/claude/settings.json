@@ -69,6 +69,18 @@
         "matcher": "compact"
       }
     ],
+    "PostToolUse": [
+      {
+        "hooks": [
+          {
+            "command": "SUNSHINE_HOOK_PLATFORM=claude sunshine hook post-tool-use",
+            "timeout": 10,
+            "type": "command"
+          }
+        ],
+        "matcher": "Edit|Write|Bash"
+      }
+    ],
     "UserPromptSubmit": [
       {
         "hooks": [

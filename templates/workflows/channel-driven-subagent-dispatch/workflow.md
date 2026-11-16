@@ -408,7 +408,7 @@ sunshine channel wait cr-<主题> --as main --kind done --from check-cc,check-cx
 
 #### 3.3 规范更新 `[required · once]`
 
-加载 `sunshine-update-spec`，判断新模式、踩过的坑或技术决策是否应该写回 `.sunshine/spec/`。
+加载 `sunshine-update-spec`，判断新模式、踩过的坑或技术决策是否应该写回 `.sunshine/spec/`。规则进 spec；规则背后的故事（为什么这样定、当时踩了什么坑）可写进 `.sunshine/memory/`（可选，挑着记；拿不准就只写 spec）。
 
 #### 3.4 提交改动 `[required · once]`
 

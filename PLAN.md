@@ -2757,3 +2757,49 @@ pre-commit install       # 在仓库根目录执行一次
 **验证（2026-11-14）**：go build/vet/gofmt/test 全量过（21 包）。临时目录实测（/tmp/fix1、/tmp/fix2，新二进制 /tmp/sunshine-fix1）：①无 git 身份时 add-session 打印“[警告] git 身份未设置（缺失：user.name、user.email），自动提交已跳过”并退出 0（会话已写盘）；archive 同样警告、退出 0、任务已移入 archive/2026-11/。②有身份时 add-session 的提交含 `.gitattributes`（基线无此文件，提交后 `git ls-files` 有它）。③task create 建出的 implement.jsonl/check.jsonl 各 0 字节；validate 报“0 条已整理条目”（2 个错误，退出 1），无 _example 相关错误——空文件是按设计的“未整理”状态。④新项目 init 后 `.sunshine/.gitignore` 含 `.developer`，`git check-ignore` 确认 `.sunshine/.developer` 被忽略；模拟旧项目（清单哈希改成旧内容）跑 `sunshine update --dry-run` 显示 `.sunshine/.gitignore` 待更新，实际 update 自动更新 1 个文件，.gitignore 补上 `.developer`。附带：实测中 /tmp（512M tmpfs）曾满导致测试链接失败，清掉旧二进制后恢复，与代码无关。遗留：已追踪进库的 .developer 需手动 `git rm --cached .sunshine/.developer` 一次（update 不同步已追踪文件）。
 
 **发布 v0.5.12（2026-11-14，已发布，已验证）**：主提交一笔——四处工具发现修复（本地 ad9c649 → 远端 fb8edc6，tree 9aa2050，父 5140541，作者 linrong007，4 个文件，58 插入/0 删除）。tag v0.5.12 对象 223a438 → fb8edc6。Release：https://github.com/linrong007/Sunshine/releases/tag/v0.5.12，6 个资产非草稿，changelog 含主提交 fb8edc6。发布 run 43612380096 success。验证：darwin arm64 checksum 对上；Mach-O 64-bit arm64 确认；一键装装上 v0.5.12；v0.5.11 二进制 upgrade --dry-run 查到 0.5.12；新版 spec index 命令在位。
+
+## 最少实现梯子（2026-11-16，实施中）
+
+背景：用户要 Sunshine 不过度编程（继 spec 索引层之后，Ponytail 一类 skill 的启发：省 token 靠少写代码）。已定方案：implement agent 加一段“最少实现”梯子，check agent 加一条超范围检查。只改 agent 定义模板，不改 Go 代码。用户 2026-11-16 点名“加上，就按这个做”。
+
+**改了 36 个文件（290 插入/48 删除），不是任务初估的 38 个**：droid、dsh 两平台没有 agents 目录，实际是 channel 2 个 + 17 平台 × 2 个。implement 18 个（channel 1 + 15 个 .md/.agent.md + codex .toml + kiro .json），check 18 个（同构）。
+
+**implement 梯子（原文，新增一节，放在“核心职责”之后、“禁止操作”之前）**：
+
+> ## 最少实现
+>
+> 写任何代码之前，先顺着梯子往下走，能停就停：
+>
+> 1. PRD / spec 要求这个吗？——没有就跳过，不要写。
+> 2. 代码库里已经有了吗？——复用，不要重写。
+> 3. 标准库或已装依赖能做吗？——用现成的，不要自己造。
+> 4. 能一行写完吗？——一行就够，不要展开。
+> 5. 实在不行，才写最少能跑的代码；有逻辑就补一个小测试。
+>
+> 梯子不砍底线：信任边界的校验、数据丢失的处理、安全、无障碍，一律保留。
+
+同时“实现功能”步骤加指针句：12 个标准 .md（含 kiro .json）把实现步骤里的“只做要求的事，不要过度设计”改成“先走最少实现梯子，能停就停；只做要求的事，不要过度设计”（只改第一处，代码标准节那句不动）；channel 模板把工作流第 3 步改成“先走最少实现梯子，能停就停；按规范与现有模式实现功能”；codex .toml 在规则列表加同款指针句、梯子以“最少实现：”小节放在规则之后；omp/pi/reasonix 三个无“只做要求的事”的文件，在工作规则末尾加“写代码前先走最少实现梯子，能停就停。”
+
+**check 超范围检查（原文）**：核心职责在“对照规范检查”之后加一项“**查超范围代码**——diff 里有没有实现 PRD / spec 之外功能的代码？机械性的多余代码直接删；拿不准的记下来汇报，不要悄悄重写。”，后续项顺延编号；检查步骤清单加一项“是否有超出 PRD / spec 范围的代码”。变体：grok/kimi/zcode/opencode 是短版核心职责（对照规范检查在第 2 或第 3 项），按各自措辞（“不只汇报”/“typecheck 与 lint”）对齐；snow 的步骤 2 原无清单，在句后补一项；omp/pi/reasonix 无“对照规范检查”项，插在“对照任务 PRD/产物评审”之后，评审重点末尾加“超出 PRD / spec 范围的代码。”；codex .toml 在检查清单末尾加同款项；channel 模板插在“对照规范评审”之后，工作流第 3 步清单加“超范围代码——实现 PRD / spec 之外功能的代码：机械性的直接删，拿不准的记录并汇报”。
+
+**验证（2026-11-16）**：改前脚本校验全部锚点命中数（--check 模式，先校验再写盘；中途发现 opencode check 是短版措辞，已纠正）。改后 grep 核对：36 个文件全部在位（implement 梯子节 16/16、指针句 16/16、check 查超范围 16/16、步骤清单 12 个平台文件 + omp/pi/reasonix 评审重点各 1、codex 2 处、kiro 2 处）；codex .toml 与 kiro .json 均能解析，kiro 改后仍是 indent=2、UTF-8 原样、末尾换行。go build/vet/gofmt/test 全量过（21 包）。新二进制 /tmp/sunshine-ladder 在 /tmp/ladder-test init 新项目，装上的 `.claude/agents/sunshine-implement.md` 含梯子与指针句（行 86）、`sunshine-check.md` 含查超范围项与清单项（行 66）。未提交未发版，等用户点选。
+
+## 长期记忆第一条：.sunshine/memory/ Markdown 文件（2026-11-16，实施中）
+
+背景：2026-11-16 调研 GitHub 长期记忆方案（报告见 ~/workspace/research_notes/long-term-memory-github-survey-20261116-0118/report.md，另有一页中文版）。结论是不嵌入任何系统，只借三件套；先做第一条 Markdown 记忆文件，第二条 SQLite + FTS5 索引等文件多了再说，第三条渐进式披露与双时间戳是第一条的做法、不用单独立项。
+
+**与 spec 的边界（已定，不冲突）**：两者回答不同的问题。spec（`.sunshine/spec/`）是“这个项目现在应该怎么做”——规定性、当前有效、agent 必须遵守；memory（`.sunshine/memory/`）是“以前发生过什么、为什么这样定”——描述性、历史性、只作参考。教训的“规则部分”（以后怎么做）仍按老规矩在 3.3 写进对应 spec，不变；memory 记三样东西：①规则背后的故事（为什么定这条规则、当时踩了什么坑、考虑过哪些替代方案）；②不是规则的东西（用户偏好、跨项目教训、决策理由）；③已被取代的旧决策（标 superseded，不删除）。**不重复原则**：memory 不复述现行规则，提到规则时只写指向（spec 文件 + 节），不抄全文。**冲突时 spec 赢**：agent 读到 memory 与 spec 不一致，以 spec 为准；每条 memory 带来源与验证状态，标明是“过去上下文”。**写 memory 是可选的、挑着记**：只有“为什么”对将来决策有用时才写；拿不准就只写 spec，不写 memory。3.3 回写时：规则进 spec（老规矩不变），故事进 memory（新加，可选）。
+
+**格式**：一条一文件，YAML 前置字段 + Markdown 正文，OKF 风格。目录：
+```
+.sunshine/memory/
+  index.md            # 常读索引：标题 + 一行摘要 + 文件名；只有它常读
+  2026-11-16-xxx.md   # 一条一文件，文件名用日期 + 短 slug
+```
+前置字段：`type`（decision | lesson | preference | fact）、`title`、`tags`、`created`、`valid_from`、`supersedes`（被取代条目的文件名，无则空）、`superseded_by`（取代它的文件名，无则空）、`source`（任务/会话 id）、`status`（draft | verified | superseded）、`spec`（关联的 spec 文件 + 节，如 `.sunshine/spec/backend.md#优惠券`，无则空）。正文写故事：发生了什么、为什么、考虑过什么、结论是什么。
+
+**两条底线**：①记忆只是建议，带来源和验证状态；②一条记忆可以提议改 spec，但只有人或明确的工作流步骤能写 spec，记忆自己永远不写 spec。`mem` 命令后续可搜这些文件（现有的 `mem search` 已能搜 Markdown），索引（第二条）等文件多了再加。
+
+**实施（2026-11-16）**：6 个文件。①新模板 `templates/sunshine/memory/index.md`（空索引：标题 + 一行摘要 + 文件名三列表头 + 边界说明一行）；scaffold 全目录 WalkDir 复制，新文件自动进 init 与哈希清单，无需另注册；普通 init 遇到已存在的 `.sunshine/` 会拒绝，不会覆盖。②三份 workflow 模板 3.3 节加 memory 行（native/tdd 同文、channel-driven 短版同义）。③update-spec skill 加“步骤 6：故事进 memory（可选）”（common skill 与 copilot prompt 两份同文，前置字段清单一致）。只改模板，不改 Go 代码。**注意**：`init -f` 会清掉整个 `.sunshine/`（含 tasks、spec、memory），这是既有行为（重新初始化），memory 与其他文件同等待遇；普通 init 与增量模式不碰已有文件。
+
+**验证（2026-11-16）**：grep 核对 6 个文件全部在位（workflow 三份各 1、skill 两份步骤 6 各 1、index.md 模板在位）；go build/vet/gofmt/test 全量过（21 包）。新二进制 /tmp/sunshine-mem 在 /tmp/mem-test init 新项目：`.sunshine/memory/index.md` 在位、内容与模板一致；`.sunshine/workflow.md` 第 647 行有 memory 行；update-spec skill 第 151 行有步骤 6；梯子也在（Claude implement 含“最少实现”2 处、check 含“查超范围代码”1 处，合并验证通过）。不覆盖验证：填一条测试条目后普通 init 不动它（增量模式）；`init -f` 后 index.md 回到空模板、测试条目消失，tasks 同样被清——证实 -f 是既有全清行为。未提交未发版，用户定与梯子一起发 v0.5.13。

@@ -141,6 +141,10 @@ cat .sunshine/spec/<category>/<file>.md
 
 如果你新增了章节或代码规范状态变了，更新该类别的 `index.md`。
 
+### 步骤 6：故事进 memory（可选）
+
+规则写进 spec 之后，如果规则背后的故事对将来决策有用（为什么这样定、当时踩了什么坑、考虑过哪些替代方案），写一条 `.sunshine/memory/` 文件（一条一文件，带 YAML 前置字段：`type`、`title`、`tags`、`created`、`valid_from`、`supersedes`、`superseded_by`、`source`、`status`、`spec`）；只写故事，不复述规则，提到规则时只写指向（spec 文件 + 节）。同时在 `.sunshine/memory/index.md` 里加一行（标题、一行摘要、文件名）。拿不准就只写 spec，不写 memory。
+
 ---
 
 ## 更新模板

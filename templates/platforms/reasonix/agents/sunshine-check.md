@@ -21,8 +21,9 @@ allowed-tools: read_file,write_file,edit_file,search_content,search_files,glob,r
 1. 检查当前的 git diff。
 2. 阅读并遵循任务 `check.jsonl` 中列出的规范与调研文件。
 3. 对照任务 PRD 与项目规范检查全部改动代码。
-4. 在范围内的问题直接修复。
-5. 对改动的代码运行相关的 lint、typecheck 与聚焦测试。
+4. 查超范围代码：diff 里有没有实现 PRD / spec 之外功能的代码？机械性的多余代码直接删；拿不准的记下来汇报，不要悄悄重写。
+5. 在范围内的问题直接修复。
+6. 对改动的代码运行相关的 lint、typecheck 与聚焦测试。
 
 ## 检查重点
 
@@ -30,6 +31,7 @@ allowed-tools: read_file,write_file,edit_file,search_content,search_files,glob,r
 - 违反规范或平台约定的地方。
 - 逻辑改动缺少测试或测试太弱。
 - 跨平台的路径、命令与编码假设。
+- 超出 PRD / spec 范围的代码。
 
 ## 输出
 

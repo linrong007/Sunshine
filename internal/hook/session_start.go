@@ -320,10 +320,14 @@ func buildCompactCurrentState(root string, input HookInput, cfg Config, active A
 	if active.TaskPath != "" {
 		taskDir := ResolveTaskRef(active.TaskPath, root)
 		status := "unknown"
+		hasChildren := false
 		if taskDir != "" {
 			if data := ReadJSONFile(filepath.Join(taskDir, "task.json")); data != nil {
 				if s, ok := data["status"].(string); ok && s != "" {
 					status = s
+				}
+				if ch, ok := data["children"].([]any); ok && len(ch) > 0 {
+					hasChildren = true
 				}
 			}
 		}
@@ -332,6 +336,13 @@ func buildCompactCurrentState(root string, input HookInput, cfg Config, active A
 			rel = RepoRelative(root, taskDir)
 		}
 		lines = append(lines, fmt.Sprintf("Current task: %s; status=%s.", rel, status))
+		// 设计循环进行中：当前任务还在 planning 且未拆解、项目里已有
+		// 需求列表——继续做下一条需求时不要新建任务，先续接当前父任务。
+		if status == "planning" && !hasChildren {
+			if st, err := os.Stat(filepath.Join(root, "doc", "design", "需求列表.md")); err == nil && !st.IsDir() {
+				lines = append(lines, "Design loop: 当前任务 planning、未拆解、已有 doc/design/需求列表.md——做下一条需求不要新建任务，先跑 `/sunshine:continue` 续接当前父任务。")
+			}
+		}
 	} else {
 		lines = append(lines, "Current task: none.")
 	}

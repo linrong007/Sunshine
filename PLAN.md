@@ -2848,3 +2848,13 @@ pre-commit install       # 在仓库根目录执行一次
 **实施（2026-11-16）**：3 个文件（只改 workflow 模板，不动 Go 代码、不动 skill、不动教程 §12.6——§12.6 正文是实录不可改写）。demo 本身用户说不用管，未动 demo 文件。
 
 **验证（2026-11-16）**：grep 两句在三份模板各 1 处，A/B 两句三份 md5 一致；go build/vet/gofmt/test 全量过（21 包）。已随 v0.5.15 发布（主提交 b6567f0，发布记录见“四处工具发现”节末）。
+
+### 设计先行单父任务（2026-11-16，实施中，未发版）
+
+**起因**：用户拿服装商城后台 demo9（`~/workspace/user/files/sunshine-demo9.zip`）验证发现：设计阶段 4 条需求（R-001 首页、R-002 商品列表、R-003 商品分类、R-004 库存管理），`.sunshine/tasks/` 里有 4 个文件夹（11-16-mall-admin-home/product-list/product-category/inventory），全部 `parent: None`、无父任务——agent 一条需求新建了一个任务，各走各的 1.1–1.5（商品列表那个停在它自己的 1.5 等 check 复核原型）。正确形状是设计阶段只有父任务 1 个，评审通过后 1.2 拆解才出现子任务。根因：工作流只写了“下一条”，没写“不要为每条需求新建任务、在同一个父任务里循环”；agent 默认习惯新活 = 新任务（尤其跨会话回来用户说“做下一个”时顺手 `task create`）；Sunshine 无硬门禁，`task create` 不检查已有设计先行父任务。demo9 本身的修正（建父任务、4 个任务挂子任务、走父任务 1.5 评审）已给用户，项目文件未动。
+
+**实施（2026-11-16）**：两层，用户选了两层都做——
+1. 三份 workflow 模板 1.1 各加两句（三份措辞与位置完全一致，零 Go 代码）：先定模式设计先行定义后加“设计先行只建一个父任务，循环在它里面跑。”；按需求循环段末尾加“不要为每条需求新建任务；新开会话回来继续做下一条需求时，先跑 `/sunshine:continue` 续接当前父任务，不要 `task create`。”
+2. SessionStart hook 加一行提醒（Go 小改 + 测试）：当前任务 planning、children 为空、项目里有 `doc/design/需求列表.md` 时，`<current-state>` 多注一行“Design loop: 当前任务 planning、未拆解、已有 doc/design/需求列表.md——做下一条需求不要新建任务，先跑 `/sunshine:continue` 续接当前父任务。”。信号说明：planning + 未拆解 + 有需求列表即判定设计循环进行中；设计完成后已拆解的父任务（children 非空）不再提醒；项目里有需求列表但当前任务不是设计先行父任务时也会提醒一句，文案的建议（续接当前任务）仍成立，属可接受的误报面。
+
+**验证（2026-11-16）**：grep 两句在三份模板各 1 处；go build/vet/gofmt/test 全量过（21 包）；hook 包新增 4 个测试全过（DesignLoopReminder / NoList / HasChildren / InProgress）。端到端实测：新二进制在 demo9 副本上跑 session-start，提醒行在位；无需求列表时提醒消失；新二进制 `init -y` 实测装上的 workflow.md 两句在位。实测教训：跑 session-start 端到端须设 `CLAUDE_PROJECT_DIR`，否则平台检测不到、当前任务解析为 none、提醒行不出现（第一次实测即因此误判，后设环境变量重验通过）。未提交未发版，等用户点选。

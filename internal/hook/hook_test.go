@@ -172,6 +172,54 @@ func TestSessionStart_NoTask(t *testing.T) {
 	}
 }
 
+// 设计循环提醒：当前任务 planning、未拆解、项目里有需求列表时，
+// SessionStart 多注一行“做下一条需求不要新建任务”。
+
+func TestSessionStart_DesignLoopReminder(t *testing.T) {
+	root, _ := makeProject(t)
+	mustWrite(t, filepath.Join(root, "doc", "design", "需求列表.md"), "# 需求列表\n\n| 编号 | 需求 |\n| R-001 | 首页 |\n")
+	out, _ := runWithInput(t, func(in *strings.Reader, o Options) error { return RunSessionStart(in, o) },
+		`{"session_id":"sess-1","cwd":`+strconv_quot(root)+`}`)
+	ctx := additionalContext(t, out)
+	if !strings.Contains(ctx, "做下一条需求不要新建任务") {
+		t.Errorf("设计循环进行中时应提醒不要新建任务，实际：\n%s", ctx)
+	}
+}
+
+func TestSessionStart_DesignLoopReminder_NoList(t *testing.T) {
+	root, _ := makeProject(t)
+	out, _ := runWithInput(t, func(in *strings.Reader, o Options) error { return RunSessionStart(in, o) },
+		`{"session_id":"sess-1","cwd":`+strconv_quot(root)+`}`)
+	ctx := additionalContext(t, out)
+	if strings.Contains(ctx, "做下一条需求不要新建任务") {
+		t.Errorf("无需求列表时不应提醒，实际：\n%s", ctx)
+	}
+}
+
+func TestSessionStart_DesignLoopReminder_HasChildren(t *testing.T) {
+	root, taskRef := makeProject(t)
+	mustWrite(t, filepath.Join(root, "doc", "design", "需求列表.md"), "# 需求列表\n")
+	mustWrite(t, filepath.Join(root, taskRef, "task.json"), `{"id": "11-09-demo", "title": "演示任务", "status": "planning", "priority": "P1", "children": ["11-09-sub"]}`+"\n")
+	out, _ := runWithInput(t, func(in *strings.Reader, o Options) error { return RunSessionStart(in, o) },
+		`{"session_id":"sess-1","cwd":`+strconv_quot(root)+`}`)
+	ctx := additionalContext(t, out)
+	if strings.Contains(ctx, "做下一条需求不要新建任务") {
+		t.Errorf("已拆解（children 非空）时不应提醒，实际：\n%s", ctx)
+	}
+}
+
+func TestSessionStart_DesignLoopReminder_InProgress(t *testing.T) {
+	root, taskRef := makeProject(t)
+	mustWrite(t, filepath.Join(root, "doc", "design", "需求列表.md"), "# 需求列表\n")
+	mustWrite(t, filepath.Join(root, taskRef, "task.json"), `{"id": "11-09-demo", "title": "演示任务", "status": "in_progress", "priority": "P1"}`+"\n")
+	out, _ := runWithInput(t, func(in *strings.Reader, o Options) error { return RunSessionStart(in, o) },
+		`{"session_id":"sess-1","cwd":`+strconv_quot(root)+`}`)
+	ctx := additionalContext(t, out)
+	if strings.Contains(ctx, "做下一条需求不要新建任务") {
+		t.Errorf("非 planning 时不应提醒，实际：\n%s", ctx)
+	}
+}
+
 // --- workflow-state ---
 
 func TestWorkflowState_WithTask(t *testing.T) {

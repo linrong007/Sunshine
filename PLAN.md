@@ -2758,6 +2758,7 @@ pre-commit install       # 在仓库根目录执行一次
 
 **发布 v0.5.12（2026-11-14，已发布，已验证）**：主提交一笔——四处工具发现修复（本地 ad9c649 → 远端 fb8edc6，tree 9aa2050，父 5140541，作者 linrong007，4 个文件，58 插入/0 删除）。tag v0.5.12 对象 223a438 → fb8edc6。Release：https://github.com/linrong007/Sunshine/releases/tag/v0.5.12，6 个资产非草稿，changelog 含主提交 fb8edc6。发布 run 43612380096 success。验证：darwin arm64 checksum 对上；Mach-O 64-bit arm64 确认；一键装装上 v0.5.12；v0.5.11 二进制 upgrade --dry-run 查到 0.5.12；新版 spec index 命令在位。
 **发布 v0.5.13（2026-11-16，已发布，已验证）**：主提交一笔——最少实现梯子（36 个 agent 定义文件）+ .sunshine/memory/ 长期记忆第一条（6 个文件：新模板 memory/index.md + 三份 workflow 模板 3.3 节 + update-spec skill 两份步骤 6），只改模板未动 Go 代码（本地 b135167 → 远端 b7429d7，tree 34a1d80，父 cb47675，作者 linrong007，43 个文件，355 插入/49 删除）。tag v0.5.13 对象 bd70685 → b7429d7。Release：https://github.com/linrong007/Sunshine/releases/tag/v0.5.13，6 个资产非草稿，changelog 含主提交 b7429d7。发布 run 43787218976 success。验证：darwin arm64 checksum 23405a8b…e5d7b0 对上；Mach-O 64-bit arm64 确认；linux amd64 二进制报“Sunshine 版本 0.5.13”；一键装装上 v0.5.13；v0.5.12 二进制 upgrade --dry-run 查到 0.5.13。CI：一路 43787219007 success，另一路 43787194444 在“运行单元测试”步 failure（同提交另一路已过、本地 21 包全过，属已知抖动，非代码问题；token 无 Actions 重跑权限）。
+**发布 v0.5.15（2026-11-16，已发布，已验证）**：主提交一笔——1.5 评审加两条同步核对（全量评审核对 prd.md 与需求列表.md 一致；只审变更时逐项核对父 prd [变更]、受影响子任务同步改、新文件进 jsonl、未受影响子任务未动），三份 workflow 模板 + PLAN.md 新一节（本地 eb264d8 → 远端 b6567f0，tree f324f07，父 ba769a8，作者 linrong007，4 个文件，23 插入/6 删除）。tag v0.5.15 对象 dc57ab7 → b6567f0。Release：https://github.com/linrong007/Sunshine/releases/tag/v0.5.15，6 个资产非草稿，changelog 含主提交 b6567f0。发布 run 43799520053 success；持续集成 43799520025 success。验证：darwin arm64 checksum 88637403…52bc371 对上；Mach-O 64-bit arm64 确认；linux amd64 二进制报“Sunshine 版本 0.5.15”；一键装装上 v0.5.15；v0.5.14 二进制 upgrade --dry-run 查到 0.5.15。另：main 分支 CI run 43799407064 在“运行单元测试”步 failure（同提交的 v0.5.15 tag CI 已过、本地 21 包全过，属已知抖动；token 无 Actions 重跑权限）。
 **发布 v0.5.14（2026-11-16，已发布，已验证）**：主提交一笔——两处 s6-loop 遗留（task start 降级补 `.runtime/` 目录一行、init 生成根 `.gitignore`）+ spec 索引自动同步（新 hook 事件 post-tool-use + SessionStart 兜底；索引是强制的，`.sunshine/spec/` 下全部文件都要带索引，无索引节也补一个）（本地 3133895 → 远端 41fe63c，tree 4f94eed，父 c46fe1d，作者 linrong007，8 个文件，251 插入/2 删除）。tag v0.5.14 对象 eece6a0 → 41fe63c。Release：https://github.com/linrong007/Sunshine/releases/tag/v0.5.14，6 个资产非草稿，changelog 含主提交 41fe63c。发布 run 43796272172 success；持续集成 43796272158 success。验证：darwin arm64 checksum 40cec20a…58042f6 对上；Mach-O 64-bit arm64 确认；linux amd64 二进制报“Sunshine 版本 0.5.14”；一键装装上 v0.5.14；v0.5.13 二进制 upgrade --dry-run 查到 0.5.14。
 
 ## 最少实现梯子（2026-11-16，已发布 v0.5.13）
@@ -2831,7 +2832,7 @@ pre-commit install       # 在仓库根目录执行一次
 
 **验证（2026-11-16）**：go build/vet/gofmt/test 全量过（21 包）；新测试 8 个全过（specindex 3 个 + hook 5 个）。新二进制 /tmp/sunshine-autoindex 在 /tmp/autoindex-test 端到端实测：Edit 改 backend.md 加一节后调 hook，索引表里出现新节；Bash 改 frontend.md 加一节后调 hook，索引同步；无索引节的 extra.md 加节后调 hook，原样不动；system.md（有索引）新节进索引；改非 spec 文件不触发；坏输入退出 0。SessionStart 兜底实测：把 backend 索引行删掉变旧，跑 session-start 后索引行回来。**改强制后重验**：go 全量 21 包全过；hook 测试 5 个全过（含改名的 GetsIndex；3 个 specindex 测试随 helper 删除）；新二进制 /tmp/sunshine-mandindex 在 /tmp/mandindex-test 实测：backend.md 删索引节后加“优惠券结算”一节、调 post-tool-use，索引被补上且含新节；frontend.md 删索引节后跑 session-start，索引回来；hook 退出 0。已随 v0.5.14 发布（主提交 41fe63c，发布记录见“四处工具发现”节末）。
 
-## 1.5 评审加两条同步核对（2026-11-16，实施中）
+## 1.5 评审加两条同步核对（2026-11-16，已发布 v0.5.15）
 
 **起因**：用户拿一个全流程 demo（奶茶商城后台，sunshine-demo8）验证：设计做完、没详审没拆解，`.sunshine/tasks/` 里只有一个父任务 `11-16-milktea-admin`（planning，children 为空），没有拆解——符合预期。但顺手发现一处不一致：需求列表 R-004 是 7 列含成本价（变更记录写了“按追加需求增加成本价列，表格由 6 列扩为 7 列”），父任务 prd.md 的 R-004 验收标准还写着 6 列；原型表头已是 7 列含成本价；prd.md 全文 0 处“成本价”、0 处“变更”。即变更只进了需求列表与原型，没进父任务。
 
@@ -2846,4 +2847,4 @@ pre-commit install       # 在仓库根目录执行一次
 
 **实施（2026-11-16）**：3 个文件（只改 workflow 模板，不动 Go 代码、不动 skill、不动教程 §12.6——§12.6 正文是实录不可改写）。demo 本身用户说不用管，未动 demo 文件。
 
-**验证（2026-11-16）**：grep 两句在三份模板各 1 处，A/B 两句三份 md5 一致；go build/vet/gofmt/test 全量过（21 包）。未提交未发版，等用户点选（惯例下一版 v0.5.15）。
+**验证（2026-11-16）**：grep 两句在三份模板各 1 处，A/B 两句三份 md5 一致；go build/vet/gofmt/test 全量过（21 包）。已随 v0.5.15 发布（主提交 b6567f0，发布记录见“四处工具发现”节末）。

@@ -1071,6 +1071,28 @@ git log --oneline
 
 从这时起，约定不再只活在老员工的记忆里：新任务的 agent 会读 spec，老员工离职也不带走规范。存量项目接入的验收标准就一条——**init 之后 `git status` 里没有被改过的旧文件，spec 里多了一条以前只靠人记的约定**。
 
+#### 约定未知时：用 sunshine-spec-bootstrap 从代码里挖
+
+上面那条路的前提是约定已知——三条写在 README 里，人也记得。下面这段是示例（按 skill 文档写成，不是真实运行记录）：更常见的是另一种情况，项目跑了三年，没人写过规范，约定全在代码里，没人能说清。演示用的场景是一个 Go 后端单体仓库，十几个包，README 只有一行启动命令。
+
+这时不走建任务、写 PRD、implement/check 的路子，用 `sunshine-spec-bootstrap` skill（随平台配置一起装进项目，workflow 里不引用它），单个 agent 一次跑完：
+
+示例提示词（示例，不是真实会话记录）：
+
+> 这个项目没人写过规范，约定都在代码里。请用 sunshine-spec-bootstrap 分析代码库，生成一套能用的 spec。
+
+agent 先读现有的 spec 树（全是模板），再分析仓库：顶层结构、包清单、构建脚本；用 GitNexus 查执行流、模块簇和依赖中心；用 ABCoder 取精确的签名和类型；最后直接读有代表性的源码和测试文件，确认发现再写成规则。比如它从代码里挖出来的会是这样的发现（示例）：包边界上 `internal/order` 管订单、`internal/payment` 管支付，payment 只被 order 调，不反向依赖；错误处理统一是 errors.Wrap 加错误码，HTTP 层再转成 `{ code, msg }`；配置是 config.yaml 加环境变量覆盖；测试都是 table-driven 风格。
+
+然后按包和层写 spec：没有前端就把 `frontend.md` 这类不适用的模板章节删掉；每个包一节，每条规则附上真实文件路径和示例；模板漏掉的重要本地模式（比如错误码约定）就新开一个文件。写完验证三件事：spec 内部一致、没有占位文本、`index.md` 和最终的文件集合对得上。
+
+和上面那条路的区别就一句话：约定已知，走问答落 spec，人告诉 agent；约定未知，走 spec-bootstrap 从代码里挖，agent 自己发现。
+
+顺带说一句：spec-bootstrap 不直接出 API 接口文档。它的产物是 `.sunshine/spec/` 里的编码指导，结构、路由、数据流都有，但不是一份给人看的接口清单。想要接口文档，建议两步走：先跑 spec-bootstrap 落好 spec，再单开一个任务按 spec 出文档，放项目 `doc/` 里，不在 `.sunshine`；写文档的 agent 读 spec 就行，不用重读整个代码库，以后接口变了，3.3 回写 spec 时顺手更新文档。
+
+示例提示词（示例，不是真实会话记录）：
+
+> 请按 sunshine 工作流走：先用 sunshine-spec-bootstrap 把这个项目的结构和约定落进 spec，然后按 spec 出一份 API 接口文档放 doc/ 里，每个接口都要对照代码核对过。
+
 ### 12.3 交付产品功能：一个任务横跨产品、API、数据和 UI
 
 一个任务横跨四层时，最容易出的错是只改了一层、漏了另一层——Sunshine 的解法是：一个任务，四层要改什么写进同一份 PRD，改动顺序走 channel 说清楚，验收对照同一份接口契约。演示项目是那个跑了两年的 web 商城，任务是下单必填收货地址：结算页（UI）加地址输入框、下单接口（API）缺地址返回 400、订单记录（数据）多一个 address 字段。

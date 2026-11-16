@@ -1183,6 +1183,28 @@ One ordering detail: the work commit `0476a72` was made on `main`, and the featu
 
 From now on the conventions no longer live only in senior engineers' heads: the agent on a new task reads the spec, and the conventions survive people leaving. The acceptance bar for adopting an existing project is one line — **after `init`, `git status` shows no modified old files, and spec has one more convention that used to live only in memory**.
 
+#### When the conventions are unknown: dig them out of the code with sunshine-spec-bootstrap
+
+The route above assumes the conventions are known — the three lines were in the README and people remembered them. The following is an example (written from the skill's documentation, not a real run): the more common case is a project that has run for three years with no written conventions at all, everything living in the code and nobody able to state it. The scenario here is a Go backend monolith, a dozen packages, a README with a single startup command.
+
+This time it does not go through creating a task, writing a PRD, and implement/check. It uses the `sunshine-spec-bootstrap` skill (installed with the platform configuration, not referenced by the workflow), one agent running the whole loop in a single pass:
+
+Example prompt (an example, not a real session record):
+
+> Nobody has written conventions for this project; they all live in the code. Please use sunshine-spec-bootstrap to analyze the codebase and produce a usable spec.
+
+The agent first reads the current spec tree (all templates), then analyzes the repository: top-level structure, package list, build scripts; GitNexus for execution flow, module clusters, and dependency centers; ABCoder for exact signatures and types; finally it reads representative source and test files directly, and only turns a finding into a rule after confirming it. The findings it digs out of the code would look like this (example): on package boundaries, `internal/order` owns orders and `internal/payment` owns payments, payment is only called by order and never the other way; errors are uniformly wrapped with errors.Wrap plus an error code, converted to `{ code, msg }` at the HTTP layer; configuration is config.yaml plus environment overrides; tests are all table-driven.
+
+Then it writes the spec by package and layer: template sections that do not apply — `frontend.md`, say, when there is no frontend — are deleted; each package gets a section, each rule carries a real file path and an example; important local patterns the templates miss (the error-code convention, for example) get a new file of their own. After writing it verifies three things: the spec is internally consistent, there is no placeholder text, and `index.md` matches the final file set.
+
+The difference from the route above is one line: conventions known, ask and land them in spec, people tell the agent; conventions unknown, run spec-bootstrap and let the agent discover them from the code.
+
+One more thing: spec-bootstrap does not produce an API reference directly. Its product is the coding guidance in `.sunshine/spec/` — structure, routes, and data flow are all there, but not as a human-readable endpoint list. For an API document, go in two steps: run spec-bootstrap to land the spec first, then a separate task to produce the document from the spec, placed in the project's `doc/` directory, not in `.sunshine`; the agent writing the document reads the spec instead of re-reading the whole codebase, and when interfaces change later, the document gets updated alongside the spec write-back at step 3.3.
+
+Example prompt (an example, not a real session record):
+
+> Please follow the sunshine workflow: first use sunshine-spec-bootstrap to land this project's structure and conventions in spec, then produce an API reference from the spec and place it in doc/, verifying every endpoint against the code.
+
 ### 12.3 Delivering a product feature: one task across product, API, data, and UI
 
 When one task spans four layers, the usual failure is changing one layer and missing another — Sunshine's answer is one task: what changes in all four layers goes into the same PRD, the change order goes through a channel, and acceptance checks against the same API contract. The demo is the same web store that has run for two years, and the task is making the delivery address mandatory at checkout: the checkout page (UI) gets an address field, the order endpoint (API) returns 400 without one, and the order record (data) gains an address field.

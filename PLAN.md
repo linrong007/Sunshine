@@ -2860,3 +2860,20 @@ pre-commit install       # 在仓库根目录执行一次
 **验证（2026-11-16）**：grep 两句在三份模板各 1 处；go build/vet/gofmt/test 全量过（21 包）；hook 包新增 4 个测试全过（DesignLoopReminder / NoList / HasChildren / InProgress）。端到端实测：新二进制在 demo9 副本上跑 session-start，提醒行在位；无需求列表时提醒消失；新二进制 `init -y` 实测装上的 workflow.md 两句在位。实测教训：跑 session-start 端到端须设 `CLAUDE_PROJECT_DIR`，否则平台检测不到、当前任务解析为 none、提醒行不出现（第一次实测即因此误判，后设环境变量重验通过）。
 
 **发布（2026-11-16）**：主提交本地 a9535d1 → 远端 **c69c60a**（tree `ec24822`、父 2657faa、作者 linrong007、6 个文件、75 插入/6 删除）。tag v0.5.16 对象 **9328376** → c69c60a。发布 run **43844544456** success；主推 CI 43844496049 success；tag 触发的另一路 CI 43844544497 在单元测试步 failure（同提交另一路已过、本地两次全过，属已知抖动，未重跑，token 无重跑权限）。Release https://github.com/linrong007/Sunshine/releases/tag/v0.5.16，6 资产非草稿，changelog 含 c69c60a。验证全过：darwin arm64 checksum `d6031032…64b72e`、Mach-O 64-bit arm64、linux 版报 0.5.16、一键装装上 0.5.16、v0.5.15 二进制 upgrade --dry-run 查到 0.5.16。
+
+### spec-bootstrap 接手缺口：捕获表加三行 + frontend.md 加路由节（2026-11-16，实施中）
+
+起因：用户问 spec-bootstrap 能否整出项目结构与 API 文档，又问接手存量项目的人最关心什么。核对结论：
+- 接手人最关心：跑起来、改不炸（安全边界）、结构与数据流、约定与坑、验证与发布、出问题查哪找谁。
+- spec-bootstrap 现有捕获表（repository-analysis.md“要捕获的内容”）覆盖包边界、运行时层、核心抽象（含路由）、数据流、错误处理、配置、测试；缺启动、部署、排查三行；frontend.md 模板有“技术栈”一节（占位待填实），但无路由节，路由表/守卫/懒加载无固定落点。
+- API 文档不是 spec-bootstrap 的产物（skill 全文未提接口文档；spec-import 是反方向），想要接口文档须两步走：先 spec-bootstrap 落 spec，再单开任务按 spec 出 doc/ 下的接口文档（已补进教程 §12.2，未提交）。
+
+实施（只改模板，不动 Go 代码）：
+1. `templates/platforms/common/bundled-skills/sunshine-spec-bootstrap/references/repository-analysis.md`：捕获表加三行——启动（怎么跑起来：启动命令、依赖、环境、端口、数据库）、部署（怎么发布、回滚）、排查（日志、监控、出问题查哪）。
+2. `templates/sunshine/spec/frontend.md`：加“路由”一节（路由表、守卫、懒加载）+ 索引表加一行，措辞与现有模板一致（占位式“按项目实际情况填写”）。
+
+验证：新建演示存量项目（前后端 + 前端路由）实跑 spec-bootstrap 全流程——新二进制 init → 子代理按 skill 执行（GitNexus/ABCoder 无 MCP 时退回直接读源码）→ 独立核查产出的 spec 含结构/技术栈/路由/启动/部署/排查六项、每条有真实文件支撑、无占位符、index.md 与文件集合一致。
+
+**验证结果（2026-11-16）**：演示项目 taskboard（Vue 3 + Express，`/tmp/specboot-verify/taskboard`，git 初始提交 be6d423），新二进制 init -y 装上新模板与新 skill（frontend.md 含路由节、skill 捕获表含新三行，grep 核实）。子代理按 skill 实跑：读 17 个产品文件，node --check 9 个 JS 文件全过，改写 system/frontend/backend.md、新建导航 index.md，未动产品代码，未提交。独立核查通过：占位 0 处；六项齐全——结构（workspaces + 前后端分层）、技术栈（前端 Vue 3.4.0 + vue-router 4.3.0 + Pinia 2.1.7 + Vite 5.2.0，后端 Express 4.19.0）、路由（5 条、4 条懒加载、beforeEach 守卫）、启动（5173/3000、环境变量）、部署（deploy.sh 四步 + 回滚）、排查（/api/health、console.error、已知坑 db.js 静默返回 []）；引用的完整文件路径全部存在。诚实记录的缺口：零测试文件、部署后前端 dist 由谁托管找不到答案（无 express.static、无 nginx 配置）、防抖缺失。另发现 skill 与模板不一致一处：skill 要求保留 index.md 导航文件，但 init 模板里没有它（只有各文件头上的 `## 索引` 节），子代理新建了一个导航版 index.md 顶上。
+
+**修（2026-11-16）**：核对后定为改 skill 口径，不动模板。根因不是 init 漏了文件：Sunshine 的 index.md 是按包/层拆分的子目录索引（workflow 与 research agent 均指 `.sunshine/spec/<包名>/<分层>/index.md`），扁平根目录（system/frontend/backend.md）本就用各文件头上的 `## 索引` 节导航；skill 的“保留 index.md”一句没写清适用范围，子代理才在根目录新建了一个。改两处 skill 措辞（SKILL.md 完成标准、spec-writing.md 文件结构）：子目录各配 index.md、根目录不另设。另核：spec-index 机制对无 `##` 节的文件原样不动，CheckDir 也不报，旧版子代理建的根 index.md 即便留下也不会被同步改坏。验证：旧措辞 grep 0 处、新措辞两处在位；go build/vet/gofmt、全量 21 包测试全过；新二进制 init 实测 spec/ 仍只有三份文件、装上的 skill 是新措辞。

@@ -3005,3 +3005,20 @@ pre-commit install       # 在仓库根目录执行一次
 ## v0.5.22 发布记录（2026-11-17，已发布）
 
 内容：修 init 警告只看本次安装列表的漏——改按项目状态查，项目里装了 DSH 就查 git 根劫持，增量重跑也提示。主提交本地 `1fe3f060d7ceb1678b229d0b1a378c5b016c812b` → 远端 `32555aef48b2e8659f8fe204168b1fadd6482f91`，tree `fc4a91d42c41d6959670bbbf92b7786bcfddebf8`，父提交 `280abc746c51da66f487647d1d2edf31bcfeb040`。Tag v0.5.22，tag 对象 `01767f8f0ba11ef7c8b42de3ceb08710b80095b4` → 32555ae（GitHub API 建，annotated tag）。发布 workflow（run 44038685723）与 CI 两路（44038642310 main、44038685746 v0.5.22，同提交 push 与 tag 各一路）均 success。Release（id 448288361）非草稿、非预发布，6 个资产（checksums.txt + darwin amd64/arm64、linux amd64/arm64、windows amd64）。一键装：macOS/Linux 用 `curl -fsSL https://raw.githubusercontent.com/linrong007/Sunshine/main/install.sh | sh`，Windows（PowerShell）用 `irm https://raw.githubusercontent.com/linrong007/Sunshine/main/install.ps1 | iex`。
+
+## 提问格式：开放式选择，不限单选多选（2026-11-17，用户定，未发版）
+
+起因：demo11 提问框“导航模块范围”一题，推荐项与最小骨架同时被勾上、互相冲突，用户先定单选；第一版纯单选后用户指出选项 B 是在选项 A 基础上增加的（叠加关系）、有时候还得是多选，改成默认单选、叠加时多选；随后用户定稿：开放性的，不限制单选、多选，但一定是选择（推荐+其它+手动填充）。
+1. 口径（定稿）：回到 v0.5.21 的开放式写法——每次只问一个问题，给 2–4 个选项（其中一个标明是推荐项并写清取舍），外加一个“自己填写”的自由输入项；不限制单选还是多选。单选、默认单选两批的措辞已全部撤回：templates/ 与 docs/ 与 v0.5.21（fe592bc）逐字节一致，diff 0 行。
+2. 边界：DSH 提问框的勾选框是 DSH 自己的界面渲染，改不了；改的是 agent 在问题正文里列选项。DSH.md 里没有选项条数措辞，无需改。
+验收：gofmt/build/vet 全过；全量测试 21 包全过。
+发版：本批不发版，等用户点选。
+
+## DSH 进子代理平台列表：task create 建 jsonl（2026-11-17，用户实测纠正，未发版）
+
+起因：用户问 demo13（DSH）任务文件夹为什么没有 implement.jsonl/check.jsonl；我先答“DSH 没有子代理”是错的——用户随即贴图证明：DSH 主会话正在创建子智能体做原型（“创建子智能体 · Build product list prototype”）。核实：DSH.md 明确写 implement/check/research/prototype 默认走 subagent 工具派发；2026-11-17 上午沙箱第一档实测也证实 agent 真调 subagent 工具。旧说法源自 v0.5.17 时期的降级评估，早已过时。
+1. 根因：internal/task/store.go 的 subagentConfigDirs 里一直漏了 .dsh——该列表从 Python task_store 抄来，DSH 接入时没同步。task create 只在 HasSubagentPlatform 为真时建两个空 jsonl，于是 DSH 项目的任务从没有这两个文件；派发 implement/check 子代理时 workflow 要求读 implement.jsonl 注入上下文，文件缺失只能走兜底（读 prd/spec、task context 列规范自挑），上下文不如已整理清单确定。
+2. 修复：subagentConfigDirs 加 ".dsh"（一行，附注释）。影响面只在 task create（HasSubagentPlatform 仅此一处调用；task start 门禁与 validate 读不到文件时本就不设防/跳过）。已建的 DSH 任务不受影响（文件不存在仍不设防）；新建任务建出空 jsonl 后，1.4 须按 workflow 整理条目，否则 start 门禁拒绝（与 Claude 等平台一致）。
+3. 测试：新增 internal/task/subagent_platform_test.go——HasSubagentPlatform 在 .dsh 下为真、无平台目录时为假；DSH 项目 task create 建出两个 jsonl；无子代理平台的项目不建。
+验收：gofmt/build/vet 全过；新单测 3 个全过、全量测试 21 包全过；沙箱端到端：init --dsh 后 task create 建出两个 jsonl，对照 init --kilo（非子代理平台）建出 0 个。
+发版：本批不发版，等用户点选（与开放式提问格式那批同树未提交）。

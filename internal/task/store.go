@@ -725,10 +725,12 @@ func ContentAtHead(root, relPath string) (string, bool) {
 
 // subagentConfigDirs 是消费 implement.jsonl / check.jsonl 的平台配置目录
 // （与 task_store._SUBAGENT_CONFIG_DIRS 同步；Codex 单独按 dispatch_mode 判断）。
+// .dsh 在列：DSH 经 subagent 工具派发 implement/check（见 DSH.md），
+// 虽无项目级子代理定义面，派发提示词仍按 workflow 读 implement.jsonl。
 var subagentConfigDirs = []string{
 	".claude", ".cursor", ".kiro", ".gemini", ".opencode", ".qoder",
 	".codebuddy", ".factory", ".github/copilot", ".pi", ".trae", ".omp",
-	".zcode", ".grok", ".kimi-code",
+	".zcode", ".grok", ".kimi-code", ".dsh",
 }
 
 // HasSubagentPlatform 判断任一子代理平台是否已配置。

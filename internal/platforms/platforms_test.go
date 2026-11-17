@@ -22,7 +22,7 @@ func TestRegistry(t *testing.T) {
 	want := map[string]core{
 		"claude-code": {"Claude Code", "claude", ".claude", "/sunshine:", "Bash scripts or Task calls", "Slash commands", true, true, false},
 		"cursor":      {"Cursor", "cursor", ".cursor", "/sunshine-", "Bash scripts or Task calls", "Slash commands", true, true, false},
-		"codex":       {"Codex", "codex", ".codex", "$", "Bash scripts or tool calls", "Skills", true, false, true},
+		"codex":       {"Codex", "codex", ".codex", "$", "Bash scripts or tool calls", "Skills", true, true, true},
 		"kiro":        {"Kiro Code", "kiro", ".kiro/skills", "$", "Bash scripts or tool calls", "Skills", true, true, false},
 		"gemini":      {"Gemini CLI", "gemini", ".gemini", "/sunshine:", "Bash scripts or tool calls", "Slash commands", true, true, true},
 		"qoder":       {"Qoder", "qoder", ".qoder", "$", "Bash scripts or tool calls", "Skills", true, true, false},
@@ -86,6 +86,7 @@ func TestResolvePlaceholders(t *testing.T) {
 	claude, _ := ByID("claude-code")
 	cursor, _ := ByID("cursor")
 	codex, _ := ByID("codex")
+	dsh, _ := ByID("dsh")
 
 	src := "用 {{CMD_REF:finish-work}}，平台 {{CLI_FLAG}}，{{EXECUTOR_AI}}，{{USER_ACTION_LABEL}}。"
 	if got := resolvePlaceholders(src, claude); !strings.Contains(got, "/sunshine:finish-work") || !strings.Contains(got, "claude") {
@@ -104,13 +105,16 @@ func TestResolvePlaceholders(t *testing.T) {
 	if got := resolvePlaceholdersNeutral(src, claude); !strings.Contains(got, "`finish-work` (Sunshine command)") {
 		t.Errorf("中性解析（Claude 上下文）不对：%s", got)
 	}
-	// 条件块：Codex 的 HAS_HOOKS 为假。
+	// 条件块：Codex 的 HAS_HOOKS 为真（hooks.json 已装）；DSH 无 hook，为假。
 	cond := "A{{#HAS_HOOKS}}有钩子{{/HAS_HOOKS}}{{^HAS_HOOKS}}无钩子{{/HAS_HOOKS}}B"
 	if got := resolvePlaceholders(cond, claude); got != "A有钩子B" {
 		t.Errorf("Claude 条件块不对：%q", got)
 	}
-	if got := resolvePlaceholders(cond, codex); got != "A无钩子B" {
+	if got := resolvePlaceholders(cond, codex); got != "A有钩子B" {
 		t.Errorf("Codex 条件块不对：%q", got)
+	}
+	if got := resolvePlaceholders(cond, dsh); got != "A无钩子B" {
+		t.Errorf("DSH 条件块不对：%q", got)
 	}
 	// 条件块删除后多余空行被压成两个换行。
 	blank := "A\n\n\n\n{{#HAS_HOOKS}}x{{/HAS_HOOKS}}\n\nB"

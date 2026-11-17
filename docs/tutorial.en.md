@@ -2137,7 +2137,7 @@ Project-type detection reads `package.json` dependencies and common frontend/bac
 | `--template <id>` | Marketplace entry id, must be used with `--registry`; when omitted, a marketplace source errors out under `-y` and shows the picker interactively |
 | `--overwrite` / `--append` | Overwrite the target if it exists / only fill in missing files; only with `--template` |
 | `--with-statusline` | Install the statusline for Claude Code; only effective when Claude Code is selected |
-| `--<platform>` | Install only the named platform: `--claude` `--cursor` `--codex` `--kiro` `--gemini` `--qoder` `--pi` `--zcode` `--trae` `--omp` `--snow` `--opencode` `--dsh` `--reasonix` `--grok` `--kimi` `--kilo` `--antigravity` `--devin` `--codebuddy` `--copilot` `--droid` (22 in total; `--windsurf` is a deprecated alias for `--devin` and is converted automatically with a warning) |
+| `--<platform>` | Install only the named platform: `--claude` `--cursor` `--codex` `--kiro` `--gemini` `--qoder` `--pi` `--zcode` `--trae` `--omp` `--snow` `--opencode` `--dsh` `--reasonix` `--grok` `--kimi` `--kilo` `--antigravity` `--devin` `--codebuddy` (WorkBuddy users: use this one) `--copilot` `--droid` (22 in total; `--windsurf` is a deprecated alias for `--devin` and is converted automatically with a warning) |
 
 #### Three modes
 
@@ -2179,10 +2179,10 @@ sunshine platforms
 正在配置 Codex……
 已安装平台：
   - Codex
-提示：Codex hooks 须在 ~/.codex/config.toml 中设置 features.hooks = true（Codex 0.129+；旧版为 codex_hooks = true），并在 Codex 里运行一次 /hooks 审批，否则 .codex/hooks.json 不生效。
+    ↳ 已开启 Codex hooks（~/.codex/config.toml），仍需在 Codex 里运行一次 /hooks 审批
 ```
 
-("Configuring Codex… / Installed platforms: Codex / Note: Codex hooks require `features.hooks = true` in `~/.codex/config.toml` (Codex 0.129+; older versions use `codex_hooks = true`), plus one `/hooks` approval run inside Codex, otherwise `.codex/hooks.json` does not take effect.")
+("Configuring Codex… / Installed platforms: Codex / Note: `init` now writes `features.hooks = true` into `~/.codex/config.toml` for you (Codex 0.129+; older versions use `codex_hooks = true`) after asking (default yes; `-y` writes it directly); you still need one `/hooks` approval run inside Codex, otherwise `.codex/hooks.json` does not take effect.")
 
 ### Manual-intervention cheat sheet
 

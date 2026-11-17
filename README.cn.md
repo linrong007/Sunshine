@@ -39,6 +39,8 @@ sunshine init -u 你的名字
 sunshine init --codex -y -u 你的名字
 ```
 
+> WorkBuddy 用户请用 `--codebuddy`：WorkBuddy 实际跑的是 CodeBuddy Code CLI，项目配置读 `.codebuddy/`。
+
 Windows（PowerShell）：
 
 ```powershell

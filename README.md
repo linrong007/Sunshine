@@ -39,6 +39,8 @@ sunshine init -u your-name
 sunshine init --codex -y -u your-name
 ```
 
+> WorkBuddy users: use `--codebuddy` — WorkBuddy runs the CodeBuddy Code CLI, which reads project config from `.codebuddy/`.
+
 Windows (PowerShell):
 
 ```powershell

@@ -183,7 +183,7 @@ var registry = []Platform{
 	{
 		ID: "codex", Name: "Codex", Flag: "codex", ConfigDir: ".codex",
 		CmdRefPrefix: "$",
-		AgentCapable: true, HasHooks: false, SupportsAgentSkills: true,
+		AgentCapable: true, HasHooks: true, SupportsAgentSkills: true,
 		SkillsDir: ".agents/skills", AutoSkillsNeutral: true,
 		CmdForm: CmdFormSkill, CmdDir: ".agents/skills", CmdAll: true, CmdNeutral: true,
 		AgentFiles: []PlatformFile{
@@ -505,6 +505,104 @@ func CodexHooksEnabled() bool {
 		}
 	}
 	return false
+}
+
+// EnableCodexHooks 把 [features] hooks = true 合并写进用户级
+// ~/.codex/config.toml：行级编辑，保留原文件其他内容与注释；
+// 文件不存在则创建（连 ~/.codex/ 目录一起）；没有 [features] 节
+// 则在末尾追加；已有 hooks = false 改成 true；已有旧名
+// codex_hooks = false 也一并改成 true（避免冲突）；值已是 true
+// 的行不动。写失败返回 error。
+func EnableCodexHooks() error {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return err
+	}
+	dir := filepath.Join(home, ".codex")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return err
+	}
+	path := filepath.Join(dir, "config.toml")
+	raw, err := os.ReadFile(path)
+	if err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	lines := strings.Split(string(raw), "\n")
+	featuresFound, hooksFound := false, false
+	featuresHeader := -1
+	inFeatures := false
+	for i, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if trimmed == "" || strings.HasPrefix(trimmed, "#") {
+			continue
+		}
+		if strings.HasPrefix(trimmed, "[") {
+			// 节头：与 CodexHooksEnabled 同款判定，[features] 才进，
+			// 别的节（含 [features.x] 子节）一律出。
+			end := strings.Index(trimmed, "]")
+			inFeatures = end > 0 && strings.TrimSpace(trimmed[1:end]) == "features"
+			if inFeatures {
+				featuresFound = true
+				if featuresHeader < 0 {
+					featuresHeader = i
+				}
+			}
+			continue
+		}
+		if !inFeatures {
+			continue
+		}
+		kv := strings.SplitN(line, "=", 2)
+		if len(kv) != 2 {
+			continue
+		}
+		key := strings.TrimSpace(kv[0])
+		if key != "hooks" && key != "codex_hooks" {
+			continue
+		}
+		if key == "hooks" {
+			hooksFound = true
+		}
+		lines[i] = rewriteCodexBoolLine(line)
+	}
+	switch {
+	case !featuresFound:
+		// 末尾追加 [features] 节；空文件直接写两行。
+		if len(lines) == 1 && lines[0] == "" {
+			lines = []string{"[features]", "hooks = true", ""}
+		} else if lines[len(lines)-1] == "" {
+			// 文件已以换行结尾：末尾的空元素本身就是空行分隔。
+			lines = append(lines, "[features]", "hooks = true", "")
+		} else {
+			lines = append(lines, "", "[features]", "hooks = true", "")
+		}
+	case !hooksFound:
+		// [features] 节存在但无 hooks 键：插在节头后一行。
+		ins := append([]string{}, lines[:featuresHeader+1]...)
+		ins = append(ins, "hooks = true")
+		lines = append(ins, lines[featuresHeader+1:]...)
+	}
+	return os.WriteFile(path, []byte(strings.Join(lines, "\n")), 0o644)
+}
+
+// rewriteCodexBoolLine 把 "key = <值>" 改写成 "key = true"，保留行首
+// 缩进与行尾注释；值已是 true 时返回原行不动。
+func rewriteCodexBoolLine(line string) string {
+	eq := strings.Index(line, "=")
+	left, right := line[:eq], line[eq+1:]
+	comment := ""
+	if i := strings.Index(right, "#"); i >= 0 {
+		comment = strings.TrimRight(right[i:], " \t\r")
+		right = right[:i]
+	}
+	if strings.TrimSpace(right) == "true" {
+		return line
+	}
+	out := strings.TrimRight(left, " \t") + " = true"
+	if comment != "" {
+		out += " " + comment
+	}
+	return out
 }
 
 // InstallOptions 控制 Install 的安装行为。

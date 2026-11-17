@@ -207,7 +207,7 @@ GitHub Copilot、Factory Droid）。
 			if !skipSpec {
 				fmt.Printf("项目类型：%s（%s）\n", specType.DisplayName(), typeSource)
 			}
-			printPlatformSummary(installed, withStatusline)
+			printPlatformSummary(installed, withStatusline, initYes || !stdinIsTTY())
 			warnDshGitRootHijack(cwd)
 			fmt.Println("下一步：")
 			fmt.Println("  1. 在 agent 界面里打开项目，直接用自然语言提第一个需求；")
@@ -237,7 +237,7 @@ GitHub Copilot、Factory Droid）。
 			if !skipSpec {
 				fmt.Printf("项目类型：%s（%s）\n", specType.DisplayName(), typeSource)
 			}
-			printPlatformSummary(installed, withStatusline)
+			printPlatformSummary(installed, withStatusline, initYes || !stdinIsTTY())
 			warnDshGitRootHijack(cwd)
 			return nil
 		default:
@@ -256,7 +256,7 @@ GitHub Copilot、Factory Droid）。
 				if err != nil {
 					return err
 				}
-				printPlatformSummary(installed, withStatusline)
+				printPlatformSummary(installed, withStatusline, initYes || !stdinIsTTY())
 				warnDshGitRootHijack(cwd)
 			}
 			if target != nil {
@@ -387,6 +387,17 @@ var promptStatusline = func() (bool, error) {
 	err := survey.AskOne(&survey.Confirm{
 		Message: "是否为 Claude Code 安装状态栏（statusline，显示模型、上下文、分支与限流信息）？",
 		Default: false,
+	}, &answer)
+	return answer, err
+}
+
+// promptEnableCodexHooks 追问是否代写 Codex hooks 开关（默认实现用 survey；
+// 测试可替换）。默认 Yes；survey 会把默认渲染成 (Y/n)。
+var promptEnableCodexHooks = func() (bool, error) {
+	var answer bool
+	err := survey.AskOne(&survey.Confirm{
+		Message: "是否帮你开启 Codex hooks？（将写入 ~/.codex/config.toml 的 [features] hooks = true）",
+		Default: true,
 	}, &answer)
 	return answer, err
 }
@@ -675,9 +686,11 @@ func installPlatforms(cwd string, ids []string, withStatusline bool, force bool)
 }
 
 // printPlatformSummary 打印平台安装小结；新装 Codex 时检测用户级
-// ~/.codex/config.toml 是否已开启 hooks：已开启只打印一行确认，未开启
-// 打印 CodexHooksHint（只提示，不代写用户级配置）。
-func printPlatformSummary(installed []string, withStatusline bool) {
+// ~/.codex/config.toml 是否已开启 hooks：已开启只打印一行确认；
+// 未开启时交互模式问一句（默认 Yes），确认后代写开关（失败只打印
+// 错误与提示，不让 init 失败）；-y 或非交互终端（assumeYes）视为
+// 已确认，直接写。/hooks 评审仍须用户在 Codex 里跑一次，init 不代批。
+func printPlatformSummary(installed []string, withStatusline bool, assumeYes bool) {
 	if len(installed) == 0 {
 		return
 	}
@@ -692,6 +705,13 @@ func printPlatformSummary(installed []string, withStatusline bool) {
 		if id == "codex" {
 			if platforms.CodexHooksEnabled() {
 				fmt.Println("    ↳ Codex hooks 已开启（~/.codex/config.toml）")
+			} else if assumeYes || askEnableCodexHooks() {
+				if err := platforms.EnableCodexHooks(); err != nil {
+					fmt.Printf("    ↳ 开启 Codex hooks 失败：%v\n", err)
+					fmt.Println(platforms.CodexHooksHint())
+				} else {
+					fmt.Println("    ↳ 已开启 Codex hooks（~/.codex/config.toml），仍需在 Codex 里运行一次 /hooks 审批")
+				}
 			} else {
 				fmt.Println(platforms.CodexHooksHint())
 			}
@@ -700,6 +720,16 @@ func printPlatformSummary(installed []string, withStatusline bool) {
 			fmt.Println(platforms.ZcodeSetupHint())
 		}
 	}
+}
+
+// askEnableCodexHooks 问用户是否代写 Codex hooks 开关；提问出错
+// （如 Ctrl+C）按拒绝处理，只打印提示，不让 init 失败。
+func askEnableCodexHooks() bool {
+	ok, err := promptEnableCodexHooks()
+	if err != nil {
+		return false
+	}
+	return ok
 }
 
 // dshGitRootWarning 按项目状态返回 DSH git 根劫持警告，

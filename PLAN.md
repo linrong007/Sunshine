@@ -2992,3 +2992,12 @@ pre-commit install       # 在仓库根目录执行一次
 ## v0.5.21 发布记录（2026-11-17，已发布）
 
 内容：三批合发——①init 平台多选默认一个都不勾选，只有用户选择至少一项才继续（-y/非交互无 flag 报错，交互不选重选；删 DefaultChecked 与 DefaultSelected）；②init --dsh 检测 git 根劫持（上层目录 .git 劫持项目根时打印警告与修复命令，只提醒不自动 git init）；③提问格式统一为选项式（每次只问一个问题，给 2–4 个选项，其中一个标明推荐项并写清取舍，外加“自己填写”，问到范围、边界、约束、验收标准全部对齐）。主提交本地 `845a43241310ea7e01170aeb3fe60a462e15ba33` → 远端 `fe592bc48179c3a264f2a888f637e2d738937f13`，tree `2beeee75678f924cdfeacabef864f6027b9604f9`，父提交 `aea6a25a5855f06aabc3f6a265cfb279445dfcfe`。Tag v0.5.21，tag 对象 `76fe8f50cd209eb8d039def8e65cd4a0f555c41b` → fe592bc（GitHub API 建，annotated tag）。发布 workflow（run 44035686689）与 CI 两路（44035627319 main、44035686508 v0.5.21，同提交 push 与 tag 各一路）均 success。Release（id 448270407）非草稿、非预发布，6 个资产（checksums.txt + darwin amd64/arm64、linux amd64/arm64、windows amd64）。一键装：macOS/Linux 用 `curl -fsSL https://raw.githubusercontent.com/linrong007/Sunshine/main/install.sh | sh`，Windows（PowerShell）用 `irm https://raw.githubusercontent.com/linrong007/Sunshine/main/install.ps1 | iex`。
+
+## init 警告改按项目状态查（2026-11-17，用户实测报障，未发版）
+
+起因：v0.5.21 发版后用户在 Mac 上试，`sunshine init -u linrong` 没提示需要 git init，skill 还是得手动 git init 才能调用。沙箱复现确认：警告只接在 printPlatformSummary 里、只看本次安装列表——全新安装时警告正常，但增量重跑（DSH 已装、“没有需要安装的新平台” early return）与增量装别的平台（DSH 不在本次安装列表里）两种情形一次警告都不出。
+1. internal/cli/init.go：新增 dshGitRootWarning(cwd)（项目里装了 DSH 才查 GitRootHijack，劫持返回 DshGitRootHint，否则 "")与 warnDshGitRootHijack(cwd)（有警告才打印）；printPlatformSummary 里的 dsh 分支删掉、签名改回不带 cwd；四处调用——全新（小结后、下一步前）、-f（小结后）、增量无新平台（early return 前）、增量装了新平台（小结后），单点按项目状态查，无重复打印。
+2. 订正：上一批 PLAN 里“三种 init 模式全覆盖”不成立——增量两路当时根本没走到警告，见本节起因。
+3. 测试：新增 internal/cli/init_gitroot_test.go——单测 dshGitRootWarning 四情形（装+劫持应警告、装+自有 .git 不警告、没装不警告、装+无 .git 不警告）；端到端 TestInitRerunWarnsDshGitRootHijack（三连跑：全新、增量重跑、增量装 codex，每次都应警告且含劫持根）。
+验收：gofmt/build/vet 全过；全量测试 21 包全过；沙箱三场景：全新、增量重跑、增量装 codex 各 1 次警告，文案与劫持根路径正确。
+发版：本批不发版，等用户点选。

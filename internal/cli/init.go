@@ -207,7 +207,8 @@ GitHub Copilot、Factory Droid）。
 			if !skipSpec {
 				fmt.Printf("项目类型：%s（%s）\n", specType.DisplayName(), typeSource)
 			}
-			printPlatformSummary(cwd, installed, withStatusline)
+			printPlatformSummary(installed, withStatusline)
+			warnDshGitRootHijack(cwd)
 			fmt.Println("下一步：")
 			fmt.Println("  1. 在 agent 界面里打开项目，直接用自然语言提第一个需求；")
 			if skipSpec {
@@ -236,7 +237,8 @@ GitHub Copilot、Factory Droid）。
 			if !skipSpec {
 				fmt.Printf("项目类型：%s（%s）\n", specType.DisplayName(), typeSource)
 			}
-			printPlatformSummary(cwd, installed, withStatusline)
+			printPlatformSummary(installed, withStatusline)
+			warnDshGitRootHijack(cwd)
 			return nil
 		default:
 			// 增量模式：跳过 scaffold.Init，只安装新选的平台与 registry 模板。
@@ -246,6 +248,7 @@ GitHub Copilot、Factory Droid）。
 			}
 			if len(toInstall) == 0 && target == nil {
 				fmt.Println("所选平台均已安装，没有需要安装的新平台。")
+				warnDshGitRootHijack(cwd)
 				return nil
 			}
 			if len(toInstall) > 0 {
@@ -253,7 +256,8 @@ GitHub Copilot、Factory Droid）。
 				if err != nil {
 					return err
 				}
-				printPlatformSummary(cwd, installed, withStatusline)
+				printPlatformSummary(installed, withStatusline)
+				warnDshGitRootHijack(cwd)
 			}
 			if target != nil {
 				installRegistryTemplates(cwd, target, strategy)
@@ -672,10 +676,8 @@ func installPlatforms(cwd string, ids []string, withStatusline bool, force bool)
 
 // printPlatformSummary 打印平台安装小结；新装 Codex 时检测用户级
 // ~/.codex/config.toml 是否已开启 hooks：已开启只打印一行确认，未开启
-// 打印 CodexHooksHint（只提示，不代写用户级配置）。新装 DSH 时检测
-// git 根是否被上层目录劫持：劫持时打印 DshGitRootHint（只提醒，
-// 不自动 git init）。
-func printPlatformSummary(cwd string, installed []string, withStatusline bool) {
+// 打印 CodexHooksHint（只提示，不代写用户级配置）。
+func printPlatformSummary(installed []string, withStatusline bool) {
 	if len(installed) == 0 {
 		return
 	}
@@ -697,10 +699,28 @@ func printPlatformSummary(cwd string, installed []string, withStatusline bool) {
 		if id == "zcode" {
 			fmt.Println(platforms.ZcodeSetupHint())
 		}
-		if id == "dsh" {
-			if ancestor, hijacked := platforms.GitRootHijack(cwd); hijacked {
-				fmt.Println(platforms.DshGitRootHint(ancestor))
-			}
-		}
+	}
+}
+
+// dshGitRootWarning 按项目状态返回 DSH git 根劫持警告，
+// 无警告时返回 ""。只看项目里是否装了 DSH（.dsh 在即算装），
+// 不看本次装了什么：增量重跑时 DSH 早已装好、不在本次安装列表里，
+// 但劫持仍在，必须照样警告（v0.5.21 只查本次安装列表，增量重跑
+// 直接 early return，警告一次都出不来——用户 2026-11-17 实测报障）。
+func dshGitRootWarning(cwd string) string {
+	if !platformInstalled(cwd, "dsh") {
+		return ""
+	}
+	if ancestor, hijacked := platforms.GitRootHijack(cwd); hijacked {
+		return platforms.DshGitRootHint(ancestor)
+	}
+	return ""
+}
+
+// warnDshGitRootHijack 打印 dshGitRootWarning 的结果（无警告时不打印）。
+// 三种 init 模式（全新/-f/增量，含增量无新平台的 early return）都要调一次。
+func warnDshGitRootHijack(cwd string) {
+	if hint := dshGitRootWarning(cwd); hint != "" {
+		fmt.Println(hint)
 	}
 }

@@ -5,7 +5,8 @@ dsh 是 **class-2 pull-based** Sunshine 宿主：没有 session-start hook 自�
 
 | 能力 | 状态 |
 | --- | --- |
-| Skill（`.agents/skills/sunshine-*/SKILL.md`） | 可用——dsh 原生发现该共享根目录 |
+| Skill（`.agents/skills/sunshine-*/SKILL.md`） | 可用——dsh 原生发现该共享根目录（CLI）；网页版 Harness 不扫这里，见下一行 |
+| 工作流 skill 镜像（`.dsh/skills/sunshine-*/SKILL.md`） | 网页版 Harness 只发现 `.dsh/skills/`——10 个工作流 skill 另镜像一份在此，与共享根目录逐字节一致 |
 | 入口 skill（`.dsh/skills/sunshine-*/SKILL.md`） | 可用——dsh 自己的项目 skill 根目录（最高优先级） |
 | 上下文 hook | 无——pull-based：skill 直接读 `.sunshine/` 下的文件 |
 | spec 索引 | 手动——改完 spec 后跑 `sunshine spec index`（无 PostToolUse 自动同步） |
@@ -37,7 +38,9 @@ dsh web        # 或：dsh --profile headless "start a Sunshine task for ..."
   `sunshine-spec-bootstrap` / `sunshine-session-insight` skill。与 Codex /
   Gemini CLI / Pi / Kimi 写入同一共享根目录的内容逐字节一致。
 - `.dsh/skills/`——dsh 私有的入口 skill（`sunshine-start` /
-  `sunshine-continue` / `sunshine-finish-work`）。
+  `sunshine-continue` / `sunshine-finish-work`），以及 10 个工作流
+  skill 的镜像（网页版 Harness 只发现这个目录，不扫共享
+  `.agents/skills/`；镜像与共享根目录逐字节一致）。
 - `.sunshine/`——规范、任务、工作区记忆，以及 skill 调用的共享命令
   （`sunshine task context`、`sunshine task` 等）。
 

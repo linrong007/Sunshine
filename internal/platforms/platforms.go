@@ -63,18 +63,19 @@ type Platform struct {
 	SupportsAgentSkills bool
 	ExtraManagedPaths   []string
 
-	SkillsDir         string
-	AutoSkillsNeutral bool
-	CmdForm           string
-	CmdDir            string
-	CmdPrefix         string
-	CmdAll            bool
-	CmdNeutral        bool
-	CmdJSONDir        string
-	AgentFiles        []PlatformFile
-	AgentSkillCopies  []PlatformFile
-	ExtraFiles        []PlatformFile
-	ExcludeCheckSkill bool // 为真时不写 common 的 check 自动触发 skill（仅 reasonix：check 被子代理版顶替）
+	SkillsDir            string
+	AutoSkillsNeutral    bool
+	MirrorSkillsToCmdDir bool // 为真时把 SkillsDir 下的 skill 文件原样再写一份到 CmdDir（仅 dsh：网页版 Harness 只发现 .dsh/skills/，不扫共享 .agents/skills/，2026-11-17 demo11 实测）
+	CmdForm              string
+	CmdDir               string
+	CmdPrefix            string
+	CmdAll               bool
+	CmdNeutral           bool
+	CmdJSONDir           string
+	AgentFiles           []PlatformFile
+	AgentSkillCopies     []PlatformFile
+	ExtraFiles           []PlatformFile
+	ExcludeCheckSkill    bool // 为真时不写 common 的 check 自动触发 skill（仅 reasonix：check 被子代理版顶替）
 
 	// 以下两项是 Trellis templateContext 的其余字段，模板内目前
 	// 没有占位符引用它们，但占位符解析器按 shared.ts 实现它们，
@@ -322,7 +323,8 @@ var registry = []Platform{
 		DefaultChecked: false, CmdRefPrefix: "sunshine-",
 		AgentCapable: true, HasHooks: false, SupportsAgentSkills: true,
 		SkillsDir: ".agents/skills", AutoSkillsNeutral: true,
-		CmdForm: CmdFormSkill, CmdDir: ".dsh/skills", CmdAll: true,
+		MirrorSkillsToCmdDir: true,
+		CmdForm:              CmdFormSkill, CmdDir: ".dsh/skills", CmdAll: true,
 		ExtraFiles: []PlatformFile{{Src: "platforms/dsh/DSH.md", Dst: ".dsh/DSH.md"}},
 		executorAI: "Bash scripts or tool calls", userActionLabel: "Skills",
 	},
@@ -792,6 +794,25 @@ func buildFiles(cwd string, p Platform, opts InstallOptions) (map[string]string,
 					return nil, err
 				}
 			}
+		}
+	}
+
+	// 网页版 Harness 只发现 CmdDir（.dsh/skills/），不扫共享
+	// SkillsDir（.agents/skills/）：2026-11-17 demo11 实测，新会话
+	// 叫 sunshine-brainstorm 仍报 unknown，叫 sunshine-start 一次
+	// 成功。MirrorSkillsToCmdDir 为真时把 skill 文件原样再写一份
+	// 到 CmdDir，两处逐字节一致。放命令块之前是关键：此时 files
+	// 里只有 skill 文件，镜像不会误抄命令；镜像键用 CmdDir 前缀，
+	// 不会再命中 SkillsDir 前缀。
+	if p.MirrorSkillsToCmdDir && p.CmdDir != "" && p.CmdDir != root {
+		var skillFiles []string
+		for rel := range files {
+			if strings.HasPrefix(rel, root+"/") {
+				skillFiles = append(skillFiles, rel)
+			}
+		}
+		for _, rel := range skillFiles {
+			files[p.CmdDir+rel[len(root):]] = files[rel]
 		}
 	}
 

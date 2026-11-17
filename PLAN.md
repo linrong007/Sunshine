@@ -2927,3 +2927,17 @@ pre-commit install       # 在仓库根目录执行一次
 
 不做：桌面版 hook 触发实测（须用户 Mac）。
 发版：本批不发版，等用户点选。（注：树上还有 DSH 一批未提交，两批同树，用户点选时一起定。）
+
+## DSH 网页版 Harness skill 镜像（2026-11-17，用户已批准）
+
+起因（demo11 实测，DeepSeek Harness 网页版，卖电脑商城后台）：会话报 skill "sunshine-brainstorm" unknown，文件明明在 `.agents/skills/` 里。已排除两个旧猜测：①会话启动时机——新开会话仍报 unknown；②缺 frontmatter——安装时 wrapSkillFrontmatter 已自动给 6 个单文件 skill 包上 name+description。最后一次验证：`sunshine-start`（在 `.dsh/skills/` 里）一次叫上、无报错。结论：**网页版 Harness 只发现 `.dsh/skills/`，不扫共享 `.agents/skills/`**；CLI dsh 两边都发现。Claude 那次同名报错是另一回事（同会话后装 skill、会话注册表是旧的），不用修。
+
+修法（镜像，不搬家）：`init --dsh` 保持 `.agents/skills/` 原样（CLI 用），把 10 个工作流 skill（6 个单文件 + 4 个 bundled，含 references/ 子文件，共 44 个文件）原样再写一份到 `.dsh/skills/`，两处逐字节一致。
+1. `internal/platforms/platforms.go`：Platform 加 `MirrorSkillsToCmdDir bool` 字段（只 dsh 置真）；buildFiles 在 skill 块（auto + bundled）之后、命令块之前，把 `files` 里 `SkillsDir+"/"` 前缀的条目按相对路径复制到 `CmdDir` 下。放命令块之前是关键：此时 `files` 里只有 skill 文件，镜像不会误抄命令；镜像键用 `CmdDir` 前缀，不会再命中 `SkillsDir` 前缀。
+2. 注册表 dsh 条目加 `MirrorSkillsToCmdDir: true`。
+3. `templates/platforms/dsh/DSH.md`：能力表与文件对照同步——网页版只认 `.dsh/skills/`，10 个工作流 skill 镜像在 `.dsh/skills/`，与共享根目录逐字节一致。
+4. 测试：`platforms_new_test.go` 的 dsh 文件数 48 → 92（44 镜像 + 原 48）；dsh 子测试加断言——`.dsh/skills/sunshine-brainstorm/SKILL.md` 等 10 个 skill 存在且与 `.agents/skills/` 对应文件逐字节一致；其他平台文件数不变。
+5. update/prune 走 Install/RenderTemplates，镜像自动进写出集，不会被当陈旧文件清掉；`writeTemplateFile` 内容相同跳过，重装不重复写。
+不做：动 `.agents/skills/` 的位置（CLI 依赖它）；给 Claude 加提示（Claude 那次不用修）。
+验收：go build/vet/gofmt、全量测试全过；沙箱 `init --dsh` 装出 92 个文件，`.dsh/skills/` 下 10 个 skill 全在且与 `.agents/skills/` 逐字节一致，裸 `{{` 0 处。
+发版：本批不发版，等用户点选。

@@ -15,7 +15,7 @@ func TestInstallNewPlatforms(t *testing.T) {
 	wantCounts := map[string]int{
 		"kiro": 52, "gemini": 51, "qoder": 51,
 		"pi": 53, "zcode": 51, "trae": 51, "omp": 51, "snow": 56,
-		"opencode": 58, "dsh": 48, "reasonix": 48, "grok": 51, "kimi": 55,
+		"opencode": 58, "dsh": 92, "reasonix": 48, "grok": 51, "kimi": 55,
 		"kilo": 47, "antigravity": 47, "devin": 47,
 	}
 	for _, id := range []string{
@@ -281,6 +281,17 @@ func TestInstallNewPlatformsSpotChecks(t *testing.T) {
 		}
 		if _, err := os.Stat(filepath.Join(dir, ".dsh", "skills", "sunshine-start", "SKILL.md")); err != nil {
 			t.Error("dsh 缺少入口 skill sunshine-start")
+		}
+		// 网页版 Harness 只发现 .dsh/skills/：10 个工作流 skill 须
+		// 镜像到此，与 .agents/skills/ 逐字节一致（2026-11-17 demo11 实测）。
+		for _, name := range []string{"before-dev", "brainstorm", "break-loop", "check", "update-spec", "spec-import", "channel", "meta", "session-insight", "spec-bootstrap"} {
+			if got, want := read(t, dir, ".dsh/skills/sunshine-"+name+"/SKILL.md"), read(t, dir, ".agents/skills/sunshine-"+name+"/SKILL.md"); got != want {
+				t.Errorf("dsh 的 .dsh/skills/sunshine-%s 与共享根目录不一致", name)
+			}
+		}
+		// bundled skill 的 references 子文件也须镜像。
+		if _, err := os.Stat(filepath.Join(dir, ".dsh", "skills", "sunshine-spec-bootstrap", "references", "repository-analysis.md")); err != nil {
+			t.Error("dsh 缺少镜像的 spec-bootstrap references")
 		}
 		if _, err := os.Stat(filepath.Join(dir, ".dsh", "DSH.md")); err != nil {
 			t.Error("dsh 缺少 DSH.md")

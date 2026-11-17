@@ -104,7 +104,7 @@ agent 在底下调的命令你平时不用敲；下面是你手动干预时用�
 
 | 命令 | 一句话 | 最常用例子 |
 | --- | --- | --- |
-| `init` | 初始化项目：生成中文 `.sunshine/` 骨架与平台配置；`--registry` 从模板市场安装规范 | `sunshine init -u 你的名字 -y` |
+| `init` | 初始化项目：生成中文 `.sunshine/` 骨架与平台配置；`--registry` 从模板市场安装规范 | `sunshine init -u 你的名字 -y --claude --cursor` |
 | `task` | 任务管理：创建、开始、完成、归档（agent 在底下调；你用 `task current` / `task list` 查状态） | `sunshine task create "给退款原因加必填校验" --description "退款时原因字段必填"` |
 | `workflow` | 查看或切换 `.sunshine/workflow.md` 用的工作流模板 | `sunshine workflow --list` |
 | `update` | 把项目里的 Sunshine 模板文件同步到当前 CLI 版本 | `sunshine update --dry-run` |

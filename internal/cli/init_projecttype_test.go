@@ -308,7 +308,7 @@ func TestInitEndToEndProjectType(t *testing.T) {
 	t.Run("前端检测", func(t *testing.T) {
 		dir := t.TempDir()
 		writeFile(t, filepath.Join(dir, "vite.config.ts"), "export default {}\n")
-		out, code := runInitBinary(t, dir, "-y", "-u", "测试")
+		out, code := runInitBinary(t, dir, "-y", "-u", "测试", "--claude")
 		if code != 0 {
 			t.Fatalf("init 退出码 %d，输出：%s", code, out)
 		}
@@ -325,7 +325,7 @@ func TestInitEndToEndProjectType(t *testing.T) {
 	t.Run("后端检测", func(t *testing.T) {
 		dir := t.TempDir()
 		writeFile(t, filepath.Join(dir, "go.mod"), "module example.com/demo\n\ngo 1.27\n")
-		out, code := runInitBinary(t, dir, "-y", "-u", "测试")
+		out, code := runInitBinary(t, dir, "-y", "-u", "测试", "--claude")
 		if code != 0 {
 			t.Fatalf("init 退出码 %d，输出：%s", code, out)
 		}
@@ -342,7 +342,7 @@ func TestInitEndToEndProjectType(t *testing.T) {
 	t.Run("全栈检测", func(t *testing.T) {
 		dir := t.TempDir()
 		writeFile(t, filepath.Join(dir, "package.json"), `{"name":"demo","dependencies":{"react":"^19.0.0","express":"^4.0.0"}}`+"\n")
-		out, code := runInitBinary(t, dir, "-y", "-u", "测试")
+		out, code := runInitBinary(t, dir, "-y", "-u", "测试", "--claude")
 		if code != 0 {
 			t.Fatalf("init 退出码 %d，输出：%s", code, out)
 		}
@@ -359,7 +359,7 @@ func TestInitEndToEndProjectType(t *testing.T) {
 	t.Run("--type 覆盖检测", func(t *testing.T) {
 		dir := t.TempDir()
 		writeFile(t, filepath.Join(dir, "vite.config.ts"), "export default {}\n")
-		out, code := runInitBinary(t, dir, "-y", "-u", "测试", "--type", "后端")
+		out, code := runInitBinary(t, dir, "-y", "-u", "测试", "--claude", "--type", "后端")
 		if code != 0 {
 			t.Fatalf("init 退出码 %d，输出：%s", code, out)
 		}
@@ -372,7 +372,7 @@ func TestInitEndToEndProjectType(t *testing.T) {
 	// --type 非法值报错退出码非零。
 	t.Run("--type 非法值", func(t *testing.T) {
 		dir := t.TempDir()
-		out, code := runInitBinary(t, dir, "-y", "-u", "测试", "--type", "移动端")
+		out, code := runInitBinary(t, dir, "-y", "-u", "测试", "--claude", "--type", "移动端")
 		if code == 0 {
 			t.Errorf("--type 非法值应退出码非零，输出：\n%s", out)
 		}
@@ -387,7 +387,7 @@ func TestInitEndToEndProjectType(t *testing.T) {
 	// --type 产品设计：spec 三份全写（与全栈相同），doc/ 下写四份设计文档模板。
 	t.Run("--type 产品设计", func(t *testing.T) {
 		dir := t.TempDir()
-		out, code := runInitBinary(t, dir, "-y", "-u", "测试", "--type", "产品设计")
+		out, code := runInitBinary(t, dir, "-y", "-u", "测试", "--claude", "--type", "产品设计")
 		if code != 0 {
 			t.Fatalf("init 退出码 %d，输出：%s", code, out)
 		}

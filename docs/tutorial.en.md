@@ -38,7 +38,7 @@ Now initialize the demo project — the only terminal command you need before sw
 ```sh
 mkdir demo && cd demo
 git init
-sunshine init -u 演示者 -y
+sunshine init -u 演示者 -y --claude --cursor
 ```
 
 Real output:
@@ -58,7 +58,7 @@ Real output:
 
 (`-u` is the developer name; `-y` skips all prompts and uses the defaults. In English: "Configuring Claude Code… / Configuring Cursor… / Initialization complete, developer: 演示者 / Project type: 全栈 (default) / Installed platforms: Claude Code, Cursor / Next steps: 1. Open the project in the agent UI and state your first requirement in plain language; 2. The specs have been generated in .sunshine/spec/ from the default templates (generated: system.md, frontend.md, backend.md; add your team's specs if you have them); the workflow runs automatically following .sunshine/workflow.md and normally needs no changes.")
 
-The demo directory is empty, so nothing is detected; with `-y` skipping the prompt it defaults to fullstack, which is why the output above says `项目类型：全栈（默认）` ("Project type: fullstack (default)"). By default `init` installs Claude Code and Cursor and generates the Chinese `.sunshine/` skeleton with both platforms' configs.
+The demo directory is empty, so nothing is detected; with `-y` skipping the prompt it defaults to fullstack, which is why the output above says `项目类型：全栈（默认）` ("Project type: fullstack (default)"). `init` requires at least one platform (none checked by default) and generates the Chinese `.sunshine/` skeleton with the selected platforms' configs.
 
 From here on, close the terminal and ask for your first requirement in the agent UI (section 2). All init operations — the interactive questions, the common options, the three modes, project-type detection, and what gets installed — are in the [appendix: command reference](#appendix-command-reference) at the end.
 
@@ -1676,7 +1676,7 @@ Example prompt (an example, not a record of a real session):
 
 > I want to build a web store with coupons from zero, design-first. Please follow the Sunshine workflow.
 >
-> Design runs per requirement, one loop at a time: for each requirement, ask me first to pin down that requirement's product logic (one question at a time, with your suggestion and trade-offs), record the answer in prd.md right away, write that requirement into doc/design/需求列表.md as an R-xxx line, then dispatch a prototype sub-agent to build or update that requirement's page from the requirements list. The prototype is a multi-page HTML demo with mock data — don't ask real or demo; don't ask about the tech stack in the design phase.
+> Design runs per requirement, one loop at a time: for each requirement, ask me first to pin down that requirement's product logic (one question at a time, each with 2–4 options — one marked as the recommendation with its trade-offs — plus a free-text 'fill in your own' option; the recommendation is only a suggestion, not a default, and never decides for you; go round by round against the requirements-dimension checklist until scope, boundaries, constraints, and acceptance criteria are all aligned), record the answer in prd.md right away, write that requirement into doc/design/需求列表.md as an R-xxx line, then dispatch a prototype sub-agent to build or update that requirement's page from the requirements list. The prototype is a multi-page HTML demo with mock data — don't ask real or demo; don't ask about the tech stack in the design phase.
 >
 > After the loop, generate the delivery document for the client as needed (the outline design is one possibility), then give me the final planning summary for review — by then the requirements list, the outline design, and the prototype pages are already in doc/. After the review passes, split it into sub-tasks per requirement and then implement.
 >
@@ -2116,7 +2116,7 @@ Everything not listed here — `task create/start/archive`, `task add-context/va
 
 #### What init asks (without `-y`, four questions in order)
 
-1. **Pick platforms** ("请选择要配置的 AI 编程平台", "Select the AI programming platforms to configure"): a multi-select of all 22 platforms, with Claude Code and Cursor checked by default; selecting none cancels the init ("未选择任何平台，初始化已取消。", "No platform selected, initialization cancelled.").
+1. **Pick platforms** ("请选择要配置的 AI 编程平台", "Select the AI programming platforms to configure"): a multi-select of all 22 platforms, with none checked by default; selecting none re-prompts until at least one is picked (Ctrl+C cancels).
 2. **Statusline confirmation** (only when Claude Code is selected): "是否为 Claude Code 安装状态栏……？" ("Install the statusline for Claude Code…?"), default no; pass `--with-statusline` to install it directly.
 3. **Pick a spec template** ("请选择规范模板", "Select a spec template"): "从零开始" (from scratch) by default, or "自定义" (enter a marketplace source and pick from it); with `--registry` the picker lists that marketplace's spec templates, and the picked one is installed instead of the blank specs.
 4. **Pick a project type** (only when nothing is detected): "检测不到项目类型，请选择" ("Project type not detected, please choose"): frontend / backend / fullstack / product design, default fullstack. Picking product design means the project starts design-first: it generates the full spec set — `system.md`, `frontend.md`, and `backend.md` — plus the `doc/` design templates (requirements list, outline design, prototype).
@@ -2130,7 +2130,7 @@ Project-type detection reads `package.json` dependencies and common frontend/bac
 | Option | What it does |
 | --- | --- |
 | `-u, --user <name>` | Developer name, written to `.sunshine/.developer`; priority: `-u` > git user.name > `developer`; new tasks default their creator and assignee to it |
-| `-y, --yes` | Skip all prompts: default platforms Claude Code + Cursor, default fullstack, default blank specs, no statusline |
+| `-y, --yes` | Skip all prompts: a platform flag is required to pick at least one platform, default fullstack, default blank specs, no statusline |
 | `-f, --force` | Rebuild the skeleton and platform files even when already initialized (see "Three modes" below) |
 | `--type <前端/后端/全栈/产品设计>` | Specify the project type explicitly (前端=frontend, 后端=backend, 全栈=fullstack, 产品设计=product design), skipping detection and the question |
 | `--registry <source>` | Template marketplace source: `gh:owner/repo`, a full git URL, an HTTP(S) URL, a `git@` address, or a local git repository path |

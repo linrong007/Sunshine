@@ -17,31 +17,31 @@ func TestRegistry(t *testing.T) {
 	// Platform 含 slice 字段，不能直接用 != 比较。
 	type core struct {
 		Name, Flag, ConfigDir, CmdRefPrefix, executorAI, userActionLabel string
-		DefaultChecked, AgentCapable, HasHooks, SupportsAgentSkills      bool
+		AgentCapable, HasHooks, SupportsAgentSkills                      bool
 	}
 	want := map[string]core{
-		"claude-code": {"Claude Code", "claude", ".claude", "/sunshine:", "Bash scripts or Task calls", "Slash commands", true, true, true, false},
-		"cursor":      {"Cursor", "cursor", ".cursor", "/sunshine-", "Bash scripts or Task calls", "Slash commands", true, true, true, false},
-		"codex":       {"Codex", "codex", ".codex", "$", "Bash scripts or tool calls", "Skills", false, true, false, true},
-		"kiro":        {"Kiro Code", "kiro", ".kiro/skills", "$", "Bash scripts or tool calls", "Skills", false, true, true, false},
-		"gemini":      {"Gemini CLI", "gemini", ".gemini", "/sunshine:", "Bash scripts or tool calls", "Slash commands", false, true, true, true},
-		"qoder":       {"Qoder", "qoder", ".qoder", "$", "Bash scripts or tool calls", "Skills", false, true, true, false},
-		"pi":          {"Pi Agent", "pi", ".pi", "/sunshine-", "Bash scripts or tool calls", "Slash commands", false, true, true, true},
-		"zcode":       {"ZCode", "zcode", ".zcode", "/sunshine:", "Bash scripts or Agent calls", "Skills", false, true, true, false},
-		"trae":        {"Trae", "trae", ".trae", "/sunshine-", "Bash scripts or tool calls", "Commands", false, true, true, false},
-		"omp":         {"Oh My Pi", "omp", ".omp", "/sunshine:", "Bash scripts or Task calls", "Slash commands", false, true, true, false},
-		"snow":        {"Snow CLI", "snow", ".snow/skills", "/sunshine-", "Bash scripts or Agent calls", "Skills", false, true, true, false},
-		"opencode":    {"OpenCode", "opencode", ".opencode", "/sunshine:", "Bash scripts or Task calls", "Slash commands", false, true, false, false},
-		"dsh":         {"DeepSeek Harness (dsh)", "dsh", ".dsh", "sunshine-", "Bash scripts or tool calls", "Skills", false, true, false, true},
-		"reasonix":    {"Reasonix", "reasonix", ".reasonix", "/skill sunshine-", "Bash scripts or tool calls", "Skills", false, true, false, false},
-		"grok":        {"Grok Build", "grok", ".grok", "/sunshine-", "Bash scripts or Agent calls", "Skills", false, true, false, false},
-		"kimi":        {"Kimi Code", "kimi", ".kimi-code", "/skill:sunshine-", "Bash scripts or Agent calls", "Slash commands", false, true, false, true},
-		"kilo":        {"Kilo CLI", "kilo", ".kilocode", "/sunshine:", "Bash scripts or file reads", "Workflows", false, false, false, false},
-		"antigravity": {"Antigravity", "antigravity", ".agent/workflows", "/", "Bash scripts or file reads", "Workflows", false, false, false, false},
-		"devin":       {"Devin", "devin", ".devin/workflows", "/sunshine-", "Bash scripts or file reads", "Workflows", false, false, false, false},
-		"codebuddy":   {"CodeBuddy", "codebuddy", ".codebuddy", "/sunshine:", "Bash scripts or Task calls", "Slash commands", false, true, true, false},
-		"copilot":     {"GitHub Copilot", "copilot", ".github/copilot", "/", "Bash scripts or tool calls", "Prompts", false, true, true, false},
-		"droid":       {"Factory Droid", "droid", ".factory", "/sunshine-", "Bash scripts or Task calls", "Slash commands", false, true, true, false},
+		"claude-code": {"Claude Code", "claude", ".claude", "/sunshine:", "Bash scripts or Task calls", "Slash commands", true, true, false},
+		"cursor":      {"Cursor", "cursor", ".cursor", "/sunshine-", "Bash scripts or Task calls", "Slash commands", true, true, false},
+		"codex":       {"Codex", "codex", ".codex", "$", "Bash scripts or tool calls", "Skills", true, false, true},
+		"kiro":        {"Kiro Code", "kiro", ".kiro/skills", "$", "Bash scripts or tool calls", "Skills", true, true, false},
+		"gemini":      {"Gemini CLI", "gemini", ".gemini", "/sunshine:", "Bash scripts or tool calls", "Slash commands", true, true, true},
+		"qoder":       {"Qoder", "qoder", ".qoder", "$", "Bash scripts or tool calls", "Skills", true, true, false},
+		"pi":          {"Pi Agent", "pi", ".pi", "/sunshine-", "Bash scripts or tool calls", "Slash commands", true, true, true},
+		"zcode":       {"ZCode", "zcode", ".zcode", "/sunshine:", "Bash scripts or Agent calls", "Skills", true, true, false},
+		"trae":        {"Trae", "trae", ".trae", "/sunshine-", "Bash scripts or tool calls", "Commands", true, true, false},
+		"omp":         {"Oh My Pi", "omp", ".omp", "/sunshine:", "Bash scripts or Task calls", "Slash commands", true, true, false},
+		"snow":        {"Snow CLI", "snow", ".snow/skills", "/sunshine-", "Bash scripts or Agent calls", "Skills", true, true, false},
+		"opencode":    {"OpenCode", "opencode", ".opencode", "/sunshine:", "Bash scripts or Task calls", "Slash commands", true, false, false},
+		"dsh":         {"DeepSeek Harness (dsh)", "dsh", ".dsh", "sunshine-", "Bash scripts or tool calls", "Skills", true, false, true},
+		"reasonix":    {"Reasonix", "reasonix", ".reasonix", "/skill sunshine-", "Bash scripts or tool calls", "Skills", true, false, false},
+		"grok":        {"Grok Build", "grok", ".grok", "/sunshine-", "Bash scripts or Agent calls", "Skills", true, false, false},
+		"kimi":        {"Kimi Code", "kimi", ".kimi-code", "/skill:sunshine-", "Bash scripts or Agent calls", "Slash commands", true, false, true},
+		"kilo":        {"Kilo CLI", "kilo", ".kilocode", "/sunshine:", "Bash scripts or file reads", "Workflows", false, false, false},
+		"antigravity": {"Antigravity", "antigravity", ".agent/workflows", "/", "Bash scripts or file reads", "Workflows", false, false, false},
+		"devin":       {"Devin", "devin", ".devin/workflows", "/sunshine-", "Bash scripts or file reads", "Workflows", false, false, false},
+		"codebuddy":   {"CodeBuddy", "codebuddy", ".codebuddy", "/sunshine:", "Bash scripts or Task calls", "Slash commands", true, true, false},
+		"copilot":     {"GitHub Copilot", "copilot", ".github/copilot", "/", "Bash scripts or tool calls", "Prompts", true, true, false},
+		"droid":       {"Factory Droid", "droid", ".factory", "/sunshine-", "Bash scripts or Task calls", "Slash commands", true, true, false},
 	}
 	for _, p := range reg {
 		w, ok := want[p.ID]
@@ -49,7 +49,7 @@ func TestRegistry(t *testing.T) {
 			t.Errorf("注册表出现未知平台 %q", p.ID)
 			continue
 		}
-		got := core{p.Name, p.Flag, p.ConfigDir, p.CmdRefPrefix, p.executorAI, p.userActionLabel, p.DefaultChecked, p.AgentCapable, p.HasHooks, p.SupportsAgentSkills}
+		got := core{p.Name, p.Flag, p.ConfigDir, p.CmdRefPrefix, p.executorAI, p.userActionLabel, p.AgentCapable, p.HasHooks, p.SupportsAgentSkills}
 		if got != w {
 			t.Errorf("平台 %s 的注册信息不对：%+v，期望 %+v", p.ID, got, w)
 		}
@@ -70,13 +70,6 @@ func TestRegistry(t *testing.T) {
 		if _, ok := ByID(id); !ok {
 			t.Errorf("ByID(%s) 应找到（E 路已接）", id)
 		}
-	}
-}
-
-func TestDefaultSelected(t *testing.T) {
-	got := DefaultSelected()
-	if len(got) != 2 || got[0] != "claude-code" || got[1] != "cursor" {
-		t.Errorf("DefaultSelected() = %v，期望 [claude-code cursor]", got)
 	}
 }
 

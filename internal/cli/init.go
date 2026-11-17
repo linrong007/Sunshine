@@ -207,7 +207,7 @@ GitHub Copilot、Factory Droid）。
 			if !skipSpec {
 				fmt.Printf("项目类型：%s（%s）\n", specType.DisplayName(), typeSource)
 			}
-			printPlatformSummary(installed, withStatusline)
+			printPlatformSummary(cwd, installed, withStatusline)
 			fmt.Println("下一步：")
 			fmt.Println("  1. 在 agent 界面里打开项目，直接用自然语言提第一个需求；")
 			if skipSpec {
@@ -236,7 +236,7 @@ GitHub Copilot、Factory Droid）。
 			if !skipSpec {
 				fmt.Printf("项目类型：%s（%s）\n", specType.DisplayName(), typeSource)
 			}
-			printPlatformSummary(installed, withStatusline)
+			printPlatformSummary(cwd, installed, withStatusline)
 			return nil
 		default:
 			// 增量模式：跳过 scaffold.Init，只安装新选的平台与 registry 模板。
@@ -253,7 +253,7 @@ GitHub Copilot、Factory Droid）。
 				if err != nil {
 					return err
 				}
-				printPlatformSummary(installed, withStatusline)
+				printPlatformSummary(cwd, installed, withStatusline)
 			}
 			if target != nil {
 				installRegistryTemplates(cwd, target, strategy)
@@ -541,9 +541,9 @@ func stdinIsTTY() bool {
 // resolvePlatformSelection 按 Trellis init.ts 的语义确定平台选择与 statusline：
 //
 //   - 显式传了任一平台 flag → 恰好安装这些平台；
-//   - 无 flag 且 -y → 默认选择（Claude Code + Cursor）；
-//   - 无 flag 且交互 → survey 多选，默认勾选 Claude Code 与 Cursor；
-//   - stdin 不是 TTY 且无 -y、无 flag → 回退到默认选择并打印中文说明。
+//   - 无 flag 且 -y，或 stdin 不是 TTY → 报错：须用平台 flag 至少选一个；
+//   - 无 flag 且交互 → survey 多选，默认一个都不勾选；不选则提示重选，
+//     直到选了至少一项（Ctrl+C 取消）。
 //
 // statusline：仅 Claude Code 入选时有效；已传 --with-statusline 或 -y 时不追问，
 // 否则在交互终端上用 survey Confirm 追问（默认不安装）。
@@ -573,14 +573,20 @@ func resolveSelection(in platformSelectionInput) ([]string, bool, error) {
 	case len(in.explicit) > 0:
 		selected = in.explicit
 	case in.yes:
-		selected = platforms.DefaultSelected()
+		return nil, false, errors.New("请至少选择一个平台：例如 sunshine init --claude，或去掉 -y 后交互选择")
 	case !in.isTTY:
-		fmt.Println("未检测到交互终端，使用默认平台选择：Claude Code、Cursor。")
-		selected = platforms.DefaultSelected()
+		return nil, false, errors.New("未检测到交互终端，请用平台 flag 至少选择一个平台，例如 sunshine init --claude")
 	default:
-		selected, err = promptPlatforms(platforms.DefaultSelected())
-		if err != nil {
-			return nil, false, fmt.Errorf("选择平台失败：%w", err)
+		// 默认一个都不勾选；不选则提示重选，直到选了至少一项。
+		for {
+			selected, err = promptPlatforms(nil)
+			if err != nil {
+				return nil, false, fmt.Errorf("选择平台失败：%w", err)
+			}
+			if len(selected) > 0 {
+				break
+			}
+			fmt.Println("请至少选择一个平台（按 Ctrl+C 取消）。")
 		}
 	}
 
@@ -666,8 +672,10 @@ func installPlatforms(cwd string, ids []string, withStatusline bool, force bool)
 
 // printPlatformSummary 打印平台安装小结；新装 Codex 时检测用户级
 // ~/.codex/config.toml 是否已开启 hooks：已开启只打印一行确认，未开启
-// 打印 CodexHooksHint（只提示，不代写用户级配置）。
-func printPlatformSummary(installed []string, withStatusline bool) {
+// 打印 CodexHooksHint（只提示，不代写用户级配置）。新装 DSH 时检测
+// git 根是否被上层目录劫持：劫持时打印 DshGitRootHint（只提醒，
+// 不自动 git init）。
+func printPlatformSummary(cwd string, installed []string, withStatusline bool) {
 	if len(installed) == 0 {
 		return
 	}
@@ -688,6 +696,11 @@ func printPlatformSummary(installed []string, withStatusline bool) {
 		}
 		if id == "zcode" {
 			fmt.Println(platforms.ZcodeSetupHint())
+		}
+		if id == "dsh" {
+			if ancestor, hijacked := platforms.GitRootHijack(cwd); hijacked {
+				fmt.Println(platforms.DshGitRootHint(ancestor))
+			}
 		}
 	}
 }

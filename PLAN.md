@@ -2959,3 +2959,32 @@ pre-commit install       # 在仓库根目录执行一次
 ## v0.5.20 发布记录（2026-11-17，已发布）
 
 内容：Windows 一键安装 install.ps1（上一节）。主提交本地 `8b1619a` → 远端 `6316f872ef37339a43a5b99f2347207184f6c0ec`，tree `5736d37ee828ae68a267fe7fa3cfd84f3caa1536`，父提交 `da2b8f9a68efa798dd7c9a90a68d18c4ccf7b82a`（PLAN.md 补 v0.5.19 发布记录）。Tag v0.5.20，tag 对象 `9f3bc098e70788b2b50cd85da171be02e3c9e662` → 6316f87（GitHub API 建）。发布 workflow（run 44019510738）与 CI 两路（44019510728、44019489057，同提交 push 与 tag 各一路）均 success。Release 非草稿，6 个资产（checksums.txt + darwin amd64/arm64、linux amd64/arm64、windows amd64）；changelog 含主提交 6316f87 与 da2b8f9。一键装：macOS/Linux 用 install.sh，Windows（PowerShell）用 `irm https://raw.githubusercontent.com/linrong007/Sunshine/main/install.ps1 | iex`。
+
+## 提问格式统一为选项式（2026-11-17，用户批准，未发版）
+
+起因：demo12（卖书商城后台，DSH 网页版）里 R-001 提问只有一个自由输入框，用户不知道怎么答；用户定：以后每个问题都给选项，问询要全面、把所有边界都对齐。
+1. 格式：每次只问一个问题，给出 2–4 个选项，其中一个标明是推荐项并写清取舍，外加一个“自己填写”的自由输入项；推荐项只是建议，不是默认选项，不替用户选。
+2. 全面：每个需求和任务的问询要全面，把范围、边界、约束、验收标准都问清对齐了再往下走；全面不是一次全问完，还是一次一个问题，对照需求维度清单一轮一轮问到全部对齐为止，不要留含糊。skill 里已有的需求维度清单八个维度与“其余的进决策清单，下一轮接着问”机制不动，只把“问到全部对齐”写明确。
+3. 改动：brainstorm.md 提问规则（步骤 4、“每个问题必须包含”列表、需求维度清单引言）3 处；三份 workflow 模板（native/tdd 各 3 处、channel-driven 2 处：引导列表/按需求循环/前后端基础 1.1）8 处；docs/tutorial.md §12.6 开场提示词 1 处；docs/tutorial.en.md 对应英文句 1 处。旧措辞“附上你的建议与取舍”在 templates/ 与 docs/ 规范正文里 0 残留（PLAN.md 历史记录里的 3 处不动）。
+4. 顺带修正：DSH.md 里“网页版 Harness 只发现 `.dsh/skills/`”一句是错的（2026-11-17 调查：网页版设计上支持项目 skill，文件与 provider 已排除，疑似会话 cwd/托管端问题，待定位），能力表与文件对照共 3 处改成“网页版会话里 skill 工具报 unknown，文件与 provider 已排除，疑似会话 cwd/托管端问题，待定位；agent 直接读文件可绕过”。
+验收：go build/vet/gofmt、全量测试 21 包全过；沙箱 `init --dsh` 与 `init`（默认）装出的 brainstorm skill 与 workflow.md 均含新措辞，旧措辞 0 处。
+发版：本批不发版，跟下版走，等用户点选。
+
+## init --dsh 检测 git 根劫持（2026-11-17，用户批准：只检测提醒，不自动建仓库）
+
+起因：demo12（卖书商城后台，DSH 网页版）里 skill 工具报 unknown，文件、provider、cwd、版本、重启全排除后破案：demo12 里 `git rev-parse --show-toplevel` = `/Users/ethan`——家目录本身是个 git 仓库；DSH 按“最近一个含 .git 的祖先”定项目根，根被劫持到 ~，provider 扫的是 `~/.dsh/skills`，当然找不到。修复是在 demo12 里 `git init`，已确认 skill 恢复。
+1. 新文件 internal/platforms/gitroot.go：GitRootHijack(dir) 往上找最近一个含 .git 的祖先（目录或 worktree 的 gitdir 文件都算），找到的根不是项目目录本身时返回 (根, true)；项目自己有 .git 或往上无 .git 时返回 ("", false)。DshGitRootHint(ancestor) 返回中文警告：点明劫持根、skill 报 unknown、修复命令（项目目录跑 git init，只新建空仓库不动上层仓库，重启 dsh web 并开新会话）。
+2. internal/cli/init.go：printPlatformSummary 加 cwd 参数（3 处调用点同步改），新装 dsh 时调 GitRootHijack，劫持才打印警告；三种 init 模式（全新/-f/增量）共用该函数，全覆盖。只检测提醒，不自动建仓库：项目可能是有意放在父仓库里的，自动 git init 会打扰这种安排。
+3. DSH.md 同步修正：此前未发版批次里写的“疑似会话 cwd/托管端问题，待定位”已证伪，3 处（能力表 2 行 + 正文 1 处）改成根因口径——项目根被上层目录的 .git 劫持，项目里跑 git init 即可。
+4. 实施中抓到的 bug：第一版循环条件写成 parent != abs，到文件系统根时 Dir("/") 恒为 "/" 死循环——只在往上无 .git 时触发（单测 TestGitRootHijackNoGitAnywhere 跑了约 4 分钟无输出才发现），已改成“Dir(根)==根即停”，注释里写明禁区。附带：/tmp 曾被僵死的 go test 残留（459M go-build + 49M test-bin）占满 100%，构建报 no space，已清理。
+验收：新单测 3 个全过（劫持/无 .git/提示文案）；go build/vet/gofmt 全过；全量测试 21 包全过；沙箱三场景：祖先有 .git 打印警告且根路径正确、无 .git 与项目自有 .git 均 0 警告。
+发版：本批不发版，等用户点选（用户 14:42 问“需求发版吗”，答复：做完验证后可跟提问格式那批合在一起发一个版）。
+
+## init 默认不勾选任何平台（2026-11-17，用户定）
+
+起因：init 默认勾选 Claude Code 与 Cursor，用户定改成一个都不默认选，只有用户选择至少一项才继续。
+1. Go 代码：internal/platforms/platforms.go 删掉 DefaultChecked 字段（22 处初始值一并删）与 DefaultSelected()（原来返回 [claude-code cursor]）；internal/cli/init.go 的 resolveSelection 改三路——显式 flag 照旧；-y 或非交互终端且无 flag 时报错（“请至少选择一个平台：例如 sunshine init --claude，或去掉 -y 后交互选择”/“未检测到交互终端，请用平台 flag 至少选择一个平台，例如 sunshine init --claude”，退出码 1、不生成 .sunshine）；交互多选传 nil 默认值（一个都不勾选），不选则打印“请至少选择一个平台（按 Ctrl+C 取消）”重选，直到选了至少一项。handler 里“未选择任何平台，初始化已取消”一行留作兜底（新流程下已到不了）。
+2. 测试：platforms_test.go 的 core 结构与 22 条 want 映射去掉 DefaultChecked，删 TestDefaultSelected；init_test.go 里 -y 与非 TTY 两案改成断言报错含“至少选择一个平台”，交互两案断言多选收到的默认值为空，新增空选重选案（第一次空、第二次选 codex，确认问了两次）；init_projecttype_test.go 端到端 6 处调用各补 --claude（原来 -y 无 flag 全挂）。
+3. 文档：教程中英文 §1 演示命令补 --claude --cursor（输出本身不变，沙箱重跑核对过逐行一致）；§1 说明与附录“选平台”“-y”行同步改成“默认一个都不勾选、不选重选、-y 须用 flag 至少选一个”；README 中英文命令表里的 `sunshine init -u YourName -y` 示例补 --claude --cursor。
+验收：gofmt/build/vet 全过；全量测试 21 包全过；沙箱四场景：-y 无 flag 报错退出 1 且无 .sunshine、教程 §1 命令输出与教程记录逐行一致、--dsh -y 正常、非交互无 flag 报错退出 1。
+发版：本批不发版，等用户点选（与提问格式、git 根检测两批同树未提交）。

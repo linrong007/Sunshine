@@ -104,7 +104,7 @@ The commands the agent calls under the hood are not yours to type; below are the
 
 | Command | In one line | Most common example |
 | --- | --- | --- |
-| `init` | Initialize a project: generate the Chinese `.sunshine/` skeleton and platform configs; `--registry` installs specs from a template marketplace | `sunshine init -u YourName -y` |
+| `init` | Initialize a project: generate the Chinese `.sunshine/` skeleton and platform configs; `--registry` installs specs from a template marketplace | `sunshine init -u YourName -y --claude --cursor` |
 | `task` | Task management: create, start, finish, archive (the agent calls it under the hood; you check status with `task current` / `task list`) | `sunshine task create "给退款原因加必填校验" --description "退款时原因字段必填"` |
 | `workflow` | View or switch the workflow template used by `.sunshine/workflow.md` | `sunshine workflow --list` |
 | `update` | Sync the Sunshine template files in the project to the current CLI version | `sunshine update --dry-run` |

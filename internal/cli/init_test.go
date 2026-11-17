@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -61,49 +62,50 @@ func TestResolveSelectionExplicitWinsOverYes(t *testing.T) {
 	}
 }
 
-func TestResolveSelectionYesUsesDefaults(t *testing.T) {
+func TestResolveSelectionYesRequiresExplicitPlatform(t *testing.T) {
+	// -y 且无显式平台 flag：不默认选任何平台，直接报错。
 	stubPrompts(t,
 		func([]string) ([]string, error) { t.Error("-y 时不应弹出多选"); return nil, nil },
 		func() (bool, error) { t.Error("-y 时不应追问 statusline"); return false, nil },
 	)
-	selected, withStatusline, err := resolveSelection(platformSelectionInput{
+	_, _, err := resolveSelection(platformSelectionInput{
 		yes:   true,
 		isTTY: true,
 	})
-	if err != nil {
-		t.Fatalf("resolveSelection 失败：%v", err)
+	if err == nil {
+		t.Fatal("-y 且无平台 flag 时应报错")
 	}
-	if !reflect.DeepEqual(selected, []string{"claude-code", "cursor"}) {
-		t.Errorf("selected = %v，想得到 [claude-code cursor]", selected)
-	}
-	if withStatusline {
-		t.Error("-y 时 withStatusline 应为 false")
+	if !strings.Contains(err.Error(), "至少选择一个平台") {
+		t.Errorf("报错应提示至少选择一个平台，实际：%v", err)
 	}
 }
 
-func TestResolveSelectionNonTTYFallsBackToDefaults(t *testing.T) {
+func TestResolveSelectionNonTTYRequiresExplicitPlatform(t *testing.T) {
+	// 非 TTY 且无显式平台 flag：不回退到默认选择，直接报错。
 	stubPrompts(t,
 		func([]string) ([]string, error) { t.Error("非 TTY 时不应弹出多选"); return nil, nil },
 		func() (bool, error) { t.Error("非 TTY 时不应追问 statusline"); return false, nil },
 	)
-	selected, withStatusline, err := resolveSelection(platformSelectionInput{
+	_, _, err := resolveSelection(platformSelectionInput{
 		isTTY: false,
 	})
-	if err != nil {
-		t.Fatalf("resolveSelection 失败：%v", err)
+	if err == nil {
+		t.Fatal("非 TTY 且无平台 flag 时应报错")
 	}
-	if !reflect.DeepEqual(selected, []string{"claude-code", "cursor"}) {
-		t.Errorf("selected = %v，想得到 [claude-code cursor]", selected)
-	}
-	if withStatusline {
-		t.Error("非 TTY 时 withStatusline 应为 false")
+	if !strings.Contains(err.Error(), "至少选择一个平台") {
+		t.Errorf("报错应提示至少选择一个平台，实际：%v", err)
 	}
 }
 
 func TestResolveSelectionInteractiveAsksStatuslineOnlyForClaude(t *testing.T) {
-	// 交互选了 Claude：追问 statusline，回答是则装。
+	// 交互选了 Claude：追问 statusline，回答是则装。默认一个都不勾选。
 	stubPrompts(t,
-		func([]string) ([]string, error) { return []string{"claude-code", "codex"}, nil },
+		func(defaultIDs []string) ([]string, error) {
+			if len(defaultIDs) != 0 {
+				t.Errorf("交互多选默认应一个都不勾选，实际 %v", defaultIDs)
+			}
+			return []string{"claude-code", "codex"}, nil
+		},
 		func() (bool, error) { return true, nil },
 	)
 	selected, withStatusline, err := resolveSelection(platformSelectionInput{isTTY: true})
@@ -180,6 +182,37 @@ func TestResolveSelectionPromptError(t *testing.T) {
 	_, _, err := resolveSelection(platformSelectionInput{isTTY: true})
 	if err == nil {
 		t.Error("多选出错时应返回错误")
+	}
+}
+
+func TestResolveSelectionInteractiveEmptyReprompts(t *testing.T) {
+	// 交互第一次不选：提示重选，第二次选了才继续。
+	calls := 0
+	stubPrompts(t,
+		func(defaultIDs []string) ([]string, error) {
+			if len(defaultIDs) != 0 {
+				t.Errorf("交互多选默认应一个都不勾选，实际 %v", defaultIDs)
+			}
+			calls++
+			if calls == 1 {
+				return nil, nil
+			}
+			return []string{"codex"}, nil
+		},
+		func() (bool, error) { t.Error("未选 Claude 时不应追问 statusline"); return false, nil },
+	)
+	selected, withStatusline, err := resolveSelection(platformSelectionInput{isTTY: true})
+	if err != nil {
+		t.Fatalf("resolveSelection 失败：%v", err)
+	}
+	if calls != 2 {
+		t.Errorf("多选应问两次，实际 %d 次", calls)
+	}
+	if !reflect.DeepEqual(selected, []string{"codex"}) {
+		t.Errorf("selected = %v，想得到 [codex]", selected)
+	}
+	if withStatusline {
+		t.Error("未选 Claude 时 withStatusline 应为 false")
 	}
 }
 

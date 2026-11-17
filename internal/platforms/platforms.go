@@ -56,7 +56,6 @@ type Platform struct {
 	Name                string // "Claude Code" | "Cursor" | "Codex" | …
 	Flag                string // "claude" | "cursor" | "codex" | …
 	ConfigDir           string // 平台配置目录：".claude" | ".cursor" | ".codex" | …
-	DefaultChecked      bool   // claude/cursor 为 true，其余为 false
 	CmdRefPrefix        string // "/sunshine:" | "/sunshine-" | "$" | …
 	AgentCapable        bool
 	HasHooks            bool
@@ -163,7 +162,7 @@ func agentSkillCopies(tmplDir, skillsDir string) []PlatformFile {
 var registry = []Platform{
 	{
 		ID: "claude-code", Name: "Claude Code", Flag: "claude", ConfigDir: ".claude",
-		DefaultChecked: true, CmdRefPrefix: "/sunshine:",
+		CmdRefPrefix: "/sunshine:",
 		AgentCapable: true, HasHooks: true, SupportsAgentSkills: false,
 		SkillsDir: ".claude/skills",
 		CmdForm:   CmdFormSubdir, CmdDir: ".claude/commands/sunshine",
@@ -173,7 +172,7 @@ var registry = []Platform{
 	},
 	{
 		ID: "cursor", Name: "Cursor", Flag: "cursor", ConfigDir: ".cursor",
-		DefaultChecked: true, CmdRefPrefix: "/sunshine-",
+		CmdRefPrefix: "/sunshine-",
 		AgentCapable: true, HasHooks: true, SupportsAgentSkills: false,
 		SkillsDir: ".cursor/skills",
 		CmdForm:   CmdFormFlat, CmdDir: ".cursor/commands",
@@ -183,7 +182,7 @@ var registry = []Platform{
 	},
 	{
 		ID: "codex", Name: "Codex", Flag: "codex", ConfigDir: ".codex",
-		DefaultChecked: false, CmdRefPrefix: "$",
+		CmdRefPrefix: "$",
 		AgentCapable: true, HasHooks: false, SupportsAgentSkills: true,
 		SkillsDir: ".agents/skills", AutoSkillsNeutral: true,
 		CmdForm: CmdFormSkill, CmdDir: ".agents/skills", CmdAll: true, CmdNeutral: true,
@@ -201,7 +200,7 @@ var registry = []Platform{
 	},
 	{
 		ID: "kiro", Name: "Kiro Code", Flag: "kiro", ConfigDir: ".kiro/skills",
-		DefaultChecked: false, CmdRefPrefix: "$",
+		CmdRefPrefix: "$",
 		AgentCapable: true, HasHooks: true, SupportsAgentSkills: false,
 		ExtraManagedPaths: []string{".kiro/agents", ".kiro/hooks"},
 		SkillsDir:         ".kiro/skills",
@@ -220,7 +219,7 @@ var registry = []Platform{
 	},
 	{
 		ID: "gemini", Name: "Gemini CLI", Flag: "gemini", ConfigDir: ".gemini",
-		DefaultChecked: false, CmdRefPrefix: "/sunshine:",
+		CmdRefPrefix: "/sunshine:",
 		AgentCapable: true, HasHooks: true, SupportsAgentSkills: true,
 		SkillsDir: ".agents/skills", AutoSkillsNeutral: true,
 		CmdForm: CmdFormTOML, CmdDir: ".gemini/commands/sunshine",
@@ -230,7 +229,7 @@ var registry = []Platform{
 	},
 	{
 		ID: "qoder", Name: "Qoder", Flag: "qoder", ConfigDir: ".qoder",
-		DefaultChecked: false, CmdRefPrefix: "$",
+		CmdRefPrefix: "$",
 		AgentCapable: true, HasHooks: true, SupportsAgentSkills: false,
 		SkillsDir: ".qoder/skills",
 		CmdForm:   CmdFormFrontmatter, CmdDir: ".qoder/commands",
@@ -240,7 +239,7 @@ var registry = []Platform{
 	},
 	{
 		ID: "pi", Name: "Pi Agent", Flag: "pi", ConfigDir: ".pi",
-		DefaultChecked: false, CmdRefPrefix: "/sunshine-",
+		CmdRefPrefix: "/sunshine-",
 		AgentCapable: true, HasHooks: true, SupportsAgentSkills: true,
 		SkillsDir: ".agents/skills", AutoSkillsNeutral: true,
 		CmdForm: CmdFormFlat, CmdDir: ".pi/prompts", CmdAll: true,
@@ -253,7 +252,7 @@ var registry = []Platform{
 	},
 	{
 		ID: "zcode", Name: "ZCode", Flag: "zcode", ConfigDir: ".zcode",
-		DefaultChecked: false, CmdRefPrefix: "/sunshine:",
+		CmdRefPrefix: "/sunshine:",
 		AgentCapable: true, HasHooks: true, SupportsAgentSkills: false,
 		ExtraManagedPaths: []string{".zcode/cli/agents", ".zcode/agents", ".zcode/commands", ".zcode/skills", ".zcode/hooks"},
 		SkillsDir:         ".zcode/skills",
@@ -264,7 +263,7 @@ var registry = []Platform{
 	},
 	{
 		ID: "trae", Name: "Trae", Flag: "trae", ConfigDir: ".trae",
-		DefaultChecked: false, CmdRefPrefix: "/sunshine-",
+		CmdRefPrefix: "/sunshine-",
 		AgentCapable: true, HasHooks: true, SupportsAgentSkills: false,
 		SkillsDir: ".trae/skills",
 		CmdForm:   CmdFormFrontmatter, CmdDir: ".trae/commands",
@@ -274,7 +273,7 @@ var registry = []Platform{
 	},
 	{
 		ID: "omp", Name: "Oh My Pi", Flag: "omp", ConfigDir: ".omp",
-		DefaultChecked: false, CmdRefPrefix: "/sunshine:",
+		CmdRefPrefix: "/sunshine:",
 		AgentCapable: true, HasHooks: true, SupportsAgentSkills: false,
 		SkillsDir: ".omp/skills",
 		CmdForm:   CmdFormOMP, CmdDir: ".omp/commands",
@@ -286,7 +285,7 @@ var registry = []Platform{
 	},
 	{
 		ID: "snow", Name: "Snow CLI", Flag: "snow", ConfigDir: ".snow/skills",
-		DefaultChecked: false, CmdRefPrefix: "/sunshine-",
+		CmdRefPrefix: "/sunshine-",
 		AgentCapable: true, HasHooks: true, SupportsAgentSkills: false,
 		ExtraManagedPaths: []string{".snow/commands", ".snow/agents", ".snow/hooks", ".snow/SNOW.md"},
 		SkillsDir:         ".snow/skills",
@@ -302,7 +301,7 @@ var registry = []Platform{
 	},
 	{
 		ID: "opencode", Name: "OpenCode", Flag: "opencode", ConfigDir: ".opencode",
-		DefaultChecked: false, CmdRefPrefix: "/sunshine:",
+		CmdRefPrefix: "/sunshine:",
 		AgentCapable: true, HasHooks: false, SupportsAgentSkills: false,
 		SkillsDir: ".opencode/skills",
 		CmdForm:   CmdFormSubdir, CmdDir: ".opencode/commands/sunshine", CmdAll: true,
@@ -320,7 +319,7 @@ var registry = []Platform{
 	},
 	{
 		ID: "dsh", Name: "DeepSeek Harness (dsh)", Flag: "dsh", ConfigDir: ".dsh",
-		DefaultChecked: false, CmdRefPrefix: "sunshine-",
+		CmdRefPrefix: "sunshine-",
 		AgentCapable: true, HasHooks: false, SupportsAgentSkills: true,
 		SkillsDir: ".agents/skills", AutoSkillsNeutral: true,
 		MirrorSkillsToCmdDir: true,
@@ -330,7 +329,7 @@ var registry = []Platform{
 	},
 	{
 		ID: "reasonix", Name: "Reasonix", Flag: "reasonix", ConfigDir: ".reasonix",
-		DefaultChecked: false, CmdRefPrefix: "/skill sunshine-",
+		CmdRefPrefix: "/skill sunshine-",
 		AgentCapable: true, HasHooks: false, SupportsAgentSkills: false,
 		SkillsDir: ".reasonix/skills", ExcludeCheckSkill: true,
 		CmdForm: CmdFormSkill, CmdDir: ".reasonix/skills", CmdAll: true,
@@ -342,7 +341,7 @@ var registry = []Platform{
 	},
 	{
 		ID: "grok", Name: "Grok Build", Flag: "grok", ConfigDir: ".grok",
-		DefaultChecked: false, CmdRefPrefix: "/sunshine-",
+		CmdRefPrefix: "/sunshine-",
 		AgentCapable: true, HasHooks: false, SupportsAgentSkills: false,
 		ExtraManagedPaths: []string{".grok/skills", ".grok/commands", ".grok/agents"},
 		SkillsDir:         ".grok/skills",
@@ -352,7 +351,7 @@ var registry = []Platform{
 	},
 	{
 		ID: "kimi", Name: "Kimi Code", Flag: "kimi", ConfigDir: ".kimi-code",
-		DefaultChecked: false, CmdRefPrefix: "/skill:sunshine-",
+		CmdRefPrefix: "/skill:sunshine-",
 		AgentCapable: true, HasHooks: false, SupportsAgentSkills: true,
 		SkillsDir: ".agents/skills", AutoSkillsNeutral: true,
 		CmdForm: CmdFormSkill, CmdDir: ".kimi-code/skills", CmdAll: true,
@@ -362,7 +361,7 @@ var registry = []Platform{
 	},
 	{
 		ID: "kilo", Name: "Kilo CLI", Flag: "kilo", ConfigDir: ".kilocode",
-		DefaultChecked: false, CmdRefPrefix: "/sunshine:",
+		CmdRefPrefix: "/sunshine:",
 		AgentCapable: false, HasHooks: false, SupportsAgentSkills: false,
 		SkillsDir: ".kilocode/skills",
 		CmdForm:   CmdFormWorkflow, CmdDir: ".kilocode/workflows", CmdAll: true,
@@ -370,7 +369,7 @@ var registry = []Platform{
 	},
 	{
 		ID: "antigravity", Name: "Antigravity", Flag: "antigravity", ConfigDir: ".agent/workflows",
-		DefaultChecked: false, CmdRefPrefix: "/",
+		CmdRefPrefix: "/",
 		AgentCapable: false, HasHooks: false, SupportsAgentSkills: false,
 		ExtraManagedPaths: []string{".agent/skills"},
 		SkillsDir:         ".agent/skills",
@@ -379,7 +378,7 @@ var registry = []Platform{
 	},
 	{
 		ID: "devin", Name: "Devin", Flag: "devin", ConfigDir: ".devin/workflows",
-		DefaultChecked: false, CmdRefPrefix: "/sunshine-",
+		CmdRefPrefix: "/sunshine-",
 		AgentCapable: false, HasHooks: false, SupportsAgentSkills: false,
 		ExtraManagedPaths: []string{".devin/skills"},
 		SkillsDir:         ".devin/skills",
@@ -388,7 +387,7 @@ var registry = []Platform{
 	},
 	{
 		ID: "codebuddy", Name: "CodeBuddy", Flag: "codebuddy", ConfigDir: ".codebuddy",
-		DefaultChecked: false, CmdRefPrefix: "/sunshine:",
+		CmdRefPrefix: "/sunshine:",
 		AgentCapable: true, HasHooks: true, SupportsAgentSkills: false,
 		SkillsDir: ".codebuddy/skills",
 		CmdForm:   CmdFormSubdir, CmdDir: ".codebuddy/commands/sunshine",
@@ -398,7 +397,7 @@ var registry = []Platform{
 	},
 	{
 		ID: "copilot", Name: "GitHub Copilot", Flag: "copilot", ConfigDir: ".github/copilot",
-		DefaultChecked: false, CmdRefPrefix: "/",
+		CmdRefPrefix: "/",
 		AgentCapable: true, HasHooks: true, SupportsAgentSkills: false,
 		ExtraManagedPaths: []string{".github/agents", ".github/copilot-instructions.md", ".github/hooks", ".github/prompts", ".github/skills"},
 		SkillsDir:         ".github/skills",
@@ -418,7 +417,7 @@ var registry = []Platform{
 	},
 	{
 		ID: "droid", Name: "Factory Droid", Flag: "droid", ConfigDir: ".factory",
-		DefaultChecked: false, CmdRefPrefix: "/sunshine-",
+		CmdRefPrefix: "/sunshine-",
 		AgentCapable: true, HasHooks: true, SupportsAgentSkills: false,
 		SkillsDir: ".factory/skills",
 		CmdForm:   CmdFormSubdir, CmdDir: ".factory/commands/sunshine",
@@ -449,17 +448,6 @@ func ByID(id string) (Platform, bool) {
 		}
 	}
 	return Platform{}, false
-}
-
-// DefaultSelected 返回默认勾选的平台 ID（Claude Code 与 Cursor）。
-func DefaultSelected() []string {
-	var ids []string
-	for _, p := range registry {
-		if p.DefaultChecked {
-			ids = append(ids, p.ID)
-		}
-	}
-	return ids
 }
 
 // CodexHooksHint 返回 init 完成后打印的 Codex hooks 启用提示（中文）。

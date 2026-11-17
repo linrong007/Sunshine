@@ -3001,3 +3001,7 @@ pre-commit install       # 在仓库根目录执行一次
 3. 测试：新增 internal/cli/init_gitroot_test.go——单测 dshGitRootWarning 四情形（装+劫持应警告、装+自有 .git 不警告、没装不警告、装+无 .git 不警告）；端到端 TestInitRerunWarnsDshGitRootHijack（三连跑：全新、增量重跑、增量装 codex，每次都应警告且含劫持根）。
 验收：gofmt/build/vet 全过；全量测试 21 包全过；沙箱三场景：全新、增量重跑、增量装 codex 各 1 次警告，文案与劫持根路径正确。
 发版：本批不发版，等用户点选。
+
+## v0.5.22 发布记录（2026-11-17，已发布）
+
+内容：修 init 警告只看本次安装列表的漏——改按项目状态查，项目里装了 DSH 就查 git 根劫持，增量重跑也提示。主提交本地 `1fe3f060d7ceb1678b229d0b1a378c5b016c812b` → 远端 `32555aef48b2e8659f8fe204168b1fadd6482f91`，tree `fc4a91d42c41d6959670bbbf92b7786bcfddebf8`，父提交 `280abc746c51da66f487647d1d2edf31bcfeb040`。Tag v0.5.22，tag 对象 `01767f8f0ba11ef7c8b42de3ceb08710b80095b4` → 32555ae（GitHub API 建，annotated tag）。发布 workflow（run 44038685723）与 CI 两路（44038642310 main、44038685746 v0.5.22，同提交 push 与 tag 各一路）均 success。Release（id 448288361）非草稿、非预发布，6 个资产（checksums.txt + darwin amd64/arm64、linux amd64/arm64、windows amd64）。一键装：macOS/Linux 用 `curl -fsSL https://raw.githubusercontent.com/linrong007/Sunshine/main/install.sh | sh`，Windows（PowerShell）用 `irm https://raw.githubusercontent.com/linrong007/Sunshine/main/install.ps1 | iex`。

@@ -23,7 +23,7 @@ AI writes code fast, but every session it starts from scratch — no memory of y
 
 ## Prerequisites
 
-- macOS or Linux (Windows: download the matching zip from [Releases](https://github.com/linrong007/Sunshine/releases), unzip it, and put `sunshine.exe` on your PATH).
+- macOS or Linux (Windows: run `irm https://raw.githubusercontent.com/linrong007/Sunshine/main/install.ps1 | iex` in PowerShell).
 - Nothing else — no runtime to install.
 
 ## Quick Start
@@ -37,6 +37,12 @@ sunshine init -u your-name
 
 # 3. Or initialize with only the platforms you use
 sunshine init --codex -y -u your-name
+```
+
+Windows (PowerShell):
+
+```powershell
+irm https://raw.githubusercontent.com/linrong007/Sunshine/main/install.ps1 | iex
 ```
 
 Install a specific version (v0.5.0 is the current Release):

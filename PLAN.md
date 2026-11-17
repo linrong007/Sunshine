@@ -2945,3 +2945,13 @@ pre-commit install       # 在仓库根目录执行一次
 ## v0.5.19 发布记录（2026-11-17，已发布）
 
 内容：DSH 网页版 Harness skill 镜像（上一节）。主提交本地 `856d6fb` → 远端 `dbd8661e67f0451d0e95843fb5cc69b073aa9a62`，tree `927cbfdb8a9038d156e52bfc00a01aa7b69c03ac`，父提交 `733c1a3f7598dae8d45fb6298ac6a8ea5eaab948`（教程 §12.2 提交）。Tag v0.5.19，tag 对象 `904866e8190c77ad5cf3076dd9540bc6ad4066ea` → dbd8661（GitHub API 建）。发布 workflow（run 44016501658）与 CI 两路（44016501632、44016475659，同提交 push 与 tag 各一路）均 success。Release 非草稿，6 个资产（checksums.txt + darwin amd64/arm64、linux amd64/arm64、windows amd64）；changelog 含主提交 dbd8661 与 733c1a3。一键装脚本：`curl -fsSL https://raw.githubusercontent.com/linrong007/Sunshine/main/install.sh | sh`。
+
+## Windows 一键安装 install.ps1（2026-11-17，用户定补）
+
+起因：install.sh 只支持 macOS/Linux，Windows 只能手动下载 zip；用户问有没有类似的，定补一个 install.ps1。
+1. 新文件 install.ps1（PowerShell 5.1+ 兼容）：用法 `irm https://raw.githubusercontent.com/linrong007/Sunshine/main/install.ps1 | iex`；指定版本走 `$env:SUNSHINE_VERSION` 或 `-Version` 参数；装到指定目录走 `$env:SUNSHINE_INSTALL_DIR` 或 `-InstallDir` 参数；默认装到 `$env:LOCALAPPDATA\Sunshine\bin`，并把该目录追加进用户级 PATH（同时更新当前会话 `$env:Path`，不写系统 PATH、不用管理员）。
+2. 流程与 install.sh 对齐：查最新版（先走 GitHub API releases/latest，失败再跟 releases/latest 跳转取 tag）→ 架构只认 AMD64（Release 只有 windows amd64 包，ARM64 报错明说）→ 下载 `sunshine_<ver>_windows_amd64.zip` + checksums.txt → SHA256 校验（Get-FileHash）→ Expand-Archive 解压 → 拷 sunshine.exe → 跑 `--version` 验证；TLS 1.2 先加上（老版 PS 5.1 默认可能更低）。
+3. README.md 与 README.cn.md：前置条件里的 Windows 手动步骤改成一键命令，快速上手补 Windows 一行。
+不做：ARM64 Windows 包（goreleaser 只出 amd64）；改 install.sh。
+验收：本机无 PowerShell，Windows 真机实测待用户；curl 核对 v0.5.19 zip 与 checksums.txt 可达且校验和在位；脚本逐行核对（TLS 1.2、重定向、PATH 追加去重、临时目录清理）。
+发版：本批不发版，等用户点选。

@@ -23,7 +23,7 @@ AI 写代码很快，但每次会话都从零开始——不记得你的项目�
 
 ## 前置条件
 
-- macOS 或 Linux（Windows：到 [Releases](https://github.com/linrong007/Sunshine/releases) 下载对应的 zip，解压后把 `sunshine.exe` 放进 PATH）。
+- macOS 或 Linux（Windows：在 PowerShell 里跑 `irm https://raw.githubusercontent.com/linrong007/Sunshine/main/install.ps1 | iex`）。
 - 不需要再装任何运行时。
 
 ## 快速上手
@@ -37,6 +37,12 @@ sunshine init -u 你的名字
 
 # 3. 或者只装你用的平台
 sunshine init --codex -y -u 你的名字
+```
+
+Windows（PowerShell）：
+
+```powershell
+irm https://raw.githubusercontent.com/linrong007/Sunshine/main/install.ps1 | iex
 ```
 
 装指定版本（v0.5.0 是当前 Release）：

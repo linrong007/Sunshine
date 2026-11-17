@@ -3022,3 +3022,7 @@ pre-commit install       # 在仓库根目录执行一次
 3. 测试：新增 internal/task/subagent_platform_test.go——HasSubagentPlatform 在 .dsh 下为真、无平台目录时为假；DSH 项目 task create 建出两个 jsonl；无子代理平台的项目不建。
 验收：gofmt/build/vet 全过；新单测 3 个全过、全量测试 21 包全过；沙箱端到端：init --dsh 后 task create 建出两个 jsonl，对照 init --kilo（非子代理平台）建出 0 个。
 发版：本批不发版，等用户点选（与开放式提问格式那批同树未提交）。
+
+## v0.5.23 发布记录（2026-11-17，已发布）
+
+内容：两批合发——①DSH 进子代理平台列表（subagentConfigDirs 加 .dsh，task create 建 implement/check.jsonl）；②提问格式定稿开放式（不限制单选、多选，但一定是选择：推荐+其它+手动填充；单选两批措辞已撤回，templates/ 与 docs/ 与 v0.5.21 一致）。主提交本地 `3f31fb9ba80a5db3fccb2f3a4a0f712e9df031f7` → 远端 `9baba91e01997d3c730467c922d74f94d69c44e5`，tree `35cc660834cfa3afd26835e2de3ba0a395bfd6dd`，父提交 `9415f3b8292bc6b662876425fa65f1619bf2a389`。Tag v0.5.23，tag 对象 `3fb27cc2e602eaffcc84d481b952cf10b6c2e840` → 9baba91（GitHub API 建，annotated tag）。发布 workflow（run 44042768373）与 CI 两路（44042768352 main push、44042705064 tag push，同提交 push 与 tag 各一路）均 success。Release（id 448316003）非草稿、非预发布，6 个资产（checksums.txt + darwin amd64/arm64、linux amd64/arm64、windows amd64）。一键装：macOS/Linux 用 `curl -fsSL https://raw.githubusercontent.com/linrong007/Sunshine/main/install.sh | sh`，Windows（PowerShell）用 `irm https://raw.githubusercontent.com/linrong007/Sunshine/main/install.ps1 | iex`。

@@ -664,7 +664,9 @@ func installPlatforms(cwd string, ids []string, withStatusline bool, force bool)
 	return installed, nil
 }
 
-// printPlatformSummary 打印平台安装小结；新装 Codex 时打印 hooks 启用提示。
+// printPlatformSummary 打印平台安装小结；新装 Codex 时检测用户级
+// ~/.codex/config.toml 是否已开启 hooks：已开启只打印一行确认，未开启
+// 打印 CodexHooksHint（只提示，不代写用户级配置）。
 func printPlatformSummary(installed []string, withStatusline bool) {
 	if len(installed) == 0 {
 		return
@@ -678,7 +680,11 @@ func printPlatformSummary(installed []string, withStatusline bool) {
 	}
 	for _, id := range installed {
 		if id == "codex" {
-			fmt.Println(platforms.CodexHooksHint())
+			if platforms.CodexHooksEnabled() {
+				fmt.Println("    ↳ Codex hooks 已开启（~/.codex/config.toml）")
+			} else {
+				fmt.Println(platforms.CodexHooksHint())
+			}
 		}
 		if id == "zcode" {
 			fmt.Println(platforms.ZcodeSetupHint())

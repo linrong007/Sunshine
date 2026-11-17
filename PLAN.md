@@ -2879,3 +2879,51 @@ pre-commit install       # 在仓库根目录执行一次
 **修（2026-11-16）**：核对后定为改 skill 口径，不动模板。根因不是 init 漏了文件：Sunshine 的 index.md 是按包/层拆分的子目录索引（workflow 与 research agent 均指 `.sunshine/spec/<包名>/<分层>/index.md`），扁平根目录（system/frontend/backend.md）本就用各文件头上的 `## 索引` 节导航；skill 的“保留 index.md”一句没写清适用范围，子代理才在根目录新建了一个。改两处 skill 措辞（SKILL.md 完成标准、spec-writing.md 文件结构）：子目录各配 index.md、根目录不另设。另核：spec-index 机制对无 `##` 节的文件原样不动，CheckDir 也不报，旧版子代理建的根 index.md 即便留下也不会被同步改坏。验证：旧措辞 grep 0 处、新措辞两处在位；go build/vet/gofmt、全量 21 包测试全过；新二进制 init 实测 spec/ 仍只有三份文件、装上的 skill 是新措辞。
 
 **发布（2026-11-16）**：主提交本地 4d699d4 → 远端 **1c3fa43**（tree `cbdbf74`、父 2be4ad8、作者 linrong007、7 个文件、73 插入/2 删除）。tag v0.5.17 对象 **ac34eac** → 1c3fa43。发布 run **43855462483** success；两路 CI 43855411927、43855462393 均 success（本次无抖动）。Release https://github.com/linrong007/Sunshine/releases/tag/v0.5.17，6 资产非草稿，changelog 含 1c3fa43。验证全过：darwin arm64 checksum `891a3d1a…4310e`、Mach-O 64-bit arm64、linux 版报 0.5.17、一键装装上 0.5.17、v0.5.16 二进制 upgrade --dry-run 查到 0.5.17。验证插曲：/tmp 曾满到 100%，首轮解包截断，清理旧验证目录后重验通过。
+
+## DSH 功能补齐（2026-11-17，三档，用户已批准全排上）
+
+背景：2026-11-17 对标 Claude 核查，DSH 核心闭环已 headless 实跑通过（dsh 0.2.2-rc.1，deepseek-flash，`~/dsh-e2e`），但 5 处缺失 + 模板口径问题。用户定全排上、按档做。
+
+核查结论（已核实）：持平——任务全闭环、CLI、serve（DSH 项目烟雾测试通过）。缺失——hook 0/5 事件；子代理 0 定义；无斜杠面板；spec 索引手动；mem 无 DSH 适配器；Channel 只认 claude/codex（ValidProvider，runtime.go:74），channel-driven 模板 0 次提 DSH；原型强制 Task 派发但 DSH 无定义；tdd 模板 DSH 出现 0 次。可解性已核实：DSH 有 subagent/subagent_fork 工具（可传 prompt 派发两种子代理：继承对话/完全独立）；dsh-commands 斜杠注册表只在交互 UI 有、headless 没有；会话存 `~/.dsh/sessions/<项目>/session-<uuid>/session.v4.jsonl.zstd`（zstd 压 JSONL v4）；Go 尚无 zstd 直接依赖（仅 klauspost/cpuid 间接）。
+
+第一档（只改模板与 skill 文字，不改 Go 代码）：
+1. 派发规则授权 DSH：native/tdd workflow 的“inline 分支只属于 Codex”改为 DSH 也可走 subagent 工具派发（自包含 prompt，角色步骤写进 prompt；check 派发时附 skill 文件。仿 Kimi Code 借内置 agent 的写法）；planning-inline/in_progress-inline 分支加 DSH。
+2. tdd 模板 inline 分组加 DSH（与 native 一致：`[codex-inline, Kilo, Antigravity, Devin, DeepSeek Harness]`）。
+3. 原型走 subagent 工具派发（workflow 约 368 行）：DSH 上用 subagent 工具派 sunshine-prototype，附 skill 文件与需求列表路径；主会话仍不直接写原型。
+4. spec 索引提醒：workflow 与 update-spec skill 加一句——DSH 上改完 spec 就跑 `sunshine spec index`（无 PostToolUse 兜底）。
+5. DSH.md 同步更新（新授权的路 + 仍缺失的项）。
+验收：go build/vet/gofmt、全量测试全过；模板措辞 grep 核对；DSH headless 实跑一次子代理派发（implement 或 prototype 二选一），产物落盘为准。
+
+第二档（Go 代码）：
+6. mem 适配器：新增 DSH 适配器（读 session.v4.jsonl.zstd，zstd 解压 + v4 JSONL 解析），注册进 registry，测试钉住；新增 zstd 解压依赖（如无更轻的办法）。
+7. Channel DSH provider：ValidProvider 加 dsh；worker 用 `dsh --profile headless` 一次一任务 + `--session-id` 复用会话模拟常驻；channel-driven 模板补 DSH 路。
+验收：新测试全过、全量测试全过；mem 在 `~/dsh-e2e` 的真实会话文件上实跑出结果；channel DSH worker 实跑一次 send/recv。
+
+第三档（DSH 插件，TypeScript/Cordis）：
+8. 调研先行：DSH 插件 API（事件面：会话开始/工具调用/消息变换；dsh-commands 注册；各 profile 的插件加载方式，headless 是否加载同款插件；安装方式 `dsh plugin add`），输出调研结论再定实现范围。
+9. 实现：hook 等价物插件（session-start 注入、post-tool-use spec 索引同步）+ 斜杠命令注册（交互 UI）。
+验收：插件在 web 与 headless 下的加载情况如实记录；实跑验证。风险：DSH 0.2.x RC，官方明示会有不兼容改动，插件需跟随维护。
+
+不做：headless 下的斜杠命令面板（DSH 自己不提供）。
+
+发版：本批不发版，等用户点选。
+
+## Codex 对标 Claude Code（2026-11-17，用户定“对标 Claude Code”）
+
+目标：Codex 与 Claude Code 持平。核查结论（已核实）：Claude 5 个 hook 事件（SessionStart、PreToolUse、SubagentStop、PostToolUse、UserPromptSubmit）；Codex 已有 4 个（SessionStart、SubagentStart、SubagentStop、UserPromptSubmit），缺 PostToolUse。子代理 4 个、命令 3 条、skill 10 个、mem 适配器、Channel worker，两边都有。config.toml（max_depth=1、不写 multi_agent_v2）与 model 键保留是逐字移植。
+
+第一档（PostToolUse，Go + 模板）：
+1. `internal/hook/post_tool_use.go`：加 `apply_patch` 分支——Codex 的文件编辑走 apply_patch，不走 Edit/Write；分支内走整目录同步（与 Bash 同理；SyncDir 只写不同步的文件）。
+2. `templates/platforms/codex/hooks.json`：加 PostToolUse 条目，matcher `^(?:apply_patch|Bash)$`，调 `SUNSHINE_HOOK_PLATFORM=codex sunshine hook post-tool-use`，timeout 15。
+3. 测试：apply_patch 改 spec 后索引同步；非 spec 的 apply_patch 不动 spec；Bash 行为不变。
+依据：Codex 有 PostToolUse 事件（OpenAI hooks 文档，2026-11 核实；apply_patch 触发是 PR #18391 修的）。版本底线待 Mac 实测确认（桌面版内捆 CLI 版本未知）。
+验收：go build/vet/gofmt、全量测试全过；用 Codex 格式的 PostToolUse stdin（tool_name=apply_patch）模拟跑 hook，索引同步为准；沙箱 init --codex 装出文件裸 `{{` 0 处。
+
+第二档（init 检测用户级开关）：
+4. `platforms.CodexHooksEnabled()`：读 `~/.codex/config.toml`，检 `[features]` 下 `hooks = true`（兼容旧名 `codex_hooks = true`）；文件不存在或未开启都算未开启。
+5. `printPlatformSummary`：装了 codex 时，未开启打印现有 CodexHooksHint，已开启打印一行确认、不再重复提示。
+不做：自动改写用户级配置（只提示不代写）；自动过 /hooks 评审（Codex 自己的审批界面，一次性，须手动）。
+验收：有开关/无开关/无文件三种情形的单测；沙箱 init --codex 输出核对。
+
+不做：桌面版 hook 触发实测（须用户 Mac）。
+发版：本批不发版，等用户点选。（注：树上还有 DSH 一批未提交，两批同树，用户点选时一起定。）

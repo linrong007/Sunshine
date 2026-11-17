@@ -7,7 +7,7 @@
 //     context/title 等）；默认实现见 channel_real_backend.go，
 //     直接调 B 组 internal/channel API 包，list/rm/kill/prune 用
 //     A 组 store 原语组合（上游这四者本就实现在 CLI 层）。
-//   - WorkerRuntime：D 组提供 claude/codex 真实实现与测试用 stub；
+//   - WorkerRuntime：D 组提供 claude/codex/dsh 真实实现与测试用 stub；
 //     CLI 只持有 channelWorkerRuntime 变量并传给后端 SpawnWorker，
 //     绝不直接 spawn 进程。未注入 runtime 时 spawn 走 D 组
 //     supervisor.SpawnWorker（守卫 → 写配置 → 派生 supervisor 子进程）。
@@ -331,7 +331,7 @@ type InterruptOptions struct {
 // ---------------------------------------------------------------------------
 
 // WorkerRuntime 是拉起/打断/停止一个 worker 的运行时接口。
-// D 组提供 claude/codex 真实实现与测试用 stub；CLI 层不直接 spawn 进程。
+// D 组提供 claude/codex/dsh 真实实现与测试用 stub；CLI 层不直接 spawn 进程。
 type WorkerRuntime interface {
 	// Start 拉起 worker，返回 worker 身份与进程信息。
 	Start(ctx context.Context, opts WorkerStartOptions) (WorkerStartResult, error)

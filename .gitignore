@@ -16,3 +16,6 @@ coverage.html
 
 # 本地环境
 .env
+
+# 依赖（plugins/dsh 装出来的 node_modules，62M，不进库）
+node_modules/

@@ -6,6 +6,7 @@ require (
 	github.com/AlecAivazis/survey/v2 v2.3.7
 	github.com/gin-gonic/gin v1.12.0
 	github.com/go-git/go-git/v5 v5.19.3
+	github.com/klauspost/compress v1.18.2
 	github.com/skeema/knownhosts v1.3.1
 	github.com/spf13/cobra v1.10.2
 	golang.org/x/crypto v0.56.0

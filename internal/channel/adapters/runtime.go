@@ -127,6 +127,9 @@ func NewCodexWorkerRuntime(sink EventSink, log io.Writer) WorkerRuntime {
 
 // NewWorkerRuntime 按供应商建一个 worker runtime。
 func NewWorkerRuntime(provider Provider, sink EventSink, log io.Writer) (WorkerRuntime, error) {
+	if provider == ProviderDsh {
+		return NewDshWorkerRuntime(sink, log), nil
+	}
 	a, err := GetAdapter(provider)
 	if err != nil {
 		return nil, err

@@ -66,6 +66,30 @@ func TestPostToolUse_BashSyncsDir(t *testing.T) {
 	}
 }
 
+func TestPostToolUse_ApplyPatchSyncsDir(t *testing.T) {
+	root, _ := makeProject(t)
+	p := filepath.Join(root, ".sunshine", "spec", "backend.md")
+	mustWrite(t, p, "# 后端规范\n\n## 索引\n\n| 内容 | 位置 |\n| --- | --- |\n| 接口 | `## 接口` |\n\n## 接口\n\n## 新增节\n")
+	// Codex 的文件编辑走 apply_patch：patch 文本不解析，走整目录同步。
+	patch := "*** Begin Patch\n*** Update File: .sunshine/spec/backend.md\n@@\n+# 后端规范\n*** End Patch\n"
+	runPostToolUse(t, `{"hook_event_name":"PostToolUse","tool_name":"apply_patch","tool_input":{"input":`+strconv_quot(patch)+`},"cwd":`+strconv_quot(root)+`}`)
+	if !strings.Contains(specContent(t, root, "backend.md"), "| 新增节 |") {
+		t.Fatal("apply_patch 后应整目录同步，有索引节的 spec 文件索引表里应有新增节")
+	}
+}
+
+func TestPostToolUse_ApplyPatchNonSpecUnchanged(t *testing.T) {
+	root, _ := makeProject(t)
+	p := filepath.Join(root, ".sunshine", "spec", "backend.md")
+	orig := "# 后端规范\n\n## 索引\n\n索引是导航，不是替代：先读索引定位，再按需读正文；拿不准就读正文。\n\n| 内容 | 位置 |\n| --- | --- |\n| 接口 | `## 接口` |\n\n## 接口\n"
+	mustWrite(t, p, orig)
+	patch := "*** Begin Patch\n*** Update File: README.md\n@@\n+# 项目\n*** End Patch\n"
+	runPostToolUse(t, `{"hook_event_name":"PostToolUse","tool_name":"apply_patch","tool_input":{"input":`+strconv_quot(patch)+`},"cwd":`+strconv_quot(root)+`}`)
+	if got := specContent(t, root, "backend.md"); got != orig {
+		t.Fatalf("apply_patch 改非 spec 文件时，已同步的 spec 文件应原样不动，实际：\n%s", got)
+	}
+}
+
 func TestPostToolUse_BadInputNeverErrors(t *testing.T) {
 	root, _ := makeProject(t)
 	// 非 JSON、非 Edit/Write/Bash、缺 file_path：一律静默返回 nil。

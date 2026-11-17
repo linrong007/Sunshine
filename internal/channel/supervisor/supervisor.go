@@ -1,5 +1,5 @@
 // Package supervisor 实现 Sunshine channel 的 supervisor 进程：
-// 拥有一个 worker（claude 或 codex），桥接 worker 与频道事件日志。
+// 拥有一个 worker（claude、codex 或 dsh），桥接 worker 与频道事件日志。
 //
 // 运行方式：`sunshine channel __supervisor <channel> <worker> <config-path>`
 // （C 组在 CLI 预留入口，本包提供 RunSupervisor / RunSupervisorFromConfigFile）。

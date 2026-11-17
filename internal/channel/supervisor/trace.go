@@ -17,6 +17,7 @@ import (
 // 注意：codex trace 只含入站行（服务端 → 我们）；探针夹具录制的出站请求 id
 // 不在 trace 里；这里按上游做法预置 ctx 的待处理 id（1 为 initialize、
 // 2 为 thread/start、3 为 turn/start），id 匹配才能工作。
+// dsh trace 是 headless --json 事件流（session/text/tool_call/final 等）。
 func RunParseTrace(provider adapters.Provider, file string, w io.Writer) error {
 	f, err := os.Open(file)
 	if err != nil {
@@ -72,8 +73,23 @@ func RunParseTrace(provider adapters.Provider, file string, w io.Writer) error {
 		if err := scanner.Err(); err != nil {
 			return fmt.Errorf("读 trace 文件失败：%w", err)
 		}
+	} else if provider == adapters.ProviderDsh {
+		scanner := bufio.NewScanner(f)
+		scanner.Buffer(make([]byte, 64*1024), 4*1024*1024)
+		for scanner.Scan() {
+			totalLines++
+			line := scanner.Text()
+			if len(line) == 0 {
+				continue
+			}
+			result := adapters.ParseDshLine(line)
+			printTraceResult(w, totalLines, result, printEvent)
+		}
+		if err := scanner.Err(); err != nil {
+			return fmt.Errorf("读 trace 文件失败：%w", err)
+		}
 	} else {
-		return fmt.Errorf("无效的适配器 %q，应为 claude 或 codex", string(provider))
+		return fmt.Errorf("无效的适配器 %q，应为 claude、codex 或 dsh", string(provider))
 	}
 
 	// 结构化摘要行。

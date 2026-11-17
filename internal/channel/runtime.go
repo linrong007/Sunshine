@@ -30,7 +30,7 @@ type WorkerSpec struct {
 	Channel ChannelRef
 	// WorkerID 是 worker 名。
 	WorkerID string
-	// Provider 是 provider：claude 或 codex。
+	// Provider 是 provider：claude、codex 或 dsh。
 	Provider string
 	// Agent 是 agent 名（如 implement、check、research），可为空。
 	Agent string
@@ -69,7 +69,7 @@ func NowRFC3339() string {
 	return time.Now().UTC().Format(time.RFC3339Nano)
 }
 
-// ValidProvider 判断 provider 是否合法（claude 或 codex）。
+// ValidProvider 判断 provider 是否合法（claude、codex 或 dsh）。
 func ValidProvider(provider string) bool {
-	return provider == "claude" || provider == "codex"
+	return provider == "claude" || provider == "codex" || provider == "dsh"
 }

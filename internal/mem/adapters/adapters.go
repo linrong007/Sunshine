@@ -1,4 +1,4 @@
-// Package adapters 实现 7 个平台的会话适配器（只读）。
+// Package adapters 实现 8 个平台的会话适配器（只读）。
 package adapters
 
 import (
@@ -152,4 +152,25 @@ func (ZcodeAdapter) Dialogue(ctx context.Context, s mem.MemSessionInfo) ([]mem.D
 // Collect 一次读出对话轮次与任务命令事件（与 Dialogue 同源）。
 func (ZcodeAdapter) Collect(ctx context.Context, s mem.MemSessionInfo) ([]mem.DialogueTurn, []mem.MemEvent, []string, error) {
 	return zcodeCollect(ctx, s)
+}
+
+// DshAdapter 读 DSH 会话（~/.dsh/sessions，zstd 压的 JSONL v4）。
+type DshAdapter struct{}
+
+// Kind 返回平台标识。
+func (DshAdapter) Kind() mem.MemSourceKind { return mem.MemSourceDsh }
+
+// Sessions 列出 DSH 会话。
+func (DshAdapter) Sessions(ctx context.Context, home string) ([]mem.MemSessionInfo, []string, error) {
+	return dshSessions(ctx, home)
+}
+
+// Dialogue 读出一次 DSH 会话的对话。
+func (DshAdapter) Dialogue(ctx context.Context, s mem.MemSessionInfo) ([]mem.DialogueTurn, []string, error) {
+	return dshDialogue(ctx, s)
+}
+
+// Collect 一次读出对话轮次与任务命令事件（与 Dialogue 同源）。
+func (DshAdapter) Collect(ctx context.Context, s mem.MemSessionInfo) ([]mem.DialogueTurn, []mem.MemEvent, []string, error) {
+	return dshCollect(ctx, s)
 }

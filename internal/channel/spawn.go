@@ -30,7 +30,7 @@ func SpawnWorker(ctx context.Context, input SpawnWorkerOptions, runtime WorkerRu
 		return WorkerState{}, fmt.Errorf("spawn worker %q 缺少 systemPrompt", input.WorkerID)
 	}
 	if input.Provider != "" && !ValidProvider(input.Provider) {
-		return WorkerState{}, fmt.Errorf("provider %q 无效，应为 claude 或 codex", input.Provider)
+		return WorkerState{}, fmt.Errorf("provider %q 无效，应为 claude、codex 或 dsh", input.Provider)
 	}
 	policy, err := parseInboxPolicyOpt(input.InboxPolicy)
 	if err != nil {

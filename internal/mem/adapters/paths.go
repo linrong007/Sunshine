@@ -212,6 +212,11 @@ func PiSessionRoots(home, cwd string) []string {
 	return out
 }
 
+// DshSessionsDir 返回 ~/.dsh/sessions。
+func DshSessionsDir(home string) string {
+	return filepath.Join(home, ".dsh", "sessions")
+}
+
 // ClaudeProjectDirFromCwd 把 cwd 转成 Claude 的项目目录名：
 // 每个路径分隔符（/ 与 \）、盘符冒号（:）、下划线、点都换成 -。
 func ClaudeProjectDirFromCwd(home, cwd string) string {

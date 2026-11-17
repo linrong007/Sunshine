@@ -15,6 +15,8 @@ project_doc_fallback_filenames = ["AGENTS.md"]
 # config.toml 无法设置功能开关；它们必须放在用户级。
 # Codex 0.129+ 还会把每个已安装的 hook 交给一次性的
 # `/hooks` 界面评审；用户批准前，hook 保持未激活。
+# `sunshine init --codex` 会检测用户级开关：已开启只打印一行确认，
+# 未开启打印上方的启用提示（只提示，不代写用户级配置）。
 
 # 注意：Sunshine 有意不在此处写 `[features.multi_agent_v2]`
 # 配置块。Codex CLI 在 0.130 与 0.131 之间改了 `features` 的反序列化：

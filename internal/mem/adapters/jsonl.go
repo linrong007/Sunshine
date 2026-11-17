@@ -19,9 +19,15 @@ func ReadJSONL(path string, onLine func(obj map[string]any) bool) []string {
 		return []string{fmt.Sprintf("无法打开会话文件（%s）：%v，已跳过", path, err)}
 	}
 	defer f.Close()
+	return ReadJSONLReader(f, path, onLine)
+}
 
+// ReadJSONLReader 与 ReadJSONL 同语义，但从已打开的流里读
+// （DSH 的会话文件是 zstd 压缩的，先解压再按行解析）。
+// name 是警告里用的来源名（通常是文件路径）。
+func ReadJSONLReader(r io.Reader, name string, onLine func(obj map[string]any) bool) []string {
 	badLines := 0
-	reader := bufio.NewReaderSize(f, 256*1024)
+	reader := bufio.NewReaderSize(r, 256*1024)
 	for {
 		line, err := reader.ReadString('\n')
 		if line != "" {
@@ -48,7 +54,7 @@ func ReadJSONL(path string, onLine func(obj map[string]any) bool) []string {
 		}
 	}
 	if badLines > 0 {
-		return []string{fmt.Sprintf("文件 %s：跳过 %d 行无法解析的内容", path, badLines)}
+		return []string{fmt.Sprintf("文件 %s：跳过 %d 行无法解析的内容", name, badLines)}
 	}
 	return nil
 }

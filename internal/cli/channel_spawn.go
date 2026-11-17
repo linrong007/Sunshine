@@ -23,8 +23,8 @@ import (
 func newChannelSpawnCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "spawn <name>",
-		Short: "注册一个 worker（claude/codex）进 channel",
-		Long: `注册一个 worker（claude/codex）进 channel。
+		Short: "注册一个 worker（claude/codex/dsh）进 channel",
+		Long: `注册一个 worker（claude/codex/dsh）进 channel。
 
 worker 注册后空闲等待第一条 send --to 才工作。
 --agent 加载 .sunshine/agents/<名>.md，设定默认 provider / model /
@@ -65,7 +65,7 @@ system prompt；--provider 与 --model 可覆盖 agent 的默认值。
 func addSpawnFlags(cmd *cobra.Command) {
 	addScopeFlag(cmd)
 	cmd.Flags().String("agent", "", "加载 .sunshine/agents/<名>.md（设定默认 provider / model / system prompt）")
-	cmd.Flags().String("provider", "", "worker 提供方：claude 或 codex（覆盖 agent 的默认值）")
+	cmd.Flags().String("provider", "", "worker 提供方：claude、codex 或 dsh（覆盖 agent 的默认值）")
 	cmd.Flags().String("as", "", "worker 在 channel 里的名字（默认用 agent 名）")
 	cmd.Flags().String("cwd", "", "worker 工作目录（默认当前工作目录）")
 	cmd.Flags().String("model", "", "模型覆盖")
@@ -123,10 +123,10 @@ func parseSpawnFlags(cmd *cobra.Command, channelName string) (SpawnWorkerOptions
 		}
 	}
 	if provider == "" {
-		return opts, fmt.Errorf("缺少 --provider（且 agent 定义里也没有 provider）：须为 claude 或 codex")
+		return opts, fmt.Errorf("缺少 --provider（且 agent 定义里也没有 provider）：须为 claude、codex 或 dsh")
 	}
-	if provider != "claude" && provider != "codex" {
-		return opts, fmt.Errorf("--provider 须为 claude 或 codex，当前是 %q", provider)
+	if provider != "claude" && provider != "codex" && provider != "dsh" {
+		return opts, fmt.Errorf("--provider 须为 claude、codex 或 dsh，当前是 %q", provider)
 	}
 	if as == "" {
 		return opts, fmt.Errorf("缺少 --as（没有 worker 名可 fallback：传 --as 或用 --agent 指定 agent）")
@@ -497,7 +497,7 @@ func newChannelRunCmd() *cobra.Command {
 	// flags 与 spawn 大致相同，另有 --message/--message-file/--stdin。
 	addScopeFlag(cmd)
 	cmd.Flags().String("agent", "", "加载 .sunshine/agents/<名>.md（设定默认 provider / model / system prompt）")
-	cmd.Flags().String("provider", "", "worker 提供方：claude 或 codex（覆盖 agent 的默认值）")
+	cmd.Flags().String("provider", "", "worker 提供方：claude、codex 或 dsh（覆盖 agent 的默认值）")
 	cmd.Flags().String("as", "", "worker 在 channel 里的名字（默认用 agent 名）")
 	cmd.Flags().String("cwd", "", "worker 工作目录（默认当前工作目录）")
 	cmd.Flags().String("model", "", "模型覆盖")

@@ -28,7 +28,7 @@ const memHelpText = `sunshine mem — 跨平台检索 Claude/Codex/Devin/Grok/Op
                                 先用它发现要传给 search 的 --cwd
 
 选项：
-  --platform claude|codex|devin|grok|opencode|pi|zcode|all   默认 all
+  --platform claude|codex|devin|grok|opencode|pi|zcode|dsh|all   默认 all
   --since YYYY-MM-DD                     含该日期的下限
   --until YYYY-MM-DD                     含该日期的上限
   --global                               检索全部项目（默认只检索当前项目）
@@ -118,7 +118,7 @@ extract <会话编号>、projects、help。
 		},
 	}
 	pf := memCmd.PersistentFlags()
-	pf.StringVar(&f.platform, "platform", "all", "只检索指定平台的会话：claude|codex|devin|grok|opencode|pi|zcode|all")
+	pf.StringVar(&f.platform, "platform", "all", "只检索指定平台的会话：claude|codex|devin|grok|opencode|pi|zcode|dsh|all")
 	pf.StringVar(&f.since, "since", "", "只列出该日期（含）之后的会话，格式 YYYY-MM-DD")
 	pf.StringVar(&f.until, "until", "", "只列出该日期（含）之前的会话，格式 YYYY-MM-DD")
 	pf.BoolVar(&f.global, "global", false, "检索全部项目（默认只检索当前项目）")

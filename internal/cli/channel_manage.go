@@ -770,8 +770,8 @@ func newChannelParseTraceCmd() *cobra.Command {
 		Args:   cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			adapter := args[0]
-			if adapter != "claude" && adapter != "codex" {
-				return fmt.Errorf("未知适配器 %q（可选：claude、codex）", adapter)
+			if adapter != "claude" && adapter != "codex" && adapter != "dsh" {
+				return fmt.Errorf("未知适配器 %q（可选：claude、codex、dsh）", adapter)
 			}
 			return runParseTraceFunc(context.Background(), adapter, args[1])
 		},

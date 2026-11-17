@@ -45,6 +45,18 @@
           }
         ]
       }
+    ],
+    "PostToolUse": [
+      {
+        "hooks": [
+          {
+            "command": "SUNSHINE_HOOK_PLATFORM=codex sunshine hook post-tool-use",
+            "timeout": 15,
+            "type": "command"
+          }
+        ],
+        "matcher": "^(?:apply_patch|Bash)$"
+      }
     ]
   }
 }

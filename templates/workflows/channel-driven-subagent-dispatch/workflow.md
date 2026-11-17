@@ -171,14 +171,14 @@ Channel 驱动的子代理派发是本工作流的默认执行模型。主会话
 
 ### 当前任务路由
 
-[Claude Code, Cursor, OpenCode, codex-sub-agent, Kiro, Gemini, Qoder, CodeBuddy, Copilot, Droid, Pi]
+[Claude Code, Cursor, OpenCode, codex-sub-agent, Kiro, Gemini, Qoder, CodeBuddy, Copilot, Droid, Pi, DeepSeek Harness]
 
 - 规划或需求不清 -> `sunshine-brainstorm`。
 - `in_progress` 的实现 -> `sunshine channel spawn --agent implement`。
 - `in_progress` 的质量检查 -> `sunshine channel spawn --agent check`。
 - 反复调试 -> `sunshine-break-loop`；规范更新 -> `sunshine-update-spec`。
 
-[/Claude Code, Cursor, OpenCode, codex-sub-agent, Kiro, Gemini, Qoder, CodeBuddy, Copilot, Droid, Pi]
+[/Claude Code, Cursor, OpenCode, codex-sub-agent, Kiro, Gemini, Qoder, CodeBuddy, Copilot, Droid, Pi, DeepSeek Harness]
 
 [codex-inline, Kilo, Antigravity, Devin]
 
@@ -310,7 +310,7 @@ sunshine task start <任务目录>
 
 #### 2.1 实现 `[required · repeatable]`
 
-[Claude Code, Cursor, OpenCode, codex-sub-agent, Kiro, Gemini, Qoder, CodeBuddy, Copilot, Droid, Pi]
+[Claude Code, Cursor, OpenCode, codex-sub-agent, Kiro, Gemini, Qoder, CodeBuddy, Copilot, Droid, Pi, DeepSeek Harness]
 
 用 channel 驱动的 implement 派发：
 
@@ -333,9 +333,11 @@ sunshine channel messages impl-<主题> --raw --from implement --last 20
 
 文件不存在时，省略对应的 `design.md` 或 `implement.md` 的 `--file`。简报必须写明工作线程目标、禁止事项、验证命令与预期的完成摘要。
 
+DeepSeek Harness 上每次 spawn 都加 `--provider dsh`（agent 文件默认 provider 是 claude；DSH worker 是 headless 一次一任务，`--session-id` 复用会话模拟常驻，模型用 profile 默认值）。
+
 只有用户明确要求，或必须用宿主专属能力时，才允许回退到原生子代理。
 
-[/Claude Code, Cursor, OpenCode, codex-sub-agent, Kiro, Gemini, Qoder, CodeBuddy, Copilot, Droid, Pi]
+[/Claude Code, Cursor, OpenCode, codex-sub-agent, Kiro, Gemini, Qoder, CodeBuddy, Copilot, Droid, Pi, DeepSeek Harness]
 
 [codex-inline, Kilo, Antigravity, Devin]
 
@@ -349,7 +351,7 @@ sunshine channel messages impl-<主题> --raw --from implement --last 20
 
 #### 2.2 质量检查 `[required · repeatable]`
 
-[Claude Code, Cursor, OpenCode, codex-sub-agent, Kiro, Gemini, Qoder, CodeBuddy, Copilot, Droid, Pi]
+[Claude Code, Cursor, OpenCode, codex-sub-agent, Kiro, Gemini, Qoder, CodeBuddy, Copilot, Droid, Pi, DeepSeek Harness]
 
 用 channel 驱动的 check 派发：
 
@@ -370,19 +372,23 @@ sunshine channel wait cr-<主题> --as main --kind done --from check --timeout 3
 sunshine channel messages cr-<主题> --raw --from check --last 40
 ```
 
-要做跨供应商的独立复核时，在同一个 channel 里派生 `check-cc` 与 `check-cx`：
+要做跨供应商的独立复核时，在同一个 channel 里派生 `check-cc`、`check-cx` 与 `check-dsh`：
 
 ```bash
 sunshine channel spawn cr-<主题> --agent check --provider claude --as check-cc --cwd "$PWD" --timeout 30m
 sunshine channel spawn cr-<主题> --agent check --provider codex --as check-cx --cwd "$PWD" --timeout 30m
+sunshine channel spawn cr-<主题> --agent check --provider dsh --as check-dsh --cwd "$PWD" --timeout 30m
 sunshine channel send cr-<主题> --as main --to check-cc --text-file /tmp/check-brief.md
 sunshine channel send cr-<主题> --as main --to check-cx --text-file /tmp/check-brief.md
-sunshine channel wait cr-<主题> --as main --kind done --from check-cc,check-cx --all --timeout 30m
+sunshine channel send cr-<主题> --as main --to check-dsh --text-file /tmp/check-brief.md
+sunshine channel wait cr-<主题> --as main --kind done --from check-cc,check-cx,check-dsh --all --timeout 30m
 ```
+
+DeepSeek Harness 上每次 spawn 都加 `--provider dsh`（同 2.1 的说明）。
 
 检查工作线程应该直接修复明确的问题。主会话读原始事件，做最终判断。
 
-[/Claude Code, Cursor, OpenCode, codex-sub-agent, Kiro, Gemini, Qoder, CodeBuddy, Copilot, Droid, Pi]
+[/Claude Code, Cursor, OpenCode, codex-sub-agent, Kiro, Gemini, Qoder, CodeBuddy, Copilot, Droid, Pi, DeepSeek Harness]
 
 [codex-inline, Kilo, Antigravity, Devin]
 

@@ -469,6 +469,54 @@ func CodexHooksHint() string {
 		"否则 .codex/hooks.json 不生效。"
 }
 
+// CodexHooksEnabled 检测用户级 ~/.codex/config.toml 是否已开启 hooks：
+// [features] 节下 hooks = true，或旧名 codex_hooks = true。文件不
+// 存在、读不出、未写开关都算未开启（调用方据此决定是否打印
+// CodexHooksHint）。只做行级扫描，不引 TOML 库：开关是裸布尔值，
+// 不必解析完整 TOML。
+func CodexHooksEnabled() bool {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return false
+	}
+	raw, err := os.ReadFile(filepath.Join(home, ".codex", "config.toml"))
+	if err != nil {
+		return false
+	}
+	inFeatures := false
+	for _, line := range strings.Split(string(raw), "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		if strings.HasPrefix(line, "[") {
+			// 节头：取方括号内名称比对，[features] 才进，别的节一律出
+			// （含 [features.x] 子节；方括号内空格与行尾注释都容忍）。
+			end := strings.Index(line, "]")
+			inFeatures = end > 0 && strings.TrimSpace(line[1:end]) == "features"
+			continue
+		}
+		if !inFeatures {
+			continue
+		}
+		if i := strings.Index(line, "#"); i >= 0 {
+			line = strings.TrimSpace(line[:i])
+		}
+		kv := strings.SplitN(line, "=", 2)
+		if len(kv) != 2 {
+			continue
+		}
+		key := strings.TrimSpace(kv[0])
+		if key != "hooks" && key != "codex_hooks" {
+			continue
+		}
+		if strings.TrimSpace(kv[1]) == "true" {
+			return true
+		}
+	}
+	return false
+}
+
 // InstallOptions 控制 Install 的安装行为。
 type InstallOptions struct {
 	WithStatusline bool // 仅 claude-code 有效：为 settings.json 注入 statusLine 段

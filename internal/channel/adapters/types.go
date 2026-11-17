@@ -1,6 +1,7 @@
 // Package adapters 实现 Sunshine channel 的 worker 适配器：
-// 把 claude / codex 两种 CLI 子进程的 JSONL 输出流解析成频道事件，
-// 并把频道消息编码成写回 worker stdin 的字节。
+// 把 claude / codex / dsh 三种 CLI 子进程的输出流解析成频道事件，
+// 并把频道消息编码成写回 worker stdin 的字节（dsh 用一次一任务的
+// headless 调用代替常驻进程，见 dsh.go）。
 //
 // 行为对照上游源码（packages/cli/src/commands/channel/adapters/，
 // commit f089cb3）：claude 用 `--input-format stream-json
@@ -24,7 +25,7 @@ import (
 	"github.com/linrong007/Sunshine/internal/channel/store"
 )
 
-// Provider 是 worker 适配器的供应商：目前只支持 claude 与 codex。
+// Provider 是 worker 适配器的供应商：目前支持 claude、codex 与 dsh。
 type Provider string
 
 const (
@@ -32,18 +33,20 @@ const (
 	ProviderClaude Provider = "claude"
 	// ProviderCodex 是 Codex 适配器。
 	ProviderCodex Provider = "codex"
+	// ProviderDsh 是 DeepSeek Harness 适配器（headless 一次一任务）。
+	ProviderDsh Provider = "dsh"
 )
 
 // Providers 是全部已注册供应商（按注册顺序）。
-var Providers = []Provider{ProviderClaude, ProviderCodex}
+var Providers = []Provider{ProviderClaude, ProviderCodex, ProviderDsh}
 
 // ParseProvider 校验供应商名。
 func ParseProvider(v string) (Provider, error) {
 	switch Provider(v) {
-	case ProviderClaude, ProviderCodex:
+	case ProviderClaude, ProviderCodex, ProviderDsh:
 		return Provider(v), nil
 	default:
-		return "", fmt.Errorf("无效的 --provider %q，应为 claude 或 codex", v)
+		return "", fmt.Errorf("无效的 --provider %q，应为 claude、codex 或 dsh", v)
 	}
 }
 
@@ -138,13 +141,14 @@ type Adapter interface {
 var registry = map[Provider]Adapter{
 	ProviderClaude: claudeAdapter{},
 	ProviderCodex:  codexAdapter{},
+	ProviderDsh:    dshAdapter{},
 }
 
 // GetAdapter 按供应商名取适配器；未注册时报错。
 func GetAdapter(provider Provider) (Adapter, error) {
 	a, ok := registry[provider]
 	if !ok {
-		return nil, fmt.Errorf("未知的供应商 %q（已注册：claude、codex）", string(provider))
+		return nil, fmt.Errorf("未知的供应商 %q（已注册：claude、codex、dsh）", string(provider))
 	}
 	return a, nil
 }

@@ -20,6 +20,7 @@ func TestRegistryAll(t *testing.T) {
 		mem.MemSourceOpencode,
 		mem.MemSourcePi,
 		mem.MemSourceZcode,
+		mem.MemSourceDsh,
 	}
 	if len(all) != len(want) {
 		t.Fatalf("适配器数量 = %d，想要 %d", len(all), len(want))

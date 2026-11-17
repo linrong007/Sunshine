@@ -205,12 +205,12 @@ sunshine task context --mode phase --step <X.Y>  # 某工作流步骤的详细�
 [/workflow-state:planning]
 
 <!-- 每轮面包屑：codex.dispatch_mode=inline 时在整个第 1 阶段显示。
-     Codex 专用的可选替代方案，对应 [workflow-state:planning]。主代理
+     Codex 与 DeepSeek Harness 的可选替代方案，对应 [workflow-state:planning]。主代理
      在第 2 阶段直接改代码，因此跳过 jsonl 整理——
      inline 工作流改用 `sunshine-before-dev` 加载上下文，而不是向子代理注入 JSONL。 -->
 
 [workflow-state:planning-inline]
-本分支仅 Codex 且 dispatch_mode=inline 时可用；Claude Code、Cursor 等支持子代理的平台一律走 [workflow-state:planning]，不得用本分支。
+本分支仅 Codex（dispatch_mode=inline）与 DeepSeek Harness（改动太小不值得派发，或用户要求 inline）时可用；Claude Code、Cursor 等支持子代理的平台一律走 [workflow-state:planning]，不得用本分支。
 加载 `sunshine-brainstorm`；留在规划阶段。
 轻量任务：`prd.md` 可能就够了。复杂任务：写完 `prd.md`、`design.md` 和 `implement.md`；`task start` 之前先请用户复核。
 多交付物范围：考虑父任务加多个可独立验证的子任务；依赖必须写进子任务产物，不能只靠树的位置暗示。
@@ -228,23 +228,23 @@ Inline 模式：跳过 jsonl 整理；第 2 阶段通过 `sunshine-before-dev` �
      必须覆盖从实现到提交的每一个必做步骤，包括第 3.3 步规范更新与
      第 3.4 步提交。 -->
 
-子代理派发协议适用于所有平台与所有子代理，包括原生的 Codex `SubagentStart` 上下文注入（带子代理侧拉取兜底）、二类 Gemini/Qoder/Copilot/Reasonix/Trae/Grok/Kimi Code、hook 支撑的 ZCode/Snow，以及 `sunshine-research`：每次派发提示词都以 `Active task: <task current 给出的任务路径>` 开头，再写角色专属指令。在 Grok Build 上用 `spawn_subagent`，`subagent_type` 设为 Sunshine 子代理名（例如 `sunshine-implement`）。在 Kimi Code 上派发内置的 `coder` / `explore` 子代理，并附上对应的 `.kimi-code/skills/sunshine-<角色>/SKILL.md` 指令。
+子代理派发协议适用于所有平台与所有子代理，包括原生的 Codex `SubagentStart` 上下文注入（带子代理侧拉取兜底）、二类 Gemini/Qoder/Copilot/Reasonix/Trae/Grok/Kimi Code、hook 支撑的 ZCode/Snow，以及 `sunshine-research`：每次派发提示词都以 `Active task: <task current 给出的任务路径>` 开头，再写角色专属指令。在 Grok Build 上用 `spawn_subagent`，`subagent_type` 设为 Sunshine 子代理名（例如 `sunshine-implement`）。在 Kimi Code 上派发内置的 `coder` / `explore` 子代理，并附上对应的 `.kimi-code/skills/sunshine-<角色>/SKILL.md` 指令。在 DeepSeek Harness 上用 `subagent` 工具派发子代理：默认用自包含任务（prompt 里写完整任务，以 `Active task: <任务路径>` 开头，再写进该角色在 workflow.md 里的步骤与要求；`sunshine-implement` 与 `sunshine-research` 没有同名 skill 文件，不要编造路径，`sunshine-check` 派发时附上 `.agents/skills/sunshine-check/SKILL.md`）；子任务沿用对话上下文时改用继承对话的派发（`subagent_fork`）。
 
 [workflow-state:in_progress]
 工具：`sunshine-implement` / `sunshine-research` 只是子代理类型（Task/Agent 工具，不是 Skill；没有同名的 skill）。`sunshine-update-spec` 是 skill。`sunshine-check` 两者都是；改完代码后核查时优先用 Agent 形态。
 流程：`sunshine-implement` -> `sunshine-check` -> `sunshine-update-spec` -> 提交（第 3.4 步）-> `/sunshine:finish-work`。
 
 **子任务顺序固定**：一个子任务的生命周期顺序是固定的，不随开场提示词的措辞而变：实现 → 检查 → 回写 spec → 提交 → 归档。检查验实现、回写 spec 在提交之前、归档在最后一步；提示词说“实现完直接归档/提交”也不跳过检查与回写。
-主会话默认：派发 implement/check 子代理。不得以任务小、改动少为由改走 inline；inline 分支只属于 Codex（见 [workflow-state:in_progress-inline]）。子代理自豁免：如果自己已经是 `sunshine-implement`，不要再派生 `sunshine-implement` 或 `sunshine-check`；如果自己已经是 `sunshine-check`，不要再派生 `sunshine-check` 或 `sunshine-implement`。派发只由主会话做。
+主会话默认：派发 implement/check 子代理。不得以任务小、改动少为由改走 inline；inline 分支只属于 Codex（dispatch_mode=inline）与 DeepSeek Harness（改动太小不值得派发，或用户要求 inline），见 [workflow-state:in_progress-inline]。DSH 上派发用 subagent 工具，不用 Task 工具。子代理自豁免：如果自己已经是 `sunshine-implement`，不要再派生 `sunshine-implement` 或 `sunshine-check`；如果自己已经是 `sunshine-check`，不要再派生 `sunshine-check` 或 `sunshine-implement`。派发只由主会话做。
 派发提示词以 `Active task: <task current 给出的任务路径>` 开头。读上下文的顺序：jsonl 条目 -> `prd.md` -> `design.md（如有）` -> `implement.md（如有）`。jsonl 条目只读 reason 指明的部分；带 `lines` 的条目注入时只切该行范围（1-based 闭区间），无 `lines` 的大文件先 grep 定位。
 [/workflow-state:in_progress]
 
 <!-- 每轮面包屑：codex.dispatch_mode=inline 且 status='in_progress' 时显示。
-     Codex 专用的可选替代方案，对应 [workflow-state:in_progress]。
+     Codex 与 DeepSeek Harness 的可选替代方案，对应 [workflow-state:in_progress]。
      主会话直接改代码，不派发子代理。 -->
 
 [workflow-state:in_progress-inline]
-本分支仅 Codex 且 dispatch_mode=inline 时可用；Claude Code、Cursor 等支持子代理的平台一律走 [workflow-state:in_progress] 派发 implement/check 子代理，不得以任务小、改动少为由改走 inline。
+本分支仅 Codex（dispatch_mode=inline）与 DeepSeek Harness（改动太小不值得派发，或用户要求 inline）时可用；Claude Code、Cursor 等支持子代理的平台一律走 [workflow-state:in_progress] 派发 implement/check 子代理，不得以任务小、改动少为由改走 inline。
 流程：`sunshine-before-dev` -> 改代码 -> `sunshine-check` -> 验证 -> `sunshine-update-spec` -> 提交（第 3.4 步）-> `/sunshine:finish-work`。
 Inline 模式下不要派发 implement/check 子代理。
 读上下文的顺序：`prd.md` -> `design.md（如有）` -> `implement.md（如有）`，再加上 skill 加载的相关规范/研究。
@@ -365,7 +365,7 @@ brainstorm skill 会引导你：
 
 **交付客户的文档（循环结束后按需生成）**：全部需求和原型做完后，按需生成交付客户的文档——不一定是设计概要，概要设计只是其中一种可能，由设计者按客户需要定；要出概要设计时再写 `doc/design/概要设计.md`（模块、接口、数据、技术选型、验收、风险），依据完整的需求列表 + `prd.md`。什么设计文档都没有就是纯代码任务，走直接开发。
 
-**高保真原型派发给子代理**：原型是代码（HTML/CSS/JS + mock 数据），不要由主会话顺手写。每轮按需求派发：用 Task 工具派发 `sunshine-prototype` 子代理（`subagent_type` 为 `sunshine-prototype`），派发提示里给出需求列表 `doc/design/需求列表.md` 的路径、spec 下的前端样式约束（如 `.sunshine/spec/frontend.md` 里的设计约束）、以及已有原型目录 `doc/prototype/`（保一致：共用 mock 数据、导航入口、样式）；子代理按需求列表当前状态产出或更新该条需求对应的页（每页一个文件 + `index.html` 导航入口），共用页在已有页上加、不重建，完成后只汇报页数、mock 记录数与文件路径，主会话不直接写原型，只收汇报。初版生成与结构性大改走子代理；小修（改个按钮颜色、一行文案）在主会话里用 grep 定向改，不重新派发。
+**高保真原型派发给子代理**：原型是代码（HTML/CSS/JS + mock 数据），不要由主会话顺手写。每轮按需求派发：用 Task 工具派发 `sunshine-prototype` 子代理（`subagent_type` 为 `sunshine-prototype`），派发提示里给出需求列表 `doc/design/需求列表.md` 的路径、spec 下的前端样式约束（如 `.sunshine/spec/frontend.md` 里的设计约束）、以及已有原型目录 `doc/prototype/`（保一致：共用 mock 数据、导航入口、样式）；子代理按需求列表当前状态产出或更新该条需求对应的页（每页一个文件 + `index.html` 导航入口），共用页在已有页上加、不重建，完成后只汇报页数、mock 记录数与文件路径，主会话不直接写原型，只收汇报。初版生成与结构性大改走子代理；小修（改个按钮颜色、一行文案）在主会话里用 grep 定向改，不重新派发。DeepSeek Harness 上用 `subagent` 工具派发，prompt 自包含，同样附上需求列表路径、spec 前端样式约束与已有原型目录。
 
 需求变化时随时回到本步，修订相关产物。
 
@@ -642,7 +642,7 @@ check 子代理的工作：
 - 踩过的坑
 - 新的技术决策
 
-相应更新 `.sunshine/spec/` 下的文档。即使结论是“没有要更新的”，也要走一遍判断。
+相应更新 `.sunshine/spec/` 下的文档。即使结论是“没有要更新的”，也要走一遍判断。DeepSeek Harness 上改完 spec 后跑一遍 `sunshine spec index`（没有 PostToolUse 自动同步，手动跑是唯一的同步办法）。
 
 规则进 spec；规则背后的故事（为什么这样定、当时踩了什么坑）可写进 `.sunshine/memory/`（可选，挑着记；拿不准就只写 spec）。
 

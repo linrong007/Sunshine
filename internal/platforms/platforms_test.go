@@ -710,3 +710,41 @@ func TestExtractCodexAgentModelKeys(t *testing.T) {
 		t.Errorf("注释行不应提取：%+v", got)
 	}
 }
+
+// TestCodexHooksEnabled 覆盖用户级开关检测：文件不存在、
+// [features] 下 hooks/codex_hooks 开关、别的节下的同名键、行尾注释。
+func TestCodexHooksEnabled(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	if CodexHooksEnabled() {
+		t.Error("无 ~/.codex/config.toml 时应算未开启")
+	}
+	cfgPath := filepath.Join(home, ".codex", "config.toml")
+	writeCfg := func(content string) {
+		t.Helper()
+		if err := os.MkdirAll(filepath.Dir(cfgPath), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(cfgPath, []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for name, tc := range map[string]struct {
+		body string
+		want bool
+	}{
+		"开":            {"[features]\nhooks = true\n", true},
+		"关":            {"[features]\nhooks = false\n", false},
+		"旧名":           {"[features]\ncodex_hooks = true\n", true},
+		"行尾注释":         {"[features]\nhooks = true # 开启\n", true},
+		"节头空格":         {"[ features ]\nhooks=true\n", true},
+		"别的节同名键":       {"[agents]\nhooks = true\n", false},
+		"features 子节":  {"[features.foo]\nhooks = true\n", false},
+		"无 features 节": {"[agents]\nmax_depth = 1\n", false},
+	} {
+		writeCfg(tc.body)
+		if got := CodexHooksEnabled(); got != tc.want {
+			t.Errorf("%s：want %v，got %v", name, tc.want, got)
+		}
+	}
+}

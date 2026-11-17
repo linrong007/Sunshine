@@ -1,0 +1,7 @@
+# sunshine-dsh-plugin: hook 等价物（A 步），只在交互 UI 生效的斜杠命令不在此包。
+- insert:
+    - id: sunshine-hooks
+      name: 'sunshine-dsh-plugin'
+      inject: [agents, sessionProjections, tools]
+      config:
+        sunshineBin: sunshine

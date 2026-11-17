@@ -12,7 +12,7 @@ import (
 // MemSourceKind 是会话来源平台。
 type MemSourceKind string
 
-// 7 个会话来源平台（与上游 MEM_SOURCE_KINDS 一致）。
+// 8 个会话来源平台（与上游 MEM_SOURCE_KINDS 一致）。
 const (
 	MemSourceClaude   MemSourceKind = "claude"
 	MemSourceCodex    MemSourceKind = "codex"
@@ -21,9 +21,10 @@ const (
 	MemSourceOpencode MemSourceKind = "opencode"
 	MemSourcePi       MemSourceKind = "pi"
 	MemSourceZcode    MemSourceKind = "zcode"
+	MemSourceDsh      MemSourceKind = "dsh"
 )
 
-// MemSourceKinds 是全部 7 个平台，按固定顺序排列
+// MemSourceKinds 是全部 8 个平台，按固定顺序排列
 // （projects 输出的 by_platform 计数按此顺序呈现）。
 var MemSourceKinds = []MemSourceKind{
 	MemSourceClaude,
@@ -33,6 +34,7 @@ var MemSourceKinds = []MemSourceKind{
 	MemSourceOpencode,
 	MemSourcePi,
 	MemSourceZcode,
+	MemSourceDsh,
 }
 
 // IsValidMemSourceKind 判断平台名是否合法。

@@ -3050,3 +3050,12 @@ pre-commit install       # 在仓库根目录执行一次
 4. 验收：gofmt/build/vet 全过；全量测试 21 包全过；EnableCodexHooks 表驱动单测 8 例 + 目录被占错误例全过（含幂等断言）。沙箱 `init --codex`（隔离 HOME）：①已开启时打印确认、文件 sha 不变；②未开启 + `-y` 时写进 `[features] hooks = true`；③交互 PTY 喂 `y` 时写进、喂 `n` 时不写只打印原提示（`~/.codex` 未创建）；④hooks.json 与模板逐字节一致。交互验证踩坑：survey 发 `ESC[6n` 查光标位置，`script` 直喂输入会卡死（无终端模拟器回包），改用 Python PTY 驱动（收到查询回 `ESC[24;1R`，等提示出现再按键）才跑通。只改 init，未碰 `sunshine update`。
 5. /hooks 自动批不在本次范围（用户已定不做）：Postman 前车之鉴（2026-11-17 向用户汇报过：安装器代写 trusted_hash 遭 HN 曝光）+ trusted_hash 哈希机制未文档化（每次 hooks.json 一变就得重批）+ 收益仅一次点击。init 只代写开关，评审仍由用户在 Codex 里点 Allow all。
 发版：本批不发版，等用户点选。
+
+## v0.5.24 发布记录（2026-11-17，已发布）
+
+- 内容：两批合发——①Codex 两处小修：注册表 HasHooks 改 true、init 确认后代写 [features] hooks=true（-y 直接写，交互默认 Yes 问一句；写失败不让 init 失败；/hooks 自动批不在本次范围）；②WorkBuddy 接入：复用 --codebuddy，只补文档，代码 0 改动。
+- 主提交：本地 eda4afefa7272c57df18ab147f668b1b27aed454 → 远端 aeb2033fdf4e131d74f509833708501262a54a9c，tree d9c025a2e66e7796e106f0f05e6b9e0fcea8350e，父提交 04fdcbb34f86ad6a556b768e6288b1445f45655b，作者 linrong007。
+- tag：v0.5.24，annotated tag，tag 对象 3337850df5b2ca4f99282ab339999e7c896e3dc2 → aeb2033。
+- CI 与发布：发布 workflow run 44094820616、CI 两路 run 44094711785（main）与 44094820648（tag）均 completed success，无抖动。
+- Release：id 448686724，非草稿、非预发布，6 个资产在位（checksums.txt + sunshine_0.5.24_darwin_amd64/arm64.tar.gz、linux_amd64/arm64.tar.gz、windows_amd64.zip）。
+- 一键装：macOS/Linux `curl -fsSL https://raw.githubusercontent.com/linrong007/Sunshine/main/install.sh | sh`；Windows `irm https://raw.githubusercontent.com/linrong007/Sunshine/main/install.ps1 | iex`。

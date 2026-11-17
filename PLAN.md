@@ -2988,3 +2988,7 @@ pre-commit install       # 在仓库根目录执行一次
 3. 文档：教程中英文 §1 演示命令补 --claude --cursor（输出本身不变，沙箱重跑核对过逐行一致）；§1 说明与附录“选平台”“-y”行同步改成“默认一个都不勾选、不选重选、-y 须用 flag 至少选一个”；README 中英文命令表里的 `sunshine init -u YourName -y` 示例补 --claude --cursor。
 验收：gofmt/build/vet 全过；全量测试 21 包全过；沙箱四场景：-y 无 flag 报错退出 1 且无 .sunshine、教程 §1 命令输出与教程记录逐行一致、--dsh -y 正常、非交互无 flag 报错退出 1。
 发版：本批不发版，等用户点选（与提问格式、git 根检测两批同树未提交）。
+
+## v0.5.21 发布记录（2026-11-17，已发布）
+
+内容：三批合发——①init 平台多选默认一个都不勾选，只有用户选择至少一项才继续（-y/非交互无 flag 报错，交互不选重选；删 DefaultChecked 与 DefaultSelected）；②init --dsh 检测 git 根劫持（上层目录 .git 劫持项目根时打印警告与修复命令，只提醒不自动 git init）；③提问格式统一为选项式（每次只问一个问题，给 2–4 个选项，其中一个标明推荐项并写清取舍，外加“自己填写”，问到范围、边界、约束、验收标准全部对齐）。主提交本地 `845a43241310ea7e01170aeb3fe60a462e15ba33` → 远端 `fe592bc48179c3a264f2a888f637e2d738937f13`，tree `2beeee75678f924cdfeacabef864f6027b9604f9`，父提交 `aea6a25a5855f06aabc3f6a265cfb279445dfcfe`。Tag v0.5.21，tag 对象 `76fe8f50cd209eb8d039def8e65cd4a0f555c41b` → fe592bc（GitHub API 建，annotated tag）。发布 workflow（run 44035686689）与 CI 两路（44035627319 main、44035686508 v0.5.21，同提交 push 与 tag 各一路）均 success。Release（id 448270407）非草稿、非预发布，6 个资产（checksums.txt + darwin amd64/arm64、linux amd64/arm64、windows amd64）。一键装：macOS/Linux 用 `curl -fsSL https://raw.githubusercontent.com/linrong007/Sunshine/main/install.sh | sh`，Windows（PowerShell）用 `irm https://raw.githubusercontent.com/linrong007/Sunshine/main/install.ps1 | iex`。

@@ -2955,3 +2955,7 @@ pre-commit install       # 在仓库根目录执行一次
 不做：ARM64 Windows 包（goreleaser 只出 amd64）；改 install.sh。
 验收：本机无 PowerShell，Windows 真机实测待用户；curl 核对 v0.5.19 zip 与 checksums.txt 可达且校验和在位；脚本逐行核对（TLS 1.2、重定向、PATH 追加去重、临时目录清理）。
 发版：本批不发版，等用户点选。
+
+## v0.5.20 发布记录（2026-11-17，已发布）
+
+内容：Windows 一键安装 install.ps1（上一节）。主提交本地 `8b1619a` → 远端 `6316f872ef37339a43a5b99f2347207184f6c0ec`，tree `5736d37ee828ae68a267fe7fa3cfd84f3caa1536`，父提交 `da2b8f9a68efa798dd7c9a90a68d18c4ccf7b82a`（PLAN.md 补 v0.5.19 发布记录）。Tag v0.5.20，tag 对象 `9f3bc098e70788b2b50cd85da171be02e3c9e662` → 6316f87（GitHub API 建）。发布 workflow（run 44019510738）与 CI 两路（44019510728、44019489057，同提交 push 与 tag 各一路）均 success。Release 非草稿，6 个资产（checksums.txt + darwin amd64/arm64、linux amd64/arm64、windows amd64）；changelog 含主提交 6316f87 与 da2b8f9。一键装：macOS/Linux 用 install.sh，Windows（PowerShell）用 `irm https://raw.githubusercontent.com/linrong007/Sunshine/main/install.ps1 | iex`。

@@ -1205,6 +1205,8 @@ Example prompt (an example, not a real session record):
 
 > Please follow the sunshine workflow: first use sunshine-spec-bootstrap to land this project's structure and conventions in spec, then produce an API reference from the spec and place it in doc/, verifying every endpoint against the code.
 
+No need to name every area to dig into in the opening prompt: spec-bootstrap's repository analysis is full coverage by default — runtime layers (CLI, backend, frontend, worker, shared libraries), deployment (build, deploy steps, rollback), startup, configuration, data flow, error handling, testing, and troubleshooting are all in the default dimension table, and anything with evidence in the code lands in the spec. So the two-step prompt above is the most practical opening line for a legacy project. The only limit is what the code actually contains: nothing is invented without evidence, and template files for layers the repository does not have are deleted outright.
+
 ### 12.3 Delivering a product feature: one task across product, API, data, and UI
 
 When one task spans four layers, the usual failure is changing one layer and missing another — Sunshine's answer is one task: what changes in all four layers goes into the same PRD, the change order goes through a channel, and acceptance checks against the same API contract. The demo is the same web store that has run for two years, and the task is making the delivery address mandatory at checkout: the checkout page (UI) gets an address field, the order endpoint (API) returns 400 without one, and the order record (data) gains an address field.

@@ -2941,3 +2941,7 @@ pre-commit install       # 在仓库根目录执行一次
 不做：动 `.agents/skills/` 的位置（CLI 依赖它）；给 Claude 加提示（Claude 那次不用修）。
 验收：go build/vet/gofmt、全量测试全过；沙箱 `init --dsh` 装出 92 个文件，`.dsh/skills/` 下 10 个 skill 全在且与 `.agents/skills/` 逐字节一致，裸 `{{` 0 处。
 发版：本批不发版，等用户点选。
+
+## v0.5.19 发布记录（2026-11-17，已发布）
+
+内容：DSH 网页版 Harness skill 镜像（上一节）。主提交本地 `856d6fb` → 远端 `dbd8661e67f0451d0e95843fb5cc69b073aa9a62`，tree `927cbfdb8a9038d156e52bfc00a01aa7b69c03ac`，父提交 `733c1a3f7598dae8d45fb6298ac6a8ea5eaab948`（教程 §12.2 提交）。Tag v0.5.19，tag 对象 `904866e8190c77ad5cf3076dd9540bc6ad4066ea` → dbd8661（GitHub API 建）。发布 workflow（run 44016501658）与 CI 两路（44016501632、44016475659，同提交 push 与 tag 各一路）均 success。Release 非草稿，6 个资产（checksums.txt + darwin amd64/arm64、linux amd64/arm64、windows amd64）；changelog 含主提交 dbd8661 与 733c1a3。一键装脚本：`curl -fsSL https://raw.githubusercontent.com/linrong007/Sunshine/main/install.sh | sh`。

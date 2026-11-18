@@ -3,10 +3,13 @@ package cli
 import (
 	"errors"
 	"fmt"
+	"path/filepath"
+	"strings"
 
 	"github.com/linrong007/Sunshine/internal/config"
 	"github.com/linrong007/Sunshine/internal/registry"
 	"github.com/linrong007/Sunshine/internal/scaffold"
+	"github.com/linrong007/Sunshine/internal/specindex"
 	"github.com/spf13/cobra"
 )
 
@@ -21,27 +24,25 @@ var (
 // 由总协调人接线：init.go 的 init() 里调用本函数（root.go 不动）。
 func registerRegistryFlags(cmd *cobra.Command) {
 	cmd.Flags().StringVar(&initRegistry, "registry", "", "模板市场来源：gh:owner/repo、完整 git URL、HTTP(S) URL、git@ 形式或本地 git 仓库路径")
-	cmd.Flags().StringVar(&initTemplate, "template", "", "模板市场条目 id（配合 --registry 使用）")
-	cmd.Flags().BoolVar(&initOverwrite, "overwrite", false, "目标已存在时覆盖（仅配合 --template 使用）")
-	cmd.Flags().BoolVar(&initAppend, "append", false, "目标已存在时只补缺失文件（仅配合 --template 使用）")
+	cmd.Flags().StringVar(&initTemplate, "template", "", "模板市场条目 id（配合 --registry 使用；市场里恰好一个 spec 模板时可省，自动选中）")
+	cmd.Flags().BoolVar(&initOverwrite, "overwrite", false, "目标已存在时整体替换（慎用：会清空目标目录，包括自己写的文件）")
+	cmd.Flags().BoolVar(&initAppend, "append", false, "目标已存在时只补缺失文件（默认行为，加不加一样）")
 }
 
-// resolveRegistryStrategy 把 --overwrite/--append 转成模板策略，
-// 并校验它们仅配合 --template 使用（对应上游 init.ts 的语义）。
+// resolveRegistryStrategy 把 --overwrite/--append 转成模板策略。
+// 默认只补缺失（append）：已有的文件不动，只装没有的；
+// --overwrite 整体替换；--append 与默认同义，保留作显式写法。
+// --overwrite/--append 不再要求 --template：校验移到目标解析后
+// （见 init.go），自动选能补上模板时放行。
 func resolveRegistryStrategy() (registry.TemplateStrategy, error) {
 	if initOverwrite && initAppend {
 		return "", errors.New("--overwrite 与 --append 不能同时使用")
 	}
-	if (initOverwrite || initAppend) && initTemplate == "" {
-		return "", errors.New("--overwrite/--append 仅配合 --template 使用")
-	}
 	switch {
 	case initOverwrite:
 		return registry.StrategyOverwrite, nil
-	case initAppend:
-		return registry.StrategyAppend, nil
 	default:
-		return registry.StrategySkip, nil
+		return registry.StrategyAppend, nil
 	}
 }
 
@@ -82,6 +83,22 @@ func installRegistryTemplates(cwd string, target *registry.Target, strategy regi
 	} else {
 		fmt.Printf("已从模板市场直接安装规范模板，共 %d 个文件。\n", len(result.Files))
 	}
+	// 安装后收尾（只针对写 spec 的安装）：先同步索引与适用标签，
+	// 再查重（只报告、不阻止），最后记哈希、写 registry.spec。
+	// 哈希必须在同步之后记，否则同步改了文件哈希就 stale。
+	if target.WritesSpec() {
+		specDir := filepath.Join(cwd, ".sunshine", "spec")
+		if changed, err := specindex.SyncDir(specDir); err != nil {
+			fmt.Printf("警告：同步 spec 索引失败：%v\n", err)
+		} else if len(changed) > 0 {
+			fmt.Printf("已同步 spec 索引与适用标签：%d 个文件。\n", len(changed))
+		}
+		if dups, err := specindex.CheckDuplicates(specDir); err != nil {
+			fmt.Printf("警告：检查 spec 重复失败：%v\n", err)
+		} else {
+			printSpecDuplicates(dups)
+		}
+	}
 	if len(result.Files) > 0 {
 		if err := scaffold.RecordHashes(cwd, result.Files); err != nil {
 			fmt.Printf("警告：记录模板哈希失败：%v\n", err)
@@ -96,5 +113,21 @@ func installRegistryTemplates(cwd string, target *registry.Target, strategy regi
 			result.SpecConfig.Source, result.SpecConfig.Template)
 	} else {
 		fmt.Printf("已记录 registry.spec：%s，sunshine update 会持续刷新。\n", result.SpecConfig.Source)
+	}
+}
+
+// printSpecDuplicates 打印查重结果：有重叠时逐条列出（只报告，
+// 不阻止安装）；无重叠不打印。
+func printSpecDuplicates(dups []specindex.Duplicate) {
+	if len(dups) == 0 {
+		return
+	}
+	fmt.Printf("提醒：spec 内容可能重复（%d 处），请确认只留一处：\n", len(dups))
+	for _, d := range dups {
+		note := "内容不同"
+		if d.Identical {
+			note = "内容相同"
+		}
+		fmt.Printf("  章节“%s”：%s（%s）\n", d.Title, strings.Join(d.Files, "、"), note)
 	}
 }

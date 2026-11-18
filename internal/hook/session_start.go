@@ -41,7 +41,7 @@ func RunSessionStart(r io.Reader, opts Options) error {
 	active := ResolveActiveTask(root, input, platform, ResolveOptions{AllowEnvironmentContext: true})
 	taskPkg := taskPackage(root, active)
 	allowedPkgs := resolveSpecScope(cfg, taskPkg)
-	specIndexPaths := collectSpecIndexPaths(root, allowedPkgs)
+	specMap := collectSpecMap(root, allowedPkgs)
 
 	var out strings.Builder
 	out.WriteString("<session-context>\nSunshine compact SessionStart context. Use it to orient the session; load details on demand.\n</session-context>\n\n")
@@ -53,7 +53,7 @@ func RunSessionStart(r io.Reader, opts Options) error {
 	}
 
 	out.WriteString("<current-state>\n")
-	out.WriteString(buildCompactCurrentState(root, input, cfg, active, specIndexPaths))
+	out.WriteString(buildCompactCurrentState(root, input, cfg, active, specMap))
 	out.WriteString("\n</current-state>\n\n")
 
 	out.WriteString("<sunshine-workflow>\n")
@@ -62,11 +62,10 @@ func RunSessionStart(r io.Reader, opts Options) error {
 
 	out.WriteString("<guidelines>\n")
 	out.WriteString("Task context order for implementation/check: jsonl entries -> `prd.md` -> `design.md if present` -> `implement.md if present`. Missing optional artifacts are skipped for lightweight tasks.\n\n")
-	if len(specIndexPaths) > 0 {
-		out.WriteString("## Available indexes (read on demand)\n")
-		for _, p := range specIndexPaths {
-			out.WriteString("- " + p + "\n")
-		}
+	if len(specMap) > 0 {
+		out.WriteString("## 规范地图（按适用分组，先读索引定位，再按需读正文）\n")
+		out.WriteString("前端任务读前端组 + 通用组；后端任务读后端组 + 通用组；只读本任务用得上的文件。\n")
+		out.WriteString(specindex.FormatSpecMap(specMap))
 		out.WriteString("\n")
 	}
 	out.WriteString("</guidelines>\n\n")
@@ -222,45 +221,30 @@ func resolveSpecScope(cfg Config, taskPkg string) map[string]bool {
 	return nil
 }
 
-// collectSpecIndexPaths 收集规范索引路径，对应 _collect_spec_index_paths。
-func collectSpecIndexPaths(root string, allowedPkgs map[string]bool) []string {
-	sunshineDir := filepath.Join(root, ".sunshine")
-	var paths []string
-	if isFile(filepath.Join(sunshineDir, "spec", "guides", "index.md")) {
-		paths = append(paths, ".sunshine/spec/guides/index.md")
-	}
-	specDir := filepath.Join(sunshineDir, "spec")
-	entries, err := os.ReadDir(specDir)
+// collectSpecMap 收集规范地图：spec/ 下全部 .md（递归），按适用分组。
+// monorepo 的 spec_scope 过滤只对子目录生效，平铺文件恒列出；
+// guides/index.md 恒列出。
+func collectSpecMap(root string, allowedPkgs map[string]bool) []specindex.SpecEntry {
+	entries, err := specindex.CollectSpecMap(filepath.Join(root, ".sunshine", "spec"))
 	if err != nil {
-		return paths
+		return nil
 	}
-	sort.Slice(entries, func(i, j int) bool { return entries[i].Name() < entries[j].Name() })
-	for _, sub := range entries {
-		if !sub.IsDir() || strings.HasPrefix(sub.Name(), ".") || sub.Name() == "guides" {
+	if allowedPkgs == nil {
+		return entries
+	}
+	var out []specindex.SpecEntry
+	for _, e := range entries {
+		rel := strings.TrimPrefix(e.Path, ".sunshine/spec/")
+		if !strings.Contains(rel, "/") {
+			out = append(out, e) // 平铺文件恒列出
 			continue
 		}
-		if isFile(filepath.Join(specDir, sub.Name(), "index.md")) {
-			paths = append(paths, ".sunshine/spec/"+sub.Name()+"/index.md")
-			continue
-		}
-		if allowedPkgs != nil && !allowedPkgs[sub.Name()] {
-			continue
-		}
-		nested, err := os.ReadDir(filepath.Join(specDir, sub.Name()))
-		if err != nil {
-			continue
-		}
-		sort.Slice(nested, func(i, j int) bool { return nested[i].Name() < nested[j].Name() })
-		for _, n := range nested {
-			if !n.IsDir() {
-				continue
-			}
-			if isFile(filepath.Join(specDir, sub.Name(), n.Name(), "index.md")) {
-				paths = append(paths, ".sunshine/spec/"+sub.Name()+"/"+n.Name()+"/index.md")
-			}
+		top := rel[:strings.Index(rel, "/")]
+		if top == "guides" || allowedPkgs[top] {
+			out = append(out, e)
 		}
 	}
-	return paths
+	return out
 }
 
 func isFile(path string) bool {
@@ -309,7 +293,7 @@ func checkLegacySpec(root string, cfg Config) string {
 }
 
 // buildCompactCurrentState 生成 <current-state> 的紧凑状态行。
-func buildCompactCurrentState(root string, input HookInput, cfg Config, active ActiveTask, specIndexPaths []string) string {
+func buildCompactCurrentState(root string, input HookInput, cfg Config, active ActiveTask, specMap []specindex.SpecEntry) string {
 	var lines []string
 	dev := GetDeveloper(root)
 	if dev == "" {
@@ -350,8 +334,8 @@ func buildCompactCurrentState(root string, input HookInput, cfg Config, active A
 	if journal := ActiveJournalFile(root); journal != "" {
 		lines = append(lines, fmt.Sprintf("Journal: %s, %d / %d lines.", RepoRelative(root, journal), CountLines(journal), cfg.MaxJournalLines))
 	}
-	if len(specIndexPaths) > 0 {
-		lines = append(lines, fmt.Sprintf("Spec indexes: %d available.", len(specIndexPaths)))
+	if len(specMap) > 0 {
+		lines = append(lines, fmt.Sprintf("Spec 地图：%d 个文件（按适用分组，见 guidelines）。", len(specMap)))
 	}
 	return strings.Join(lines, "\n")
 }

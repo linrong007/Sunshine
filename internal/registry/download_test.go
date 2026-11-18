@@ -154,12 +154,20 @@ func TestProbeAndInstallMarketplaceLocal(t *testing.T) {
 func TestResolveTargetMarketplaceRequiresTemplate(t *testing.T) {
 	repo := filepath.Join(t.TempDir(), "market")
 	initGitRepo(t, repo, marketplaceFiles())
-	if _, err := ResolveTarget(repo, ""); err == nil {
-		t.Error("marketplace 模式不指定 --template 应报错")
-	} else if !strings.Contains(err.Error(), "--template") {
-		t.Errorf("错误信息应提示 --template：%v", err)
+	// 夹具市场恰好一个 spec 条目：不指定 --template 时自动选中它。
+	target, err := ResolveTarget(repo, "")
+	if err != nil {
+		t.Fatalf("单 spec 市场不指定模板应自动选，得到错误：%v", err)
 	}
-	target, err := ResolveTarget(repo, "demo-spec")
+	defer target.Close()
+	if target.Mode != "marketplace" || target.Template == nil || target.Template.ID != "demo-spec" {
+		t.Fatalf("自动选结果不对：%+v", target)
+	}
+	if target.TemplateID != "demo-spec" {
+		t.Errorf("TemplateID = %q，想得到 demo-spec", target.TemplateID)
+	}
+	// 显式指定仍按指定走。
+	target, err = ResolveTarget(repo, "demo-spec")
 	if err != nil {
 		t.Fatalf("ResolveTarget 失败：%v", err)
 	}
@@ -174,6 +182,69 @@ func TestResolveTargetMarketplaceRequiresTemplate(t *testing.T) {
 	defer skillTarget.Close()
 	if skillTarget.WritesSpec() {
 		t.Error("skill 模板不应写 spec")
+	}
+}
+
+// TestAutoPickSingleSpec 覆盖自动选三情形：单 spec 自动选、
+// 多 spec 报错列出 id、0 spec 报错。
+func TestAutoPickSingleSpec(t *testing.T) {
+	// 多 spec：两个 spec 条目，不指定模板应报错并列出 spec id。
+	multi := filepath.Join(t.TempDir(), "multi")
+	initGitRepo(t, multi, map[string]string{
+		"index.json": `{"version": 1, "templates": [
+			{"id": "spec-a", "type": "spec", "name": "A", "path": "specs/a"},
+			{"id": "spec-b", "type": "spec", "name": "B", "path": "specs/b"},
+			{"id": "sk", "type": "skill", "name": "S", "path": "skills/sk"}
+		]}`,
+		"specs/a/a.md":       "# A\n",
+		"specs/b/b.md":       "# B\n",
+		"skills/sk/SKILL.md": "# S\n",
+	})
+	if _, err := ResolveTarget(multi, ""); err == nil {
+		t.Error("多 spec 市场不指定模板应报错")
+	} else if !strings.Contains(err.Error(), "spec-a") || !strings.Contains(err.Error(), "spec-b") {
+		t.Errorf("错误信息应列出 spec 条目 id：%v", err)
+	}
+	// 多 spec 时 Install 同样报错。
+	if _, err := Install(t.TempDir(), InstallOptions{Source: multi, Strategy: StrategyAppend}); err == nil {
+		t.Error("多 spec 市场 Install 不指定模板应报错")
+	}
+	// 0 spec：只有 skill，没有 spec 条目。
+	nospec := filepath.Join(t.TempDir(), "nospec")
+	initGitRepo(t, nospec, map[string]string{
+		"index.json": `{"version": 1, "templates": [
+			{"id": "sk", "type": "skill", "name": "S", "path": "skills/sk"}
+		]}`,
+		"skills/sk/SKILL.md": "# S\n",
+	})
+	if _, err := ResolveTarget(nospec, ""); err == nil {
+		t.Error("没有 spec 模板的市场不指定模板应报错")
+	} else if !strings.Contains(err.Error(), "没有 spec 模板") {
+		t.Errorf("错误信息应说明没有 spec 模板：%v", err)
+	}
+	// 单 spec 时 Install 不指定模板自动选，且 registry.spec 记下选中的 id。
+	single := filepath.Join(t.TempDir(), "single")
+	initGitRepo(t, single, map[string]string{
+		"index.json": `{"version": 1, "templates": [
+			{"id": "only-spec", "type": "spec", "name": "唯一", "path": "specs/only"},
+			{"id": "sk", "type": "skill", "name": "S", "path": "skills/sk"}
+		]}`,
+		"specs/only/a.md":    "# A\n",
+		"skills/sk/SKILL.md": "# S\n",
+	})
+	proj := t.TempDir()
+	result, err := Install(proj, InstallOptions{Source: single, Strategy: StrategyAppend})
+	if err != nil {
+		t.Fatalf("单 spec 市场 Install 不指定模板应自动选，得到错误：%v", err)
+	}
+	if result.Template == nil || result.Template.ID != "only-spec" {
+		t.Fatalf("自动选结果不对：%+v", result)
+	}
+	if result.SpecConfig.Template != "only-spec" {
+		t.Errorf("registry.spec 应记下自动选中的 id，得到 %+v", result.SpecConfig)
+	}
+	if readFile(t, filepath.Join(proj, ".sunshine", "spec", "a.md")) != "# A\n" {
+		t.Error("自动选安装内容不对")
 	}
 }
 
@@ -202,13 +273,18 @@ func TestResolveTargetWithProbe(t *testing.T) {
 		t.Error("Target 应接管传入的 probe（不应二次探测）")
 	}
 
-	// 不指定模板应报错（与 ResolveTarget 一致）。
+	// 不指定模板时自动选唯一的 spec 条目（与 ResolveTarget 一致）。
 	probe2 := ProbeRegistryIndex(context.Background(), src)
 	if probe2.Err != nil {
 		t.Fatalf("探测失败：%v", probe2.Err)
 	}
-	if _, err := ResolveTargetWithProbe(src, probe2, ""); err == nil {
-		t.Error("marketplace 模式不指定模板应报错")
+	autoTarget, err := ResolveTargetWithProbe(src, probe2, "")
+	if err != nil {
+		t.Fatalf("单 spec 市场不指定模板应自动选，得到错误：%v", err)
+	}
+	defer autoTarget.Close()
+	if autoTarget.Template == nil || autoTarget.Template.ID != "demo-spec" {
+		t.Errorf("自动选结果不对：%+v", autoTarget)
 	}
 
 	// 不存在的模板应报错。

@@ -81,7 +81,8 @@ func TestPostToolUse_ApplyPatchSyncsDir(t *testing.T) {
 func TestPostToolUse_ApplyPatchNonSpecUnchanged(t *testing.T) {
 	root, _ := makeProject(t)
 	p := filepath.Join(root, ".sunshine", "spec", "backend.md")
-	orig := "# 后端规范\n\n## 索引\n\n索引是导航，不是替代：先读索引定位，再按需读正文；拿不准就读正文。\n\n| 内容 | 位置 |\n| --- | --- |\n| 接口 | `## 接口` |\n\n## 接口\n"
+	// 新定义下“已同步”= 索引新鲜 + 适用标签在位；缺标签时整目录同步会补上。
+	orig := "---\n适用：后端\n---\n\n# 后端规范\n\n## 索引\n\n索引是导航，不是替代：先读索引定位，再按需读正文；拿不准就读正文。\n\n| 内容 | 位置 |\n| --- | --- |\n| 接口 | `## 接口` |\n\n## 接口\n"
 	mustWrite(t, p, orig)
 	patch := "*** Begin Patch\n*** Update File: README.md\n@@\n+# 项目\n*** End Patch\n"
 	runPostToolUse(t, `{"hook_event_name":"PostToolUse","tool_name":"apply_patch","tool_input":{"input":`+strconv_quot(patch)+`},"cwd":`+strconv_quot(root)+`}`)

@@ -8,7 +8,7 @@
 - 演示项目不变：**退款原因必填校验**——给退款流程加一个必填的原因字段。例子很小，流程是真的。
 - 任务目录名里的 `11-10` 是实跑当天的月-日（2026-11-10），你跑的时候会是当天的日期。
 - 版本号随你安装的 CLI 版本而变；本教程用当前 Release **v0.2.1** 验证（`sunshine version` 打印 `Sunshine 版本 0.2.1`）。第 11 节“有新版”的输出来自本地构建的 0.1.0 二进制，仅版本号不同，形态一致，那里会注明。
-- 演示用的目录都在 `/tmp/rewrite-zh/demo/` 下面（`demo`、`demo2`、`registry-src`、`channels`、`home`），删掉即可，不影响任何真实项目。
+- 演示用的目录都在 `/tmp/rewrite-zh/demo/` 下面（`demo`、`demo2`、`channels`、`home`），删掉即可，不影响任何真实项目。
 
 终端命令在本教程里只出现在三处：第 4 节“底下发生了什么”（agent 实际调的命令 + 真实输出）、第 12 节“六个场景”（每个场景的实录）和末尾的附录“命令速查”。其余章节讲的是人在 agent 界面里做什么、agent 按什么干活。
 
@@ -476,88 +476,123 @@ CLI 版本：0.2.1
 
 ### 从模板市场装规范
 
-新项目想从市场装一份规范模板起步，在终端里跑一次 `init --registry` 即可（装完由 `update` 持续刷新）。先建一个最小的本地市场仓库（结构就是官方模板仓库的标准结构 `marketplace/index.json` + `marketplace/specs/`）：
+模板市场就是一个放规范模板的仓库：别人写好的规范（比如接口怎么写、界面有哪些约束）可以直接拿来用，不用自己从头写。官方市场在 `gh:linrong007/Sunshine/marketplace`，里面有一份默认全栈规范（`sunshine-fullstack`，就是 `system.md`、`frontend.md`、`backend.md` 三份）、两个 skill（`go-sdk-author`、`mem-recall`）、三个工作流（`native`、`tdd`、`channel-driven-subagent-dispatch`）。
 
-```sh
-mkdir -p registry-src/marketplace/specs/demo-spec
-cat > registry-src/marketplace/index.json <<'EOF'
-{
-  "version": 1,
-  "templates": [
-    {
-      "id": "demo-spec",
-      "type": "spec",
-      "name": "演示规范",
-      "description": "演示用规范模板",
-      "path": "specs/demo-spec"
-    }
-  ]
-}
-EOF
-cat > registry-src/marketplace/specs/demo-spec/demo.md <<'EOF'
-# 演示规范
-
-本文件来自本地模板市场 demo-spec。
-
-## 约定
-
-- 演示项目的所有接口返回统一错误码。
-EOF
-cd registry-src && git init && git add -A && git commit -m "demo registry" && cd ..
-```
-
-两个容易踩的点（都是实测踩出来的）：
-
-1. 本地路径要指向 `marketplace` 子目录本身（`…/registry-src/marketplace`），而不是仓库根——指向仓库根时 CLI 找不到 `index.json`，会报 `该 registry 没有 index.json，不能用 --template`。
-2. `index.json` 里的 `path` 是相对于 `index.json` 所在目录的，写 `specs/demo-spec`，不是 `marketplace/specs/demo-spec`。
-
-然后在新项目里从市场安装：
+新项目想从市场装规范起步，建项目时加 `--registry`：
 
 ```sh
 mkdir demo2 && cd demo2 && git init
-sunshine init -u 演示者 -y --registry /tmp/rewrite-zh/demo/registry-src/marketplace --template demo-spec
+sunshine init -u 演示者 -y --claude --registry gh:linrong007/Sunshine/marketplace --template sunshine-fullstack
 ```
 
 真实输出：
 
 ```text
 正在配置 Claude Code……
-正在配置 Cursor……
-已安装模板 "demo-spec"（.sunshine/spec），共 1 个文件。
-已记录 registry.spec：/tmp/rewrite-zh/demo/registry-src/marketplace（模板 demo-spec），sunshine update 会持续刷新。
+已安装模板 "sunshine-fullstack"（.sunshine/spec），共 3 个文件。
+已记录 registry.spec：gh:linrong007/Sunshine/marketplace（模板 sunshine-fullstack），sunshine update 会持续刷新。
 初始化完成，开发者：演示者
 已安装平台：
   - Claude Code
-  - Cursor
 下一步：
   1. 在 agent 界面里打开项目，直接用自然语言提第一个需求；
   2. 规范已从模板市场装进 .sunshine/spec/，工作流按 .sunshine/workflow.md 自动推进，一般不用改。
 ```
 
-模板内容装进了 `.sunshine/spec/demo.md`，来源记进了 `config.yaml`：
+装完 `.sunshine/spec/` 里就是模板的三份文件，来源记进了 `config.yaml`：
 
 ```yaml
-# 受哈希追踪的 spec 模板，本地改动走正常的 update 冲突流程。
 registry:
   spec:
-    source: /tmp/rewrite-zh/demo/registry-src/marketplace
-    template: demo-spec
+    source: gh:linrong007/Sunshine/marketplace
+    template: sunshine-fullstack
 ```
 
-远程市场同理，把本地路径换成 `gh:owner/repo`、完整 git URL、HTTP(S) URL 或 `git@` 地址即可。上面是 `-y` 加 `--template` 的写法；交互模式下不传 `--template` 时 init 会列出该市场的 spec 模板让你现选，不用事先知道模板 id（市场里没有 index.json 时直接下载整个来源，不出选单）。
+装完还会跑一遍查重：几个文件里有重名的小节、或同一小节内容完全一样，就打印一行提醒让你确认——只提醒，不拦安装。想看是哪几处，跑 `sunshine spec check`（见下）。
+
+几个常用写法：
+
+- **只写市场，不写模板**：市场里恰好只有一个 spec 模板时，`--template` 可以省，自动选中它。官方市场只有一个 spec（`sunshine-fullstack`），所以上面那条命令不写 `--template sunshine-fullstack` 也一样。市场里有多个 spec 模板时必须写，写错或不写会报错并列出可选的 id。
+- **再跑一次，只补缺失的**：同一条命令在已有项目里再跑，默认只装没有的文件，已有的不动，自己写的文件也不动。删掉一个文件再跑，只补回那一个。
+- **整体换掉**：加 `--overwrite` 会把 `.sunshine/spec/` 整个清空再装，包括自己写的文件——想清楚再用。
+- **装 skill**：同一条命令换个 id 就行，skill 装进 `.agents/skills/<id>/`，默认三份规范照常生成：
+
+```sh
+sunshine init -u 演示者 -y --claude --registry gh:linrong007/Sunshine/marketplace --template go-sdk-author
+```
+
+- **工作流不走这条命令**：工作流模板用 `sunshine workflow --template tdd` 装（见第 7 节）。
+- **直接指模板目录**：来源也可以直接写某个模板的目录，不用写市场、不用写 `--template`，整个目录原样装进 `.sunshine/spec/`：
+
+```sh
+sunshine init -u 演示者 -y --claude --registry gh:linrong007/Sunshine/marketplace/specs/sunshine-fullstack
+```
+
+远程市场同理，把 `gh:owner/repo` 换成完整 git URL、HTTP(S) URL 或 `git@` 地址即可；本地市场写本地 git 仓库路径——要指向含 `index.json` 的那一级目录：官方市场就是仓库根下的 `marketplace/` 子目录，所以来源要写到 `…/marketplace` 这一级，而不是仓库根。
+
+### 规范都认：适用标签与规范地图
+
+`.sunshine/spec/` 下的 `.md` 文件全都算规范，不只默认三份：市场拉来的 `api.md`、`ui.md`，或者自己写的笔记，全都认。每个文件头上有一行 `适用：前端 / 后端 / 通用`，写明这份规范给谁读：
+
+```md
+---
+适用：后端
+---
+
+# 后端规范
+```
+
+缺了这行也不怕：装完第一次同步（`sunshine spec index`）会按文件名自动补上——文件名里有 `frontend` 就是前端，`backend` 就是后端，`system` 和其他名字都是通用（比如 `ui.md`、`api.md` 都会归到通用，想让它归前端，手动把那行改成 `适用：前端`）。模板作者自己写了的，以作者写的为准，安装不会改写。
+
+每次打开会话，Sunshine 会在后台塞一张规范地图：`spec/` 下全部文件，按适用分组，一行一个（路径 + 索引里的章节名）。前端任务读前端组 + 通用组，后端任务读后端组 + 通用组；只读本任务用得上的那几份。`sunshine task context --mode packages` 看到的也是同一张地图。
+
+想检查规范有没有写重了（比如两个文件各写了一遍“登录接口”），跑：
+
+```sh
+sunshine spec check
+```
+
+同一章节标题出现在多个文件里就列出来，内容完全一样再标“内容相同”。只报告，不改文件；发现重复退出码是 1，没重复打印“未发现重复”。
+
+### 本地路径与局域网
+
+市场不一定在网上：本地的 git 仓库也可以当 `--registry` 的来源。
+
+- **本地路径**：绝对路径、相对路径（`./`、`../` 开头）、`file://` 都行。仓库根和带子目录两种写法都可以，比如：
+
+```sh
+sunshine init -u 演示者 -y --claude --registry /path/to/Sunshine/marketplace --template sunshine-fullstack
+```
+
+写子目录时不用操心仓库根在哪：Sunshine 会从你写的目录往上找，第一个含 `.git` 的目录就是仓库根，剩下的部分当子目录。
+
+- **先 commit 一次**：本地路径也是走克隆拉取，只认已经提交的内容。市场里新加的文件还没 commit 就拉不到，会报模板不存在——先 `git commit` 一次就行，不用 push。
+- **局域网共享文件夹**：NAS、共享盘上挂载的文件夹当本地路径用（同上，先 commit）。
+- **局域网 git 服务器走 SSH**：
+
+```sh
+sunshine init -u 演示者 -y --claude --registry git@192.168.1.10:team/market.git --template sunshine-fullstack
+# 或者带端口的写法：ssh://git@192.168.1.10:2222/team/market.git
+```
+
+认证用 ssh-agent 或 `~/.ssh` 里的密钥。这条是代码核对，还没在局域网实测过。
+
+- **局域网 plain http:// 目前走不通**：写 `http://192.168.1.10/team/market.git` 能通过解析，但克隆时会把地址改成 `https://`，对着只提供 http 的服务器就会报 TLS 错误（已实测）。`git://` 协议也不支持，会报 `不支持的 provider "git"`。自签证书的 https 也没有跳过校验的选项。
+
 
 ### 市场模板更新后，`update` 会持续刷新
 
-改一下市场里的模板并提交，再跑 `update --dry-run`：
+改一下市场里的模板并提交，再跑 `update --dry-run`（摘录）：
 
 ```text
 正在扫描变更……
   模板已更新（将自动更新）：
-    ↑ .sunshine/spec/demo.md
+    ↑ .sunshine/spec/system.md
 
   未变更文件（将跳过）：
     ○ .claude/agents/sunshine-check.md
     ……
+
   你已修改（需要你决定）：
     ? .sunshine/config.yaml
 
@@ -570,7 +605,8 @@ registry:
 [试运行] 未做任何修改。
 ```
 
-`demo.md` 因为没动过本地版本，会被自动更新；如果你在本地改过它，同样走“你已修改”的确认流程。`config.yaml` 列为“你已修改”是因为 `registry.spec` 是装模板后写进去的——这是预期行为。
+`system.md` 因为没动过本地版本，会被自动更新；如果你在本地改过它，同样走“你已修改”的确认流程。`config.yaml` 列为“你已修改”是因为 `registry.spec` 是装模板后写进去的——这是预期行为。
+
 
 ## 9. mem：回头看会话
 

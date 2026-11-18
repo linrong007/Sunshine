@@ -71,8 +71,19 @@ func TestSyncContentReplacePreservesDesc(t *testing.T) {
 }
 
 func TestSyncContentNoSections(t *testing.T) {
-	if _, changed := SyncContent("# 空\n\n只有正文，没有二级标题。\n"); changed {
-		t.Fatal("无 ## 节时不应改动")
+	// 无 ## 节时不建索引，但适用标签照样补。
+	updated, changed := SyncContent("# 空\n\n只有正文，没有二级标题。\n")
+	if !changed {
+		t.Fatal("缺适用标签时应改动")
+	}
+	if strings.Contains(updated, "## 索引") {
+		t.Fatal("无 ## 节时不应建索引")
+	}
+	if !strings.HasPrefix(updated, "---\n适用：通用\n---\n\n") {
+		t.Fatalf("应补通用标签：\n%s", updated)
+	}
+	if _, again := SyncContent(updated); again {
+		t.Fatal("第二次同步应无改动")
 	}
 }
 

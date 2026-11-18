@@ -113,14 +113,23 @@ func indexSpan(lines []string) (start, end int) {
 	return start, end
 }
 
-// SyncContent 同步单个文件内容的索引节，返回新内容与是否改动。
+// SyncContent 同步单个文件内容的索引节与适用标签，返回新内容与是否改动。
 // 没有索引节时在文件标题（# ）后插入；有则按当前标题重生成并替换，
 // 旧索引里的描述（括号部分）保留，新节只写标题。
+// 缺适用标签时按通用补（文件名未知时无法按名推断）；SyncFile 会传真实文件名。
 func SyncContent(content string) (string, bool) {
+	return SyncContentFor(content, "")
+}
+
+// SyncContentFor 与 SyncContent 相同，另按 filename 推断缺失的适用标签。
+func SyncContentFor(content, filename string) (string, bool) {
+	updated, tagChanged := EnsureApplicability(content, filename)
+	content = updated
+	changed := tagChanged
 	lines := strings.Split(content, "\n")
 	sections := ParseSections(content)
 	if len(sections) == 0 {
-		return content, false // 没有 ## 节，不用建索引
+		return content, changed // 没有 ## 节，不建索引；标签已补
 	}
 	preserved := ParseIndex(content)
 	indexText := strings.TrimSuffix(BuildIndex(sections, preserved), "\n")
@@ -137,7 +146,7 @@ func SyncContent(content string) (string, bool) {
 			}
 		}
 		if titleLine < 0 {
-			return content, false // 没有标题，不处理
+			return content, changed // 没有标题，不处理
 		}
 		rest := lines[titleLine+1:]
 		for len(rest) > 0 && strings.TrimSpace(rest[0]) == "" {
@@ -150,7 +159,7 @@ func SyncContent(content string) (string, bool) {
 		out = append(out, "")
 		out = append(out, rest...)
 		newContent := strings.Join(out, "\n")
-		return newContent, newContent != content
+		return newContent, changed || newContent != content
 	}
 	// 有索引节：替换。
 	var out []string
@@ -161,16 +170,16 @@ func SyncContent(content string) (string, bool) {
 		out = append(out, lines[end:]...)
 	}
 	newContent := strings.Join(out, "\n")
-	return newContent, newContent != content
+	return newContent, changed || newContent != content
 }
 
-// SyncFile 同步单个 spec 文件的索引节，返回是否改动。
+// SyncFile 同步单个 spec 文件的索引节与适用标签，返回是否改动。
 func SyncFile(path string) (bool, error) {
 	raw, err := os.ReadFile(path)
 	if err != nil {
 		return false, err
 	}
-	updated, changed := SyncContent(string(raw))
+	updated, changed := SyncContentFor(string(raw), filepath.Base(path))
 	if !changed {
 		return false, nil
 	}
@@ -180,13 +189,13 @@ func SyncFile(path string) (bool, error) {
 	return true, nil
 }
 
-// CheckFile 只检查单个 spec 文件的索引是否同步，不写盘。
+// CheckFile 只检查单个 spec 文件的索引与适用标签是否同步，不写盘。
 func CheckFile(path string) (bool, error) {
 	raw, err := os.ReadFile(path)
 	if err != nil {
 		return false, err
 	}
-	_, changed := SyncContent(string(raw))
+	_, changed := SyncContentFor(string(raw), filepath.Base(path))
 	return changed, nil
 }
 

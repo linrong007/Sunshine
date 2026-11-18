@@ -48,11 +48,41 @@ func (t *Target) Close() {
 	}
 }
 
+// pickSingleSpecTemplate 在未指定模板时自动选：市场里恰好一个 spec
+// 条目时选中它；没有 spec 条目报错；多个 spec 条目报错并列出 id。
+// skill 安装仍须显式 --template（自动选只针对 spec）。
+func pickSingleSpecTemplate(templates []SpecTemplate) (*SpecTemplate, error) {
+	var specs []SpecTemplate
+	for _, t := range templates {
+		if t.Type == "spec" {
+			specs = append(specs, t)
+		}
+	}
+	switch len(specs) {
+	case 0:
+		return nil, fmt.Errorf("该市场没有 spec 模板")
+	case 1:
+		s := specs[0]
+		return &s, nil
+	default:
+		return nil, fmt.Errorf("该 registry 是模板市场，有多个 spec 模板，请用 --template <id> 指定一个，可选：%s", strings.Join(specTemplateIDs(specs), "、"))
+	}
+}
+
+// specTemplateIDs 取条目的 id 列表。
+func specTemplateIDs(templates []SpecTemplate) []string {
+	ids := make([]string, 0, len(templates))
+	for _, t := range templates {
+		ids = append(ids, t.ID)
+	}
+	return ids
+}
+
 // ResolveTarget 解析 --registry 来源并探测 index.json，确定安装模式与模板。
-// marketplace 模式必须用 --template 指定条目（对应上游 -y 模式的行为：
-// 多模板市场无法自动选择）；workflow 类型模板会被拒绝，提示改用
-// sunshine workflow --template。探测到瞬时失败（非 404）时直接报错，
-// 不误判为直接下载模式。
+// marketplace 模式未指定 --template 时，恰好一个 spec 条目则自动选中
+// （多个 spec 条目仍须指定，没有 spec 条目报错）；workflow 类型模板
+// 会被拒绝，提示改用 sunshine workflow --template。探测到瞬时失败
+// （非 404）时直接报错，不误判为直接下载模式。
 func ResolveTarget(source, templateID string) (*Target, error) {
 	src, err := ParseRegistrySource(source)
 	if err != nil {
@@ -79,9 +109,12 @@ func ResolveTargetWithProbe(src *Source, probe *ProbeResult, templateID string) 
 		return &Target{Source: src, Mode: "direct", Probe: probe}, nil
 	}
 	if templateID == "" {
-		ids := TemplateIDs(probe.Templates)
-		probe.Close()
-		return nil, fmt.Errorf("该 registry 是模板市场，有多个模板，请用 --template <id> 指定一个，可选：%s", strings.Join(ids, "、"))
+		t, err := pickSingleSpecTemplate(probe.Templates)
+		if err != nil {
+			probe.Close()
+			return nil, err
+		}
+		templateID = t.ID
 	}
 	t := FindTemplate(probe.Templates, templateID)
 	if t == nil {
@@ -168,20 +201,25 @@ func Install(cwd string, opts InstallOptions) (*InstallResult, error) {
 		return result, nil
 	}
 
-	// Marketplace 模式。
-	if opts.Template == "" {
-		return nil, fmt.Errorf("该 registry 是模板市场，有多个模板，请用 --template <id> 指定一个，可选：%s",
-			strings.Join(TemplateIDs(probe.Templates), "、"))
+	// Marketplace 模式：未指定模板时恰好一个 spec 条目则自动选中。
+	templateID := opts.Template
+	if templateID == "" {
+		picked, err := pickSingleSpecTemplate(probe.Templates)
+		if err != nil {
+			return nil, err
+		}
+		templateID = picked.ID
 	}
-	t := FindTemplate(probe.Templates, opts.Template)
+	t := FindTemplate(probe.Templates, templateID)
 	if t == nil {
-		return nil, NewError(ErrKindNotFound, "模板 %q 不存在，可选：%s", opts.Template, strings.Join(TemplateIDs(probe.Templates), "、"))
+		return nil, NewError(ErrKindNotFound, "模板 %q 不存在，可选：%s", templateID, strings.Join(TemplateIDs(probe.Templates), "、"))
 	}
 	if t.Type == "workflow" {
 		return nil, fmt.Errorf("工作流模板请用 sunshine workflow --template %s 安装，不要用 --registry", t.ID)
 	}
 	result.Mode = "marketplace"
 	result.Template = t
+	result.SpecConfig.Template = t.ID
 	result.DestRel = templateDestRel(t)
 	installed, skipped, files, err := installTemplate(context.Background(), cwd, src, probe, t, opts.Strategy, "")
 	if err != nil {

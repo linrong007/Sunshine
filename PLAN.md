@@ -3059,3 +3059,47 @@ pre-commit install       # 在仓库根目录执行一次
 - CI 与发布：发布 workflow run 44094820616、CI 两路 run 44094711785（main）与 44094820648（tag）均 completed success，无抖动。
 - Release：id 448686724，非草稿、非预发布，6 个资产在位（checksums.txt + sunshine_0.5.24_darwin_amd64/arm64.tar.gz、linux_amd64/arm64.tar.gz、windows_amd64.zip）。
 - 一键装：macOS/Linux `curl -fsSL https://raw.githubusercontent.com/linrong007/Sunshine/main/install.sh | sh`；Windows `irm https://raw.githubusercontent.com/linrong007/Sunshine/main/install.ps1 | iex`。
+
+## spec 全认 + 模板市场简化（2026-11-18，用户定，未发版）
+
+背景（2026-11-18 早上用户问清机制后定的方向）：
+- spec 全认：不限于 system/frontend/backend 三份；.sunshine/spec/ 下所有 .md 都认。旧问题：平铺文件（api.md、ui.md 等）不在发现路径上——SessionStart 只列子目录 index.md、task context 只列分层名、工作流文字只点名 frontend/backend.md，不手动登记进 implement.jsonl 就不起作用；默认三份也是靠点名才没掉队；spec 模型（包/分层树）与默认模板形状（平铺三文件）拧巴。
+- 适用标签：每个 spec 文件头写 YAML frontmatter `适用：前端/后端/通用`；缺了按文件名自动补（文件名含 frontend→前端，backend→后端，system→通用，其他→通用）；模板作者写了的以作者的为准，安装不改写。
+- spec 地图：SessionStart 注入一张地图——spec/ 下全部 .md（递归），按适用分组，一行一个（路径 + 索引章节名）；前端任务读前端组+通用组，后端任务读后端组+通用组。jsonl 保留，1.4 挑文件改按适用规则办（不再靠 agent 猜）。
+- 安装默认只补缺失：init --registry 默认只装没有的文件，已有的不动；--overwrite 全量替换（整目录清空再装，含用户自己写的文件，慎用）；--append 保留，与默认同义。
+- 自动选：marketplace 里恰好只有一个 type=spec 的条目时，--template 可省，自动选中它；多个 spec 条目仍须指定；没有 spec 条目报错；skill 安装仍须显式 --template（自动选只针对 spec）。
+- 查重：新命令 `sunshine spec check`，比对各文件索引章节，标题相同或内容相同的节列出来；安装后自动跑一遍，只报告、不阻止安装。
+- registry.spec 留着：config.yaml 里 source+template 两行，update 靠它刷新；默认市场先不做（没有官方市场仓库可默认，仓库要转私有以后再说）；单 flag 直接指模板目录的写法已可用（直接下载模式，不走 index.json）。
+- 仓库根语义：根 = 来源字符串指向的目录（可带子目录/分支）；index.json 必须在根下，条目 path 相对根写；直接模式取根/marketplace/specs/（若有）否则根本身；子目录不得越出仓库。
+
+实施：
+1. specindex：加适用标签解析与自动补。SyncContent/SyncFile 同步时：文件无 frontmatter 适用行则按文件名推断补在文件最前面（`---\n适用：X\n---` + 空行 + 原内容）；已有标签不动。索引同步只插标题后/替换索引节，不得动 frontmatter。SessionStart 兜底同步同样补标签（覆盖 update 刷新进来的文件）。单测：四种文件名推断 + 已有标签不动 + frontmatter 与索引共存。
+2. 默认模板加标签：templates/sunshine/spec/system.md→通用、frontend.md→前端、backend.md→后端（frontmatter 写死）。
+3. SessionStart 地图：internal/hook/session_start.go 的 collectSpecIndexPaths 改成扫 spec/ 下全部 .md（递归；跳过 guides/ 下文件，但 guides/index.md 保留在列，与现状一致；monorepo spec_scope 过滤只对子目录生效，平铺文件恒列出）。注入文案把 "Available indexes" 改成按适用分组的地图（通用组/前端组/后端组，每行 `路径 — 章节1、章节2`，无索引节只列路径）。checkLegacySpec 若把平铺当 legacy 警告，改掉/删掉（平铺现在是正经形态）。
+4. `task context --mode packages`：text 输出改成同一张地图（按适用分组）；JSON 保留 specLayers（分层名照旧算），新增 specFiles（路径+适用）。internal/task/context.go 的 scanSpecLayers 不再是唯一输出。
+5. 工作流模板三份（templates/workflows/*/workflow.md）：开头 spec 组织一节（“按包与分层组织”）改成新模型（一叠文件 + 适用标签 + 地图）；1.4“放什么”规范文件一节改成适用规则（前端任务取适用=前端+通用，后端取适用=后端+通用，都沾的都取；只放本任务用得上的）；“如何发现相关规范”改成读 SessionStart 地图 + `task context --mode packages`；原型派发那节“（如 .sunshine/spec/frontend.md 里的设计约束）”改成“适用=前端的 spec 文件里的设计约束”；1.4 示例命令的 backend.md 路径保留作示例。
+6. registry 默认策略：internal/cli/registry.go 的 resolveRegistryStrategy 默认返回 StrategyAppend（只补缺失）；--append 保留；--overwrite 保持；--overwrite/--append 不再强制要求 --template（校验移到目标解析后，自动选能补上时放行）。copyWithStrategy 的模板级 skip（目标目录已存在则整个跳过）在默认路径下不再触发（append 走 copyMissing）。
+7. 自动选：internal/registry/install.go 的 ResolveTarget/ResolveTargetWithProbe/Install：marketplace 模式且 templateID=="" 时，恰好一个 spec 条目则自动选中；多个 spec 条目报错列出 id；0 个 spec 条目报错“该市场没有 spec 模板”。交互选单（resolveInteractiveTemplate）不动（交互本来就要挑）。单测覆盖三情形。
+8. 安装后收尾：installRegistryTemplates 成功后按顺序做——对新装文件跑 specindex.SyncDir（补索引+补标签）→ 跑查重打印重叠章节警告（不失败、不阻止）→ 记哈希 → 写 registry.spec（哈希必须在同步之后记，否则同步改了文件哈希就 stale）。失败回退（内置空白模板）不变。
+9. `sunshine spec check`：internal/cli/spec.go 加 check 子命令；specindex 加 CheckDuplicates：扫 spec/ 全部 .md，取各文件索引章节（无索引节的按 ## 标题现算），标题相同（跨文件）或同一标题下节正文哈希相同，列出文件对+章节；无重叠打印“未发现重复”。单测：标题撞车、内容相同、标题不同内容不同三例。
+10. 文档：docs/tutorial.md 与 docs/tutorial.en.md 模板市场一节通俗改写/新增（两种模式、仓库根语义、用法：新项目/已有项目/单 flag/--overwrite 注意、配置示例 config.yaml registry.spec 两行、市场目录 tree + index.json 四字段、skill 一节、适用标签与地图一句话）；internal/registry/marketplace.md 同步更新（默认 append、自动选、适用标签、spec check、仓库根语义）。README 暂不动。
+11. 验收：gofmt/build/vet 全过；全量测试 21 包全过（跑前后清 /tmp/sunshine-test-bin-* 与 /tmp/go-build*）；沙箱 e2e：①新项目 init --registry --template（spec 文件带标签+索引，默认三份不生成）；②单 spec 模板市场不给 --template 自动选；③多 spec 模板不给 --template 报错列出 id；④已有项目再跑默认只补缺失（删一文件再跑只补它）；⑤--overwrite 全换（含用户文件被清）；⑥spec check 检出重复标题；⑦skill 安装落点 .agents/skills/<id> 且默认 spec 照常生成；⑧单 flag 直接指模板目录；⑨SessionStart 注入含地图（平铺文件在列、按适用分组）；⑩grep 残留（“按包与分层组织”、旧 skip 默认文案）。
+
+发版：本批不发版，等用户点选。
+
+## 局域网 http 修复（2026-11-18，用户定修，未发版）
+
+背景：用户问局域网 git 服务器能不能当市场来源。实测：SSH 局域网代码支持（未实测）；局域网 plain http 走不通。根因：`buildGitURL`（internal/registry/parse.go）自建域名统一拼 `https://%s/%s.git`，`gitURLInput` 无 scheme 字段，`ParseRegistrySource` 里 `httpsUnknownRe` 虽匹配 `https?`，但 scheme 未保留——用户写 `http://192.168.1.10:3000/team/market.git`，克隆时被改成 `https://…`，对只讲 http 的服务器报 `tls: first record does not look like a TLS handshake`（本地 http git 服务器实测，git http-backend + python http.server CGI，端口 18080）。自建来源 `PreferGit=true`，探测走 git 克隆，所以失败点在克隆，不在 RawBaseURL。
+
+实施：
+1. `gitURLInput` 加 scheme 字段（"http"/"https"，默认 "https"）；`ParseRegistrySource` 从原始来源取 scheme（仅 `httpsUnknownRe` 匹配到的自建 http/https URL；giget 前缀与公开域名不走这条，仍强制 https）。
+2. `buildGitURL`：host 非空时按 scheme 拼（`%s://%s/%s.git`）；公开域名分支不动。
+3. `RawBaseURL`：自建来源的 `https://gitlab.com` 替换改按 scheme（`scheme://host`），与 GitURL 一致（探测走克隆时用不上，HTTP 回退路径要一致）。
+4. 单测（parse）：`http://192.168.1.10:3000/team/market.git` → GitURL 为 http；`https://` 同 → https；`https://github.com/org/repo` → `https://github.com/org/repo.git` 不变；`gh:` 前缀不变。
+5. 沙箱 e2e：本地 http git 服务器（git http-backend CGI：cgi-bin/git 脚本设 GIT_PROJECT_ROOT 与 GIT_HTTP_EXPORT_ALL 后 exec git-http-backend，python3 -m http.server --cgi 18080）跑 `init --registry http://127.0.0.1:18080/cgi-bin/git/team-market.git --template team-spec` 成功装 spec；注意 /tmp 只有 512M，跑全量测试前后清 /tmp/sunshine-test-bin-* 与 /tmp/go-build*，且不要用 pkill -f 杀服务器（命令行含匹配串会杀掉自己的 shell，改用 curl 探活 + 按 PID 杀）。
+6. 教程：中英文模板市场局域网小节改写——http:// 局域网可用（删“走不通”句，改写为 http/https 均可）；internal/registry/marketplace.md 同步。README 不动。
+7. 验收：gofmt/build/vet 全过；全量测试 21 包全过；沙箱 e2e（上条）；grep 残留（"走不通"）。
+
+不在本次范围：自签证书 https 仍无跳过校验选项；git:// 协议仍不支持。
+
+发版：本批不发版，等用户点选。

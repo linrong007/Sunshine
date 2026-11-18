@@ -25,10 +25,12 @@ sunshine init -u <你的名字>
 
 ### 规范系统
 
-`.sunshine/spec/` 存放项目工程指南。写代码之前，先加载与任务相关的包/分层规范：
+`.sunshine/spec/` 下所有 `.md` 文件都是规范：默认三份（`system.md`、`frontend.md`、`backend.md`），也可以是模板市场拉来的 `api.md`、`ui.md` 等，全部认。
+
+每个规范文件头上有一行 `适用：前端 / 后端 / 通用`，写明这份规范给谁读：前端任务读前端组 + 通用组，后端任务读后端组 + 通用组。`guides/` 下是跨前后端的共享指南。写代码之前，先看规范地图，加载与本任务相关的那几份：
 
 ```bash
-sunshine task context --mode packages
+sunshine task context --mode packages   # 列出规范地图：按适用分组，一行一个
 ```
 
 ### 任务系统
@@ -232,7 +234,7 @@ sunshine task create "<任务标题>" --slug <名称>
 
 **交付客户的文档（循环结束后按需生成）**：全部需求和原型做完后，按需生成交付客户的文档——不一定是设计概要，概要设计只是其中一种可能，由设计者按客户需要定；要出概要设计时再写 `doc/design/概要设计.md`（模块、接口、数据、技术选型、验收、风险），依据完整的需求列表 + `prd.md`。什么设计文档都没有就是纯代码任务，走直接开发。
 
-**高保真原型派发给子代理**：原型是代码（HTML/CSS/JS + mock 数据），不要由主会话顺手写。每轮按需求派发：用 `sunshine channel spawn --agent prototype` 派发（加载 `.sunshine/agents/prototype.md`），派发消息里给出需求列表 `doc/design/需求列表.md` 的路径、spec 下的前端样式约束（如 `.sunshine/spec/frontend.md` 里的设计约束）、以及已有原型目录 `doc/prototype/`（保一致：共用 mock 数据、导航入口、样式）；子代理按需求列表当前状态产出或更新该条需求对应的页（每页一个文件 + `index.html` 导航入口），共用页在已有页上加、不重建，完成后只汇报页数、mock 记录数与文件路径，主会话不直接写原型，只收汇报。初版生成与结构性大改走子代理；小修（改个按钮颜色、一行文案）在主会话里用 grep 定向改，不重新派发。
+**高保真原型派发给子代理**：原型是代码（HTML/CSS/JS + mock 数据），不要由主会话顺手写。每轮按需求派发：用 `sunshine channel spawn --agent prototype` 派发（加载 `.sunshine/agents/prototype.md`），派发消息里给出需求列表 `doc/design/需求列表.md` 的路径、spec 里前端组的设计约束（如 `.sunshine/spec/frontend.md` 里的设计约束）、以及已有原型目录 `doc/prototype/`（保一致：共用 mock 数据、导航入口、样式）；子代理按需求列表当前状态产出或更新该条需求对应的页（每页一个文件 + `index.html` 导航入口），共用页在已有页上加、不重建，完成后只汇报页数、mock 记录数与文件路径，主会话不直接写原型，只收汇报。初版生成与结构性大改走子代理；小修（改个按钮颜色、一行文案）在主会话里用 grep 定向改，不重新派发。
 
 #### 1.2 任务拆解 `[optional · once]`
 
@@ -270,6 +272,7 @@ sunshine task create "<任务标题>" --slug <名称>
 - `implement.jsonl`——实现工作线程需要的规范与研究。
 - `check.jsonl`——检查工作线程需要的质量规范、测试规范与研究。
 - 设计文档——`doc/` 下与本任务相关的设计产物（需求列表、概要设计、高保真原型等），只放本任务用得上的那几份，不用把整个 `doc/` 列进来。
+- **挑规范的办法**——先看规范地图（`sunshine task context --mode packages`），按适用分组挑：前端任务挑前端组 + 通用组，后端任务挑后端组 + 通用组；只放本任务用得上的那几份。
 
 **规范索引**：spec 文件头上有 `## 索引` 一节时，先读索引定位到相关章节，再按需读正文；索引是导航不是替代，拿不准就读正文。
 

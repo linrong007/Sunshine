@@ -106,8 +106,11 @@ GitHub Copilot、Factory Droid）。
 不动已有平台文件与 .sunshine/ 骨架。
 
 --registry 从模板市场安装规范模板：
-  - 有 index.json 的来源是模板市场，须用 --template 指定条目 id；
+  - 有 index.json 的来源是模板市场；市场里恰好一个 spec 模板时
+    --template 可省，自动选中；多个 spec 模板时须用 --template 指定条目 id；
   - 无 index.json 的来源走直接下载，整个 registry 内容装进 .sunshine/spec；
+  - 默认只补缺失文件（已有的不动），--overwrite 整体替换（慎用，
+    会清空目标目录，包括自己写的文件）；
   - 装完后来源与模板会记进 .sunshine/config.yaml 的 registry.spec，
     sunshine update 按它持续刷新。
   - 交互模式（不带 -y）且未传 --template 时会弹出规范模板选单：
@@ -179,6 +182,17 @@ GitHub Copilot、Factory Droid）。
 				if err != nil {
 					return err
 				}
+			}
+			// 自动选补上的模板 id 写回 initTemplate：后续安装、
+			// registry.spec 记录与重试提示都用它。
+			if initTemplate == "" {
+				initTemplate = target.TemplateID
+			}
+			// --overwrite/--append 的校验移到目标解析后：市场模式下
+			// 目标必须已带模板（显式指定或自动选补上），否则报错。
+			if (initOverwrite || initAppend) && target.Mode == "marketplace" && target.Template == nil {
+				target.Close()
+				return fmt.Errorf("--overwrite/--append 需要指定模板：该市场有多个 spec 模板，请用 --template 指定一个")
 			}
 			// 探测资源（临时克隆）由安装步骤接管关闭；任何提前返回
 			// 路径都由这层 defer 兜底（安装后再次 Close 是安全的）。

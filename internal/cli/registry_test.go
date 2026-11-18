@@ -13,8 +13,8 @@ func TestResolveRegistryStrategy(t *testing.T) {
 	defer set(false, false, "")
 
 	set(false, false, "")
-	if got, err := resolveRegistryStrategy(); err != nil || got != registry.StrategySkip {
-		t.Errorf("默认应为 skip，得到 %q, %v", got, err)
+	if got, err := resolveRegistryStrategy(); err != nil || got != registry.StrategyAppend {
+		t.Errorf("默认应为 append（只补缺失），得到 %q, %v", got, err)
 	}
 	set(true, false, "demo-spec")
 	if got, err := resolveRegistryStrategy(); err != nil || got != registry.StrategyOverwrite {
@@ -24,14 +24,15 @@ func TestResolveRegistryStrategy(t *testing.T) {
 	if got, err := resolveRegistryStrategy(); err != nil || got != registry.StrategyAppend {
 		t.Errorf("应为 append，得到 %q, %v", got, err)
 	}
-	// --overwrite/--append 仅配合 --template。
+	// --overwrite/--append 不再要求 --template（自动选能补上时放行，
+	// 校验移到目标解析后，见 init.go）。
 	set(true, false, "")
-	if _, err := resolveRegistryStrategy(); err == nil {
-		t.Error("--overwrite 不配 --template 应报错")
+	if got, err := resolveRegistryStrategy(); err != nil || got != registry.StrategyOverwrite {
+		t.Errorf("--overwrite 不配 --template 也应返回 overwrite，得到 %q, %v", got, err)
 	}
 	set(false, true, "")
-	if _, err := resolveRegistryStrategy(); err == nil {
-		t.Error("--append 不配 --template 应报错")
+	if got, err := resolveRegistryStrategy(); err != nil || got != registry.StrategyAppend {
+		t.Errorf("--append 不配 --template 也应返回 append，得到 %q, %v", got, err)
 	}
 	// 两者互斥。
 	set(true, true, "demo-spec")

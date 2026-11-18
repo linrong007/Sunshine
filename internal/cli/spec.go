@@ -120,5 +120,61 @@ func RegisterSpecCommand(root *cobra.Command) {
 	indexCmd.Flags().Bool("check", false, "只检查不同步，不写盘")
 	indexCmd.Flags().Bool("dry-run", false, "只显示会改动的文件，不写盘")
 	specCmd.AddCommand(indexCmd)
+
+	checkCmd := &cobra.Command{
+		Use:   "check",
+		Short: "检查 spec 文件内容是否重复",
+		Long: `检查 .sunshine/spec/ 下各文件的内容是否重复。
+
+比对各文件索引章节：同一章节标题出现在多个文件里即列出；
+各文件该节正文完全相同时再标“内容相同”。只报告，不改文件。
+发现重复时退出码为 1（供 CI 用）；无重叠打印“未发现重复”。
+
+  sunshine spec check`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			root := task.FindRoot("")
+			if root == "" {
+				return fmt.Errorf("当前目录不在 Sunshine 项目内（未找到 .sunshine/），请先 cd 到项目目录，或运行 sunshine init 初始化")
+			}
+			specDir := filepath.Join(root, ".sunshine", "spec")
+			dups, err := specindex.CheckDuplicates(specDir)
+			if err != nil {
+				return err
+			}
+			if len(dups) == 0 {
+				fmt.Println("未发现重复")
+				return nil
+			}
+			fmt.Printf("spec 内容可能重复（%d 处），请确认只留一处：\n", len(dups))
+			for _, d := range dups {
+				note := "内容不同"
+				if d.Identical {
+					note = "内容相同"
+				}
+				fmt.Printf("  章节“%s”：%s（%s）\n", d.Title, strings.Join(relSpecPaths(root, d.Files), "、"), note)
+			}
+			return fmt.Errorf("发现 %d 处重复章节", len(dups))
+		},
+	}
+	specCmd.AddCommand(checkCmd)
 	root.AddCommand(specCmd)
+}
+
+// relSpecPaths 把相对项目根的 spec 路径转成相对当前目录的显示路径
+// （出不去时用绝对路径）。
+func relSpecPaths(root string, paths []string) []string {
+	cwd, err := os.Getwd()
+	if err != nil {
+		return paths
+	}
+	out := make([]string, len(paths))
+	for i, p := range paths {
+		abs := filepath.Join(root, p)
+		if r, err := filepath.Rel(cwd, abs); err == nil && !strings.HasPrefix(r, "..") {
+			out[i] = r
+			continue
+		}
+		out[i] = abs
+	}
+	return out
 }

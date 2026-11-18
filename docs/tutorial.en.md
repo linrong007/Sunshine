@@ -12,7 +12,7 @@ Conventions:
 - Every command output shown is a real excerpt from a run made for this tutorial (`……` marks omitted lines, not rewritten ones). The `11-10` prefix in task directory names is the month-day of the day the commands were run (today, 2026-11-10).
 - This tutorial was verified with v0.2.1 (the current Release). The two places that show a different version say so explicitly.
 - **The CLI itself is Chinese-only.** Commands and sample output below are kept in the original Chinese so you can copy them verbatim; the explanations around them are in English.
-- The demo directories all live under `/tmp/rewrite-en/` (`demo`, `demo2`, `demo3`, `registry-src`, `channels`, `home`) — delete them and nothing in any real project is affected.
+- The demo directories all live under `/tmp/rewrite-en/` (`demo`, `demo2`, `demo3`, `channels`, `home`) — delete them and nothing in any real project is affected.
 
 ## 1. Run once in the terminal: init
 
@@ -550,88 +550,125 @@ Who runs `update`? Usually you, in the terminal, when you know a new version is 
 
 ### The template marketplace: install specs from a registry
 
-A template marketplace is a repository of reusable specs, laid out as `marketplace/index.json` + `marketplace/specs/`. You point `init` at one to start a project from a shared spec instead of the built-in templates. Here is a minimal local marketplace, built for this tutorial:
+A template marketplace is a repository of reusable specs: specs other people already wrote (how interfaces are shaped, what the UI rules are) that you can reuse instead of writing your own from scratch. The official marketplace is `gh:linrong007/Sunshine/marketplace`. It holds one full-stack spec (`sunshine-fullstack` — the three default files `system.md`, `frontend.md`, `backend.md`), two skills (`go-sdk-author`, `mem-recall`), and three workflows (`native`, `tdd`, `channel-driven-subagent-dispatch`).
 
-```sh
-mkdir -p registry-src/marketplace/specs/demo-spec
-cat > registry-src/marketplace/index.json <<'EOF'
-{
-  "version": 1,
-  "templates": [
-    {
-      "id": "demo-spec",
-      "type": "spec",
-      "name": "演示规范",
-      "description": "演示用规范模板",
-      "path": "specs/demo-spec"
-    }
-  ]
-}
-EOF
-cat > registry-src/marketplace/specs/demo-spec/demo.md <<'EOF'
-# 演示规范
-
-本文件来自本地模板市场 demo-spec。
-
-## 约定
-
-- 演示项目的所有接口返回统一错误码。
-EOF
-cd registry-src && git init && git add -A && git commit -m "demo registry" && cd ..
-```
-
-Two gotchas, both found by actually running it:
-
-1. A local path must point at the `marketplace` subdirectory itself (`…/registry-src/marketplace`), not the repository root — pointing at the root fails with `错误：该 registry 没有 index.json，不能用 --template；去掉 --template 走直接下载模式` ("this registry has no index.json, `--template` cannot be used; drop `--template` for direct-download mode").
-2. The `path` in `index.json` is relative to the directory containing `index.json`, so write `specs/demo-spec`, not `marketplace/specs/demo-spec`.
-
-Then install from the marketplace in a new project:
+To start a new project from a marketplace spec, add `--registry` when you init:
 
 ```sh
 mkdir demo3 && cd demo3 && git init
-sunshine init -u 演示者 -y --registry /tmp/rewrite-en/registry-src/marketplace --template demo-spec
+sunshine init -u 演示者 -y --claude --registry gh:linrong007/Sunshine/marketplace --template sunshine-fullstack
 ```
 
 Real output:
 
 ```text
 正在配置 Claude Code……
-正在配置 Cursor……
-已安装模板 "demo-spec"（.sunshine/spec），共 1 个文件。
-已记录 registry.spec：/tmp/rewrite-en/registry-src/marketplace（模板 demo-spec），sunshine update 会持续刷新。
+已安装模板 "sunshine-fullstack"（.sunshine/spec），共 3 个文件。
+已记录 registry.spec：gh:linrong007/Sunshine/marketplace（模板 sunshine-fullstack），sunshine update 会持续刷新。
 初始化完成，开发者：演示者
 已安装平台：
   - Claude Code
-  - Cursor
 下一步：
   1. 在 agent 界面里打开项目，直接用自然语言提第一个需求；
   2. 规范已从模板市场装进 .sunshine/spec/，工作流按 .sunshine/workflow.md 自动推进，一般不用改。
 ```
 
-("Installed template `demo-spec` (`.sunshine/spec`), 1 file in total. Recorded `registry.spec`: `/tmp/rewrite-en/registry-src/marketplace` (template `demo-spec`); `sunshine update` will keep refreshing it. Initialization complete…")
+("Setting up Claude Code… / Installed template `sunshine-fullstack` (`.sunshine/spec`), 3 files in total. / Recorded `registry.spec`: `gh:linrong007/Sunshine/marketplace` (template `sunshine-fullstack`); `sunshine update` will keep refreshing it. / Initialization complete…")
 
-The template content lands in `.sunshine/spec/demo.md`, and the source is recorded in `config.yaml`:
+After install, `.sunshine/spec/` holds the template's three files, and the source is recorded in `config.yaml`:
 
 ```yaml
-# 受哈希追踪的 spec 模板，本地改动走正常的 update 冲突流程。
 registry:
   spec:
-    source: /tmp/rewrite-en/registry-src/marketplace
-    template: demo-spec
+    source: gh:linrong007/Sunshine/marketplace
+    template: sunshine-fullstack
 ```
 
-("Spec templates tracked by hash; local edits go through the normal update conflict flow.") A remote marketplace works the same way — replace the local path with `gh:owner/repo`, a full git URL, an HTTP(S) URL, or a `git@` address. The above uses `-y` with `--template`; in interactive mode, omitting `--template` makes init list that marketplace's spec templates for you to pick, so you don't need to know the template id in advance (a marketplace without `index.json` downloads the whole source directly, with no picker).
+After install, a duplicate check runs: if a section title shows up in more than one file, or the same section has identical text, it prints a heads-up line — it only reports, it never blocks the install. To see the exact places, run `sunshine spec check` (below).
 
-After the marketplace template changes, `update` keeps refreshing it. Edit the template in the marketplace, commit, and run `update --dry-run` again:
+Common variations:
+
+- **Marketplace only, no template**: when a marketplace holds exactly one spec template, `--template` can be left out and it is picked automatically. The official marketplace has only one spec (`sunshine-fullstack`), so the command above works the same without `--template sunshine-fullstack`. With several spec templates you must name one; omitting it (or naming a wrong id) errors out and lists the available ids.
+- **Run it again, only missing files are added**: running the same command in a project that already has the template only installs files that are missing — existing files are left alone, including ones you wrote yourself. Delete one file and re-run, and only that file comes back.
+- **Replace everything**: `--overwrite` empties `.sunshine/spec/` and installs fresh, including deleting files you wrote yourself — only use it when you mean it.
+- **Install a skill**: same command, different id. The skill lands in `.agents/skills/<id>/`, and the three default spec files are still generated as usual:
+
+```sh
+sunshine init -u 演示者 -y --claude --registry gh:linrong007/Sunshine/marketplace --template go-sdk-author
+```
+
+- **Workflows don't go through this command**: install a workflow template with `sunshine workflow --template tdd` (see section 7).
+- **Point straight at a template directory**: the source can also be one template's directory, no marketplace and no `--template` needed — the whole directory is installed into `.sunshine/spec/` as-is:
+
+```sh
+sunshine init -u 演示者 -y --claude --registry gh:linrong007/Sunshine/marketplace/specs/sunshine-fullstack
+```
+
+A remote marketplace works the same way — swap `gh:owner/repo` for a full git URL, an HTTP(S) URL, or a `git@` address. A local marketplace is a local git repository path, and it must point at the level that contains `index.json`: the official marketplace lives in the `marketplace/` subdirectory of the repository root, so the source has to be written up to `…/marketplace`, not the repository root.
+
+### Every spec counts: applicability tags and the spec map
+
+Every `.md` file under `.sunshine/spec/` counts as a spec, not just the default three: `api.md` or `ui.md` pulled from a marketplace, or notes you wrote yourself — all of them. Each file carries one line at the top, `适用：前端 / 后端 / 通用` ("Applies to: frontend / backend / general"), saying who should read it:
+
+```md
+---
+适用：后端
+---
+
+# 后端规范
+```
+
+If that line is missing, the first sync after install (`sunshine spec index`) fills it in from the file name: names containing `frontend` are frontend, `backend` are backend, `system` and anything else are general (so `ui.md` and `api.md` both land in the general group — to make one frontend, change its line to `适用：前端` by hand). If the template author already wrote the line, the author's value wins and install never rewrites it.
+
+Every time a session starts, Sunshine injects a spec map: all files under `spec/`, grouped by applicability, one line each (path + the section names from its index). Frontend work reads the frontend group plus the general group; backend work reads the backend group plus the general group — and only the files this task actually needs. `sunshine task context --mode packages` shows the same map.
+
+To check whether specs repeat each other (say two files each describe the login endpoint), run:
+
+```sh
+sunshine spec check
+```
+
+A section title appearing in more than one file is listed; sections whose text is fully identical are additionally marked "内容相同" (identical content). It only reports and never edits files; it exits 1 when duplicates are found and prints "未发现重复" (no duplicates found) when there are none.
+
+### Local paths and the LAN
+
+A marketplace doesn't have to live online: a local git repository works as a `--registry` source too.
+
+- **Local paths**: absolute paths, relative paths (starting with `./` or `../`), and `file://` URLs all work. Both the repository root and a subdirectory work, for example:
+
+```sh
+sunshine init -u 演示者 -y --claude --registry /path/to/Sunshine/marketplace --template sunshine-fullstack
+```
+
+With a subdirectory you don't need to work out where the repository root is: Sunshine walks up from the directory you wrote and takes the first directory containing `.git` as the repository root, with the rest as the subdirectory.
+
+- **Commit first**: a local path is still fetched by cloning, so only committed content is visible. Files you added to the marketplace but haven't committed yet can't be pulled — you'll get a "template not found" error. One `git commit` is enough; no push needed.
+- **LAN shared folders**: a mounted folder on a NAS or shared drive works as a local path (same rule: commit first).
+- **LAN git servers go over SSH**:
+
+```sh
+sunshine init -u 演示者 -y --claude --registry git@192.168.1.10:team/market.git --template sunshine-fullstack
+# Or with a port: ssh://git@192.168.1.10:2222/team/market.git
+```
+
+Authentication uses ssh-agent or a key in `~/.ssh`. This one is verified against the code only — it hasn't been tested on a real LAN yet.
+
+- **Plain http:// on a LAN doesn't work yet**: writing `http://192.168.1.10/team/market.git` passes parsing, but cloning rewrites the address to `https://`, so a server that only speaks http fails with a TLS error (tested). The `git://` protocol isn't supported either — it errors with `不支持的 provider "git"` ("unsupported provider "git""). Self-signed https has no skip-verification option.
+
+
+### After the marketplace template changes, `update` keeps refreshing it
+
+Edit the template in the marketplace, commit, and run `update --dry-run` again (excerpt):
 
 ```text
 正在扫描变更……
   模板已更新（将自动更新）：
-    ↑ .sunshine/spec/demo.md
+    ↑ .sunshine/spec/system.md
 
   未变更文件（将跳过）：
     ○ .claude/agents/sunshine-check.md
     ……
+
   你已修改（需要你决定）：
     ? .sunshine/config.yaml
 
@@ -644,9 +681,10 @@ After the marketplace template changes, `update` keeps refreshing it. Edit the t
 [试运行] 未做任何修改。
 ```
 
-("Template updated (will be updated automatically): `.sunshine/spec/demo.md` / Unchanged files (will be skipped): … / Modified by you (needs your decision): `.sunshine/config.yaml` / User data (kept untouched): …")
+("Scanning changes… / Template updated (will be updated automatically): `.sunshine/spec/system.md` / Unchanged files (will be skipped): … / Modified by you (needs your decision): `.sunshine/config.yaml` / User data (kept untouched): … / [Dry run] No changes made.")
 
-`demo.md` is updated automatically because its local copy was never edited; if you had edited it locally, it would go through the same "modified by you" confirmation. `config.yaml` shows as "modified by you" because `registry.spec` was written into it when the template was installed — that is expected.
+`system.md` is updated automatically because its local copy was never edited; if you had edited it locally, it would go through the same "modified by you" confirmation. `config.yaml` shows as "modified by you" because `registry.spec` was written into it when the template was installed — that is expected.
+
 
 ## 9. mem: look back at sessions
 

@@ -26,13 +26,12 @@ sunshine init -u <你的名字>
 
 ### 规范系统
 
-`.sunshine/spec/` 按包与分层组织编码规范。
+`.sunshine/spec/` 下所有 `.md` 文件都是规范：默认三份（`system.md`、`frontend.md`、`backend.md`），也可以是模板市场拉来的 `api.md`、`ui.md` 等，全部认。
 
-- `.sunshine/spec/<包名>/<分层>/index.md`——入口，含**开发前检查清单** + **质量检查**。真正的指南在它指向的 `.md` 文件里。
-- `.sunshine/spec/guides/index.md`——跨包的思考指南。
+每个规范文件头上有一行 `适用：前端 / 后端 / 通用`，写明这份规范给谁读：前端任务读前端组 + 通用组，后端任务读后端组 + 通用组。`guides/` 下是跨前后端的共享指南。
 
 ```bash
-sunshine task context --mode packages   # 列出包 / 分层
+sunshine task context --mode packages   # 列出规范地图：按适用分组，一行一个
 ```
 
 **何时更新规范**：发现了新模式/新约定 · 修 Bug 时要把防重犯的办法固化下来 · 有了新的技术决策。
@@ -90,7 +89,7 @@ sunshine task add-session --title "标题" --commit "提交哈希" --summary "�
 
 ```bash
 sunshine task context                            # 完整会话运行时信息
-sunshine task context --mode packages            # 可用的包 + 规范分层
+sunshine task context --mode packages            # 规范地图：按适用分组
 sunshine task context --mode phase --step <X.Y>  # 某工作流步骤的详细指南
 ```
 
@@ -359,7 +358,7 @@ brainstorm skill 会引导你：
 
 **交付客户的文档（循环结束后按需生成）**：全部需求和原型做完后，按需生成交付客户的文档——不一定是设计概要，概要设计只是其中一种可能，由设计者按客户需要定；要出概要设计时再写 `doc/design/概要设计.md`（模块、接口、数据、技术选型、验收、风险），依据完整的需求列表 + `prd.md`。什么设计文档都没有就是纯代码任务，走直接开发。
 
-**高保真原型派发给子代理**：原型是代码（HTML/CSS/JS + mock 数据），不要由主会话顺手写。每轮按需求派发：用 Task 工具派发 `sunshine-prototype` 子代理（`subagent_type` 为 `sunshine-prototype`），派发提示里给出需求列表 `doc/design/需求列表.md` 的路径、spec 下的前端样式约束（如 `.sunshine/spec/frontend.md` 里的设计约束）、以及已有原型目录 `doc/prototype/`（保一致：共用 mock 数据、导航入口、样式）；子代理按需求列表当前状态产出或更新该条需求对应的页（每页一个文件 + `index.html` 导航入口），共用页在已有页上加、不重建，完成后只汇报页数、mock 记录数与文件路径，主会话不直接写原型，只收汇报。初版生成与结构性大改走子代理；小修（改个按钮颜色、一行文案）在主会话里用 grep 定向改，不重新派发。DeepSeek Harness 上用 `subagent` 工具派发，prompt 自包含，同样附上需求列表路径、spec 前端样式约束与已有原型目录。
+**高保真原型派发给子代理**：原型是代码（HTML/CSS/JS + mock 数据），不要由主会话顺手写。每轮按需求派发：用 Task 工具派发 `sunshine-prototype` 子代理（`subagent_type` 为 `sunshine-prototype`），派发提示里给出需求列表 `doc/design/需求列表.md` 的路径、spec 里前端组的设计约束（如 `.sunshine/spec/frontend.md` 里的设计约束）、以及已有原型目录 `doc/prototype/`（保一致：共用 mock 数据、导航入口、样式）；子代理按需求列表当前状态产出或更新该条需求对应的页（每页一个文件 + `index.html` 导航入口），共用页在已有页上加、不重建，完成后只汇报页数、mock 记录数与文件路径，主会话不直接写原型，只收汇报。初版生成与结构性大改走子代理；小修（改个按钮颜色、一行文案）在主会话里用 grep 定向改，不重新派发。DeepSeek Harness 上用 `subagent` 工具派发，prompt 自包含，同样附上需求列表路径、spec 前端样式约束与已有原型目录。
 
 需求变化时随时回到本步，修订相关产物。至少第一个行为切片具体到能写出失败测试之前，不要开始实现。
 
@@ -428,7 +427,7 @@ brainstorm skill 会引导你：
 **格式**：每行一个 JSON 对象——`{"file": "<路径>", "reason": "<原因>", "lines": "<起始行>-<结束行>"}`。路径相对于仓库根目录。`lines` 可选（1-based 闭区间，如 `"120-180"`，单行写 `"120-120"`），只对文件型条目有效，缺省注入整文件；带 `lines` 的条目注入时只切该段。
 
 **放什么**：
-- **规范文件**——`.sunshine/spec/<包名>/<分层>/index.md`，以及与本任务相关的具体指南文件（`error-handling.md`、`conventions.md` 等）
+- **规范文件**——与本任务相关的规范：按规范地图的适用分组挑，前端任务挑前端组 + 通用组，后端任务挑后端组 + 通用组（默认三份是 `.sunshine/spec/system.md`、`frontend.md`、`backend.md`；模板市场拉来的 `api.md`、`ui.md` 等同样按适用挑）
 - **研究文件**——子代理需要查阅的 `{TASK_DIR}/research/*.md`
 - **设计文档**——`doc/` 下与本任务相关的设计产物（需求列表、概要设计、高保真原型等），只放本任务用得上的那几份，不用把整个 `doc/` 列进来
 - **测试规范**——与本任务相关的单元/集成测试约定与 mock 策略文件
@@ -451,7 +450,7 @@ brainstorm skill 会引导你：
 sunshine task context --mode packages
 ```
 
-列出每个包及其规范分层与路径。挑与本任务领域匹配的条目。
+列出规范地图：`.sunshine/spec/` 下全部 `.md`，按适用分组，一行一个（路径 + 索引章节名）。前端任务读前端组 + 通用组，后端任务读后端组 + 通用组；只挑本任务用得上的那几份。SessionStart 注入的也是同一张地图。
 
 **如何追加条目**：
 

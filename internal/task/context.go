@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/linrong007/Sunshine/internal/hook"
+	"github.com/linrong007/Sunshine/internal/specindex"
 )
 
 // Context 实现 sunshine task context，对应 get_context.py（common/
@@ -559,17 +560,20 @@ func (r *Runner) packagesSection() string {
 }
 
 func (r *Runner) contextPackagesText() string {
-	pkgs := r.packagesInfo()
 	var lines []string
+	lines = append(lines, "## 规范地图（按适用分组）")
+	lines = append(lines, "")
+	if entries, err := specindex.CollectSpecMap(filepath.Join(r.Root, DirSunshine, "spec")); err == nil && len(entries) > 0 {
+		lines = append(lines, specindex.FormatSpecMap(entries))
+	} else {
+		lines = append(lines, "（没有规范文件）")
+	}
+	pkgs := r.packagesInfo()
 	if len(pkgs) == 0 {
-		lines = append(lines, "单仓项目（未配置包）")
-		lines = append(lines, "")
-		if layers := scanSpecLayers(filepath.Join(r.Root, DirSunshine, "spec")); len(layers) > 0 {
-			lines = append(lines, "规范分层："+strings.Join(layers, ", "))
-		}
 		return strings.Join(lines, "\n")
 	}
 	cfg := LoadConfig(r.Root)
+	lines = append(lines, "")
 	lines = append(lines, "## 包")
 	lines = append(lines, "")
 	for _, pkg := range pkgs {
@@ -607,6 +611,7 @@ func (r *Runner) contextPackagesJSON() map[string]any {
 		return map[string]any{
 			"mode":       "single-repo",
 			"specLayers": scanSpecLayers(filepath.Join(r.Root, DirSunshine, "spec")),
+			"specFiles":  r.specMapEntries(),
 		}
 	}
 	cfg := LoadConfig(r.Root)
@@ -622,7 +627,28 @@ func (r *Runner) contextPackagesJSON() map[string]any {
 		"defaultPackage":    cfg.DefaultPackage,
 		"specScope":         cfg.SpecScope,
 		"activeTaskPackage": activeTaskPackage,
+		"specFiles":         r.specMapEntries(),
 	}
+}
+
+// specFileInfo 是 JSON 输出里的一条 spec 文件（路径+适用）。
+type specFileInfo struct {
+	Path  string `json:"path"`
+	Scope string `json:"scope"`
+}
+
+// specMapEntries 列出规范地图的条目（路径+适用），供 --mode packages
+// 的 JSON 输出用。
+func (r *Runner) specMapEntries() []specFileInfo {
+	entries, err := specindex.CollectSpecMap(filepath.Join(r.Root, DirSunshine, "spec"))
+	if err != nil {
+		return []specFileInfo{}
+	}
+	out := make([]specFileInfo, 0, len(entries))
+	for _, e := range entries {
+		out = append(out, specFileInfo{Path: e.Path, Scope: e.Scope})
+	}
+	return out
 }
 
 // ---------------------------------------------------------------------------

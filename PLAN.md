@@ -3094,7 +3094,7 @@ pre-commit install       # 在仓库根目录执行一次
 - Release：id 449448302，非草稿、非预发布，6 个资产在位（checksums.txt + sunshine_0.5.25_darwin_amd64/arm64.tar.gz、linux_amd64/arm64.tar.gz、windows_amd64.zip）。
 - 实测：一键装（无参）装上 v0.5.25（linux/amd64）；darwin_arm64 包 checksum OK，Mach-O arm64；0.5.24 二进制 `upgrade --dry-run` 查到 0.5.25（初次报 GitHub 匿名接口 403 限流，10 分钟后重试通过）。
 
-## 局域网 http 修复（2026-11-18，用户定修，未发版）
+## 局域网 http 修复（2026-11-18，用户定修，已随 v0.5.26 发布）
 
 背景：用户问局域网 git 服务器能不能当市场来源。实测：SSH 局域网代码支持（未实测）；局域网 plain http 走不通。根因：`buildGitURL`（internal/registry/parse.go）自建域名统一拼 `https://%s/%s.git`，`gitURLInput` 无 scheme 字段，`ParseRegistrySource` 里 `httpsUnknownRe` 虽匹配 `https?`，但 scheme 未保留——用户写 `http://192.168.1.10:3000/team/market.git`，克隆时被改成 `https://…`，对只讲 http 的服务器报 `tls: first record does not look like a TLS handshake`（本地 http git 服务器实测，git http-backend + python http.server CGI，端口 18080）。自建来源 `PreferGit=true`，探测走 git 克隆，所以失败点在克隆，不在 RawBaseURL。
 
@@ -3109,6 +3109,16 @@ pre-commit install       # 在仓库根目录执行一次
 
 不在本次范围：自签证书 https 仍无跳过校验选项；git:// 协议仍不支持。
 
-实施与验证（2026-11-18，已实施并验证通过，未提交、未发版）：发版协调人按上节 7 步实施；主会话独立验证——diff 与方案一致（parse.go +16/-2，source_test.go +30，marketplace.md + 教程中英文）；gofmt/build/vet 全过；全量测试 21 包全过；沙箱 e2e：本地 http git 服务器（git http-backend CGI + python3 -m http.server --cgi 18080），`init --registry http://127.0.0.1:18080/cgi-bin/git/team-market.git --template team-spec` 成功装 team-spec（2 个文件），registry.spec 记 http 来源，默认三份未生成，适用标签自动补；grep 残留“走不通”与英文 “doesn't work yet” 在 docs/ 与 internal/ 均为 0 处。e2e 复验时沙箱 CGI 踩坑两处（已记 AGENTS.md）：Python CGI 子进程 setuid(nobody) 跑脚本，脚本须全局可执行、目录链须可穿越（umask 0007 建的 770 会报 PermissionError，curl 只看状态码是假阳性，须看 body 大小/内容）；裸仓库属主 root 会触发 git dubious ownership，须用 nobody 身份建库（runuser -u nobody 复制源码后 init/commit/clone --bare），沙箱里 chown 改不了属主。工作树另有模板市场用法补记（教程 §8 中英文，约 30 行，未提交），与本批无关，推送时一起确认。
+实施与验证（2026-11-18，已实施并验证通过，已随 v0.5.26 发布）：发版协调人按上节 7 步实施；主会话独立验证——diff 与方案一致（parse.go +16/-2，source_test.go +30，marketplace.md + 教程中英文）；gofmt/build/vet 全过；全量测试 21 包全过；沙箱 e2e：本地 http git 服务器（git http-backend CGI + python3 -m http.server --cgi 18080），`init --registry http://127.0.0.1:18080/cgi-bin/git/team-market.git --template team-spec` 成功装 team-spec（2 个文件），registry.spec 记 http 来源，默认三份未生成，适用标签自动补；grep 残留“走不通”与英文 “doesn't work yet” 在 docs/ 与 internal/ 均为 0 处。e2e 复验时沙箱 CGI 踩坑两处（已记 AGENTS.md）：Python CGI 子进程 setuid(nobody) 跑脚本，脚本须全局可执行、目录链须可穿越（umask 0007 建的 770 会报 PermissionError，curl 只看状态码是假阳性，须看 body 大小/内容）；裸仓库属主 root 会触发 git dubious ownership，须用 nobody 身份建库（runuser -u nobody 复制源码后 init/commit/clone --bare），沙箱里 chown 改不了属主。工作树另有模板市场用法补记（教程 §8 中英文，约 30 行），与本批一起随 v0.5.26 发布。
 
-发版：本批不发版，等用户点选。
+发版：已随 v0.5.26 发布（见下节）。
+
+## v0.5.26 发布记录（2026-11-18，已发布）
+
+- 内容：局域网 http 修复 + 模板市场用法补记 + v0.5.25 发布记录。http 修复：`gitURLInput` 加 scheme（默认 https），仅自建 http/https URL 取值；`buildGitURL` 与 `RawBaseURL` 按 scheme 拼；单测 4 例；沙箱本地 http git 服务器实测 init 装 team-spec 成功；教程中英文局域网小节与 marketplace.md 同步（http/https 均可）。教程 §8 补记模板市场全部用法（两种模式、交互选单、0 spec 报错、skill 也记 registry.spec、装失败回退、自己建一个市场）。
+- 主提交：本地 66eef67b9e8447485348665a476311001a755c13 → 远端 c95fac4f40834d61077a571876a04e2629b81444，tree 53f571b9ebe6d2eddf4b8003ce3e4e76d86c64ae，父提交 bd44a6280e4324df3c7555c8d5c4538554b15b24，作者 linrong007。6 个文件，+124/-12。
+- tag：v0.5.26，annotated tag，tag 对象 d0a631f676b4ff055c468ced5023cc0a845d0c69 → c95fac4。
+- CI 与发布：发布 workflow run 44227240921、CI（tag）run 44227241116、CI（main）run 44227193150 均 completed success。
+- Release：id 449470432，非草稿、非预发布，6 个资产在位（checksums.txt + sunshine_0.5.26_darwin_amd64/arm64.tar.gz、linux_amd64/arm64.tar.gz、windows_amd64.zip）。
+- 实测：一键装（无参）装上 v0.5.26（linux/amd64）；darwin_arm64 包 checksum OK，Mach-O arm64（macOS 二进制在 Linux 沙箱上不可执行，Exec format error 属预期，只核 checksum 与 file）；0.5.25 二进制 `upgrade --dry-run` 查到 0.5.26（一次通过）。
+

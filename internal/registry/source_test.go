@@ -88,6 +88,36 @@ func TestParseRegistrySource(t *testing.T) {
 				GigetSource: "gitlab:owner/repo#v1.0", GitURL: "https://gitlab.com/owner/repo.git",
 				Kind: SourceKindPrefixed},
 		},
+		// 自建 http/https：scheme 从原始来源取，GitURL 与 RawBaseURL 保持一致。
+		{
+			"http://192.168.1.10:3000/team/market.git",
+			Source{Provider: "gitlab", Repo: "team/market", Ref: "main",
+				RawBaseURL:  "http://192.168.1.10:3000/team/market/-/raw/main",
+				GigetSource: "gitlab:team/market", GitURL: "http://192.168.1.10:3000/team/market.git",
+				Host: "192.168.1.10:3000", PreferGit: true, Kind: SourceKindHTTPS},
+		},
+		{
+			"https://192.168.1.10:3000/team/market.git",
+			Source{Provider: "gitlab", Repo: "team/market", Ref: "main",
+				RawBaseURL:  "https://192.168.1.10:3000/team/market/-/raw/main",
+				GigetSource: "gitlab:team/market", GitURL: "https://192.168.1.10:3000/team/market.git",
+				Host: "192.168.1.10:3000", PreferGit: true, Kind: SourceKindHTTPS},
+		},
+		// 公开域名与 giget 前缀仍强制 https，不受 scheme 影响。
+		{
+			"https://github.com/org/repo",
+			Source{Provider: "gh", Repo: "org/repo", Ref: "main",
+				RawBaseURL:  "https://raw.githubusercontent.com/org/repo/main",
+				GigetSource: "gh:org/repo", GitURL: "https://github.com/org/repo.git",
+				Kind: SourceKindHTTPS},
+		},
+		{
+			"gh:org/repo",
+			Source{Provider: "gh", Repo: "org/repo", Ref: "main",
+				RawBaseURL:  "https://raw.githubusercontent.com/org/repo/main",
+				GigetSource: "gh:org/repo", GitURL: "https://github.com/org/repo.git",
+				Kind: SourceKindPrefixed},
+		},
 	}
 	for _, c := range cases {
 		got, err := ParseRegistrySource(c.in)

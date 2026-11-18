@@ -86,9 +86,10 @@
 - 局域网 git 服务器走 SSH（`git@host:repo`、`ssh://git@host:port/repo`；
   认证先 ssh-agent，后 `~/.ssh` 密钥文件，见 `git.go` 的 `sshAuth`）——
   代码核对，未在局域网实测。
-- 局域网 plain `http://` 目前走不通：解析接受（`httpsUnknownRe` 匹配
-  `http://`），但 `buildGitURL` 一律拼成 `https://`，对着只听 http 的
-  服务器报 TLS 错误（已实测）。`git://` 不支持（provider `git` 不在
+- 局域网 plain `http://` 与 `https://` 均可：`ParseRegistrySource` 只对
+  自建 http/https URL 从原始来源取 scheme（`gitURLInput.scheme`），
+  `buildGitURL` 与 `RawBaseURL` 按 scheme 拼，克隆不再一律改成 `https://`
+  （本地 http git 服务器实测通过）。`git://` 不支持（provider `git` 不在
   `rawURLPatterns` 里，报“不支持的 provider”）。自签证书的 https
   没有跳过校验的选项（`CloneOptions` 未配 TLS）。
 

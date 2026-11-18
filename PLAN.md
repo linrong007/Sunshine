@@ -3085,7 +3085,14 @@ pre-commit install       # 在仓库根目录执行一次
 10. 文档：docs/tutorial.md 与 docs/tutorial.en.md 模板市场一节通俗改写/新增（两种模式、仓库根语义、用法：新项目/已有项目/单 flag/--overwrite 注意、配置示例 config.yaml registry.spec 两行、市场目录 tree + index.json 四字段、skill 一节、适用标签与地图一句话）；internal/registry/marketplace.md 同步更新（默认 append、自动选、适用标签、spec check、仓库根语义）。README 暂不动。
 11. 验收：gofmt/build/vet 全过；全量测试 21 包全过（跑前后清 /tmp/sunshine-test-bin-* 与 /tmp/go-build*）；沙箱 e2e：①新项目 init --registry --template（spec 文件带标签+索引，默认三份不生成）；②单 spec 模板市场不给 --template 自动选；③多 spec 模板不给 --template 报错列出 id；④已有项目再跑默认只补缺失（删一文件再跑只补它）；⑤--overwrite 全换（含用户文件被清）；⑥spec check 检出重复标题；⑦skill 安装落点 .agents/skills/<id> 且默认 spec 照常生成；⑧单 flag 直接指模板目录；⑨SessionStart 注入含地图（平铺文件在列、按适用分组）；⑩grep 残留（“按包与分层组织”、旧 skip 默认文案）。
 
-发版：本批不发版，等用户点选。
+## v0.5.25 发布记录（2026-11-18，已发布）
+
+- 内容：spec 全认 + 模板市场简化：适用标签、规范地图、默认只补缺失、自动选、spec check、官方市场 `marketplace/`（6 条目）；另含一处改名：`templates/sunshine/spec/frontend.md` 的 `## 约束` → `## 前端约束`（marketplace 镜像与教程同步），新二进制装市场无重复提醒，`spec check` 退出 0。
+- 主提交：本地 2ab86bfd3fceabd26dc95821ebc106b98fd147ea → 远端 bd44a6280e4324df3c7555c8d5c4538554b15b24，tree 46328c09c8660dfd7f74108a4d280e4d0d04aaeb，父提交 c482f0cf0dde1d890eaa74fd3cc518ce1fdc5ba6，作者 linrong007。33 个文件，+4164/-225。
+- tag：v0.5.25，annotated tag，tag 对象 90a57a3d916ba898e5abff3fbfaa348e2be7d6ff → bd44a62。
+- CI 与发布：发布 workflow run 44223122480、CI（tag）run 44223122485、CI（main）run 44223060926 均 completed success。
+- Release：id 449448302，非草稿、非预发布，6 个资产在位（checksums.txt + sunshine_0.5.25_darwin_amd64/arm64.tar.gz、linux_amd64/arm64.tar.gz、windows_amd64.zip）。
+- 实测：一键装（无参）装上 v0.5.25（linux/amd64）；darwin_arm64 包 checksum OK，Mach-O arm64；0.5.24 二进制 `upgrade --dry-run` 查到 0.5.25（初次报 GitHub 匿名接口 403 限流，10 分钟后重试通过）。
 
 ## 局域网 http 修复（2026-11-18，用户定修，未发版）
 
@@ -3101,5 +3108,7 @@ pre-commit install       # 在仓库根目录执行一次
 7. 验收：gofmt/build/vet 全过；全量测试 21 包全过；沙箱 e2e（上条）；grep 残留（"走不通"）。
 
 不在本次范围：自签证书 https 仍无跳过校验选项；git:// 协议仍不支持。
+
+实施与验证（2026-11-18，已实施并验证通过，未提交、未发版）：发版协调人按上节 7 步实施；主会话独立验证——diff 与方案一致（parse.go +16/-2，source_test.go +30，marketplace.md + 教程中英文）；gofmt/build/vet 全过；全量测试 21 包全过；沙箱 e2e：本地 http git 服务器（git http-backend CGI + python3 -m http.server --cgi 18080），`init --registry http://127.0.0.1:18080/cgi-bin/git/team-market.git --template team-spec` 成功装 team-spec（2 个文件），registry.spec 记 http 来源，默认三份未生成，适用标签自动补；grep 残留“走不通”与英文 “doesn't work yet” 在 docs/ 与 internal/ 均为 0 处。e2e 复验时沙箱 CGI 踩坑两处（已记 AGENTS.md）：Python CGI 子进程 setuid(nobody) 跑脚本，脚本须全局可执行、目录链须可穿越（umask 0007 建的 770 会报 PermissionError，curl 只看状态码是假阳性，须看 body 大小/内容）；裸仓库属主 root 会触发 git dubious ownership，须用 nobody 身份建库（runuser -u nobody 复制源码后 init/commit/clone --bare），沙箱里 chown 改不了属主。工作树另有模板市场用法补记（教程 §8 中英文，约 30 行，未提交），与本批无关，推送时一起确认。
 
 发版：本批不发版，等用户点选。

@@ -588,10 +588,12 @@ After install, a duplicate check runs: if a section title shows up in more than 
 
 Common variations:
 
-- **Marketplace only, no template**: when a marketplace holds exactly one spec template, `--template` can be left out and it is picked automatically. The official marketplace has only one spec (`sunshine-fullstack`), so the command above works the same without `--template sunshine-fullstack`. With several spec templates you must name one; omitting it (or naming a wrong id) errors out and lists the available ids.
+- **Marketplace only, no template**: when a marketplace holds exactly one spec template, `--template` can be left out and it is picked automatically. The official marketplace has only one spec (`sunshine-fullstack`), so the command above works the same without `--template sunshine-fullstack`. With several spec templates you must name one; omitting it (or naming a wrong id) errors out and lists the available ids. If a marketplace has no spec template at all, it errors with "该市场没有 spec 模板" (this marketplace has no spec templates).
+- **Without `-y`, a menu appears**: in an interactive terminal with no `--template` given, it asks you to pick first (start from scratch / pick one from the marketplace / enter a custom source); with `--registry` the menu lists that marketplace's spec templates directly. See the init reference in the appendix.
 - **Run it again, only missing files are added**: running the same command in a project that already has the template only installs files that are missing — existing files are left alone, including ones you wrote yourself. Delete one file and re-run, and only that file comes back.
 - **Replace everything**: `--overwrite` empties `.sunshine/spec/` and installs fresh, including deleting files you wrote yourself — only use it when you mean it.
-- **Install a skill**: same command, different id. The skill lands in `.agents/skills/<id>/`, and the three default spec files are still generated as usual:
+- **A failed install doesn't stop init**: if a template can't be pulled (say the entry points at a directory that doesn't exist), init carries on with the built-in blank specs and prints a retry command to run again later.
+- **Install a skill**: same command, different id. The skill lands in `.agents/skills/<id>/`, and the three default spec files are still generated as usual. The skill install is also recorded in `registry.spec` (the field is still called spec), and `update` refreshes it the same way:
 
 ```sh
 sunshine init -u 演示者 -y --claude --registry gh:linrong007/Sunshine/marketplace --template go-sdk-author
@@ -605,6 +607,13 @@ sunshine init -u 演示者 -y --claude --registry gh:linrong007/Sunshine/marketp
 ```
 
 A remote marketplace works the same way — swap `gh:owner/repo` for a full git URL, an HTTP(S) URL, or a `git@` address. A local marketplace is a local git repository path, and it must point at the level that contains `index.json`: the official marketplace lives in the `marketplace/` subdirectory of the repository root, so the source has to be written up to `…/marketplace`, not the repository root.
+
+Before installing, Sunshine looks for `index.json` under the source root, and there are two modes:
+
+- **Marketplace mode**: the root has an `index.json` listing the templates one by one (see "Build your own marketplace" below). Then `--template` must name an id (unless auto-pick applies); `workflow` entries can't be installed this way — it tells you to use `sunshine workflow --template` instead.
+- **Direct download mode**: the root has no `index.json`, so the whole source is one spec and goes straight into `.sunshine/spec/`. Then `--template` must not be passed — passing it errors out. If the root has a `marketplace/specs/` directory it is used, otherwise the root itself.
+
+The repository root is the directory the source string points at, and every `path` in `index.json` is relative to it.
 
 ### Every spec counts: applicability tags and the spec map
 
@@ -653,7 +662,27 @@ sunshine init -u 演示者 -y --claude --registry git@192.168.1.10:team/market.g
 
 Authentication uses ssh-agent or a key in `~/.ssh`. This one is verified against the code only — it hasn't been tested on a real LAN yet.
 
-- **Plain http:// on a LAN doesn't work yet**: writing `http://192.168.1.10/team/market.git` passes parsing, but cloning rewrites the address to `https://`, so a server that only speaks http fails with a TLS error (tested). The `git://` protocol isn't supported either — it errors with `不支持的 provider "git"` ("unsupported provider "git""). Self-signed https has no skip-verification option.
+- **Plain http:// and https:// both work on a LAN**: writing `http://192.168.1.10/team/market.git` or `https://192.168.1.10:3000/team/market.git` clones over the protocol you wrote — it is no longer rewritten to `https://` (tested against a local http git server). The `git://` protocol is still not supported — it errors with `不支持的 provider "git"` ("unsupported provider "git""). Self-signed https still has no skip-verification option.
+
+### Build your own marketplace
+
+A marketplace is just a git repository, laid out like this:
+
+```text
+marketplace/
+├── index.json
+├── specs/       # one spec template per subdirectory
+├── skills/      # one skill template per subdirectory
+└── workflows/   # one workflow template per subdirectory
+```
+
+`index.json` lists every entry with at least four fields (id, type, name, path — path relative to the marketplace root; tags optional):
+
+```json
+{"id": "sunshine-fullstack", "type": "spec", "name": "Sunshine 默认全栈规范", "path": "specs/sunshine-fullstack"}
+```
+
+Commit once after writing it (no push needed), then use a local path or a git address as the `--registry` source. A team marketplace can live in a private repository.
 
 
 ### After the marketplace template changes, `update` keeps refreshing it

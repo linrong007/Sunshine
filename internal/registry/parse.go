@@ -77,6 +77,9 @@ type gitURLInput struct {
 	sshHost  string
 	sshPort  string
 	sshStyle string // "scp" 或 "ssh-url"
+	// scheme 是自建 http/https 来源的协议（"http"/"https"，默认 "https"）；
+	// 仅 host 非空时生效，giget 前缀与公开域名不走这条，仍强制 https。
+	scheme string
 }
 
 // buildGitURL 拼出 go-git 克隆用的远端地址，对应上游 buildRegistryGitUrl。
@@ -92,7 +95,11 @@ func buildGitURL(in gitURLInput) string {
 		return fmt.Sprintf("git@%s:%s.git", in.sshHost, in.repo)
 	}
 	if in.host != "" {
-		return fmt.Sprintf("https://%s/%s.git", in.host, in.repo)
+		scheme := in.scheme
+		if scheme == "" {
+			scheme = "https"
+		}
+		return fmt.Sprintf("%s://%s/%s.git", scheme, in.host, in.repo)
 	}
 	switch in.provider {
 	case "gh", "github":
@@ -217,6 +224,9 @@ func ParseRegistrySource(source string) (*Source, error) {
 	var normalizedInput string
 	kind := SourceKindPrefixed
 	var sshHost, sshPort, sshStyle string
+	// scheme 只对 httpsUnknownRe 匹配到的自建 http/https URL 取值；
+	// giget 前缀与公开域名不走这条，默认 https。
+	scheme := "https"
 
 	// SSH：git@host:org/repo[.git] 或 ssh://git@host[:port]/org/repo[.git]
 	if m := scpSSHRe.FindStringSubmatch(source); m != nil {
@@ -258,6 +268,9 @@ func ParseRegistrySource(source string) (*Source, error) {
 			}
 			if !known {
 				host = domain
+				if strings.HasPrefix(source, "http://") {
+					scheme = "http"
+				}
 				if tm := gitlabTreeRe.FindStringSubmatch(pathPart); tm != nil {
 					repoPath, ref, subdir := tm[1], tm[2], tm[3]
 					normalizedInput = "gitlab:" + repoPath
@@ -322,7 +335,7 @@ func ParseRegistrySource(source string) (*Source, error) {
 	rawBaseURL = strings.ReplaceAll(rawBaseURL, "{subdir}", subdir)
 	rawBaseURL = strings.TrimSuffix(rawBaseURL, "/")
 	if host != "" && provider == "gitlab" {
-		rawBaseURL = strings.Replace(rawBaseURL, "https://gitlab.com", "https://"+host, 1)
+		rawBaseURL = strings.Replace(rawBaseURL, "https://gitlab.com", scheme+"://"+host, 1)
 	}
 
 	gitURL := buildGitURL(gitURLInput{
@@ -333,6 +346,7 @@ func ParseRegistrySource(source string) (*Source, error) {
 		sshHost:  sshHost,
 		sshPort:  sshPort,
 		sshStyle: sshStyle,
+		scheme:   scheme,
 	})
 
 	return &Source{

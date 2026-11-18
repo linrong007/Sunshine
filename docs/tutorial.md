@@ -512,10 +512,12 @@ registry:
 
 几个常用写法：
 
-- **只写市场，不写模板**：市场里恰好只有一个 spec 模板时，`--template` 可以省，自动选中它。官方市场只有一个 spec（`sunshine-fullstack`），所以上面那条命令不写 `--template sunshine-fullstack` 也一样。市场里有多个 spec 模板时必须写，写错或不写会报错并列出可选的 id。
+- **只写市场，不写模板**：市场里恰好只有一个 spec 模板时，`--template` 可以省，自动选中它。官方市场只有一个 spec（`sunshine-fullstack`），所以上面那条命令不写 `--template sunshine-fullstack` 也一样。市场里有多个 spec 模板时必须写，写错或不写会报错并列出可选的 id；市场里一个 spec 都没有，报错“该市场没有 spec 模板”。
+- **不带 `-y` 时出选单**：交互终端且没传 `--template` 时，先让你挑（从零开始 / 市场里选一个 / 自定义来源）；带 `--registry` 时选单直接列出该市场的 spec 模板。详见附录 init 参考。
 - **再跑一次，只补缺失的**：同一条命令在已有项目里再跑，默认只装没有的文件，已有的不动，自己写的文件也不动。删掉一个文件再跑，只补回那一个。
 - **整体换掉**：加 `--overwrite` 会把 `.sunshine/spec/` 整个清空再装，包括自己写的文件——想清楚再用。
-- **装 skill**：同一条命令换个 id 就行，skill 装进 `.agents/skills/<id>/`，默认三份规范照常生成：
+- **装失败了也不中断**：模板拉不到（比如条目指的目录不存在），先装内置空白规范继续初始化，并打印一条重试命令，照着重跑就行。
+- **装 skill**：同一条命令换个 id 就行，skill 装进 `.agents/skills/<id>/`，默认三份规范照常生成，装完也会记进 `registry.spec`（字段名仍叫 spec），`update` 同样刷新它：
 
 ```sh
 sunshine init -u 演示者 -y --claude --registry gh:linrong007/Sunshine/marketplace --template go-sdk-author
@@ -529,6 +531,13 @@ sunshine init -u 演示者 -y --claude --registry gh:linrong007/Sunshine/marketp
 ```
 
 远程市场同理，把 `gh:owner/repo` 换成完整 git URL、HTTP(S) URL 或 `git@` 地址即可；本地市场写本地 git 仓库路径——要指向含 `index.json` 的那一级目录：官方市场就是仓库根下的 `marketplace/` 子目录，所以来源要写到 `…/marketplace` 这一级，而不是仓库根。
+
+装之前 Sunshine 会先看来源根下有没有 `index.json`，分两种模式：
+
+- **市场模式**：根下有 `index.json`，里面一条条登记模板（见下“自己建一个市场”）。这时必须用 `--template` 指一个 id（除非自动选）；`workflow` 类型不能这么装，提示改用 `sunshine workflow --template`。
+- **直接下载模式**：根下没有 `index.json`，整个来源就是一份规范，直接装进 `.sunshine/spec/`。这时不能传 `--template`，传了会报错。根下有个 `marketplace/specs/` 目录就取它，否则取根目录本身。
+
+仓库根就是来源字符串指向的那个目录，`index.json` 里的 `path` 都是相对它写的。
 
 ### 规范都认：适用标签与规范地图
 
@@ -577,7 +586,27 @@ sunshine init -u 演示者 -y --claude --registry git@192.168.1.10:team/market.g
 
 认证用 ssh-agent 或 `~/.ssh` 里的密钥。这条是代码核对，还没在局域网实测过。
 
-- **局域网 plain http:// 目前走不通**：写 `http://192.168.1.10/team/market.git` 能通过解析，但克隆时会把地址改成 `https://`，对着只提供 http 的服务器就会报 TLS 错误（已实测）。`git://` 协议也不支持，会报 `不支持的 provider "git"`。自签证书的 https 也没有跳过校验的选项。
+- **局域网 http:// 与 https:// 都可用**：写 `http://192.168.1.10/team/market.git` 或 `https://192.168.1.10:3000/team/market.git`，克隆时按你写的协议走，不会改成 `https://`（本地 http git 服务器实测通过）。`git://` 协议仍不支持，会报 `不支持的 provider "git"`。自签证书的 https 也仍没有跳过校验的选项。
+
+### 自己建一个市场
+
+市场就是一个 git 仓库，目录长这样：
+
+```text
+marketplace/
+├── index.json
+├── specs/       # 一子目录一个 spec 模板
+├── skills/      # 一子目录一个 skill 模板
+└── workflows/   # 一子目录一个 workflow 模板
+```
+
+`index.json` 登记所有条目，一条至少四个字段（id、type、name、path，path 相对市场根目录写；tags 可选）：
+
+```json
+{"id": "sunshine-fullstack", "type": "spec", "name": "Sunshine 默认全栈规范", "path": "specs/sunshine-fullstack"}
+```
+
+写好先 `git commit` 一次（不用 push），再用本地路径或 git 地址当 `--registry` 的来源。团队自己的市场放私有仓库就行。
 
 
 ### 市场模板更新后，`update` 会持续刷新

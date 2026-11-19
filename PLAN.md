@@ -3169,7 +3169,7 @@ pre-commit install       # 在仓库根目录执行一次
 - 实测：一键装（无参）装上 v0.5.28（linux/amd64）；darwin_arm64 包 checksum OK，Mach-O arm64（macOS 二进制在 Linux 沙箱上不可执行，Exec format error 属预期，只核 checksum 与 file）；新装二进制 `grep -a -c` 核“500 行上限”与“个别情况允许超”各 15 处、“400 行上限”0 处。遗留：`upgrade --dry-run` 两次均报 GitHub API 403 rate limit exceeded（沙箱出口 IP 共享、未认证请求限额已满，与发布本身无关；v0.5.27 同命令曾通过），沙箱内无法复验，用户 Mac 上可直接跑 `sunshine upgrade --dry-run` 验证。
 
 
-## CSS 和 mock 拆分（2026-11-19，用户定，未发版）
+## CSS 和 mock 拆分（2026-11-19，用户定，已随 v0.5.29 发布）
 
 背景：三处提速发完 v0.5.27 后实测墙钟基本没动；用户问还有什么地方可以加快速度。结论：一轮一页的前提下墙钟大头已无处可砍（并行是唯一大改，用户定不做），剩下的是省 token。共用文件本身成了输入大头：沙箱实测共用文件 1620 行（prototype.css 1079、mock.js 314、nav.js 122、ui.js 105），第 3 轮新派发读 1644 行、旧派发约 2206 行，只省约 25%。
 
@@ -3181,10 +3181,10 @@ pre-commit install       # 在仓库根目录执行一次
 
 验收：gofmt/build/vet 全过；全量测试 21 包全过（跑前后清 /tmp/sunshine-test-bin-* 与 /tmp/go-build*）；grep 残留：templates/ 内“共用样式/mock 文件”为 0 处；新二进制 `grep -a -c` 核新文案在位（components-index.md、mock-common.js、mock-Rxxx.js）；逐文件核对 21 个文件改完且格式未破（toml/json 须过解析）。
 
-发版：本批不发版，等用户点选。
+发版：已随 v0.5.29 发布（见下节）。
 
 
-## 检查代理节食（2026-11-19，用户定，执行中）
+## 检查代理节食（2026-11-19，用户定，已随 v0.5.29 发布）
 
 背景：用户转述 Trellis 开发一大小程序花 60 元 token 只完成 1/10；用户要求从架构上找优化，即使推倒重来。先核了注入链：每子任务实现、检查各一次子代理注入，上限 128KB（jsonl 整理条目 + prd/design/implement.md 三份产物各上限 64KB）；SessionStart 只注一次；原型已收窄。
 
@@ -3199,6 +3199,16 @@ pre-commit install       # 在仓库根目录执行一次
 
 验收：gofmt/build/vet 全过；全量测试 21 包全过；新单测钉住 GetCheckContext（只含验收标准节、不含 design/implement.md 全文、无验收标准节时取需求节、都没有时全文兜底）；hook 实测：用 demo14 量级的任务目录跑 `sunshine hook subagent-context`，检查注入字节数前后对比。实测结果（2026-11-19）：测试夹具 prd 10420 + design 18017 + implement 21617 字节，检查注入旧 51285 字节 → 新 1460 字节，少约 97%；新注入含验收标准一/二与 check.jsonl 两条规范节，不含目标/需求/参考/design/implement 全文；gofmt/build/vet 全过，全量测试 21 包全过（cli 22.1s、update 23.5s，跑前后清 /tmp）。
 
-发版：本批不发版，等用户点选。
+发版：已随 v0.5.29 发布（见下节）。
 
 后续：常驻 worker（推倒版）用户 2026-11-19 定暂时不考虑；检查换便宜模型是待验证的实验，不在这批。
+
+
+## v0.5.29 发布记录（2026-11-19，已发布）
+
+- 内容：原型共用拆分与检查代理节食。原型样式与 mock 拆共用文件（样式拆 tokens.css + components.css + 组件索引，mock 拆 mock-common.js + 按页 mock-Rxxx.js，每轮只读 tokens、索引、mock-common 与本轮 mock）；检查代理节食（检查只拿 check.jsonl 精选条目 + prd.md 验收标准节，design.md/implement.md 不注入、按需再读，hook 实测检查注入 51285 → 1460 字节，少约 97%；18 个平台 check 文件 + check skill 同步改成节食口径）。44 个文件，+345/-130。
+- 主提交：本地 7f2532626df70f8f07591775a8746f1f12877fce → 远端 36d05f0e0ac35367fa664f4e00d1dad79328dc6e，tree 90994fe783ba697c73daa48d54effb5350478c55，父提交 6873ba42a588ad4e4bee9256dab9ed8d4e9b4520，作者 linrong007。44 个文件，+345/-130。
+- tag：v0.5.29，annotated tag，tag 对象 5815e88a959eaf296b40bff7643331aa46f1b8e7 → 36d05f0。
+- CI 与发布：发布 workflow run 44521558386、CI（tag）run 44521558495、CI（main）run 44521445354 均 completed success。
+- Release：id 451299884，非草稿、非预发布，6 个资产在位（checksums.txt + sunshine_0.5.29_darwin_amd64/arm64.tar.gz、linux_amd64/arm64.tar.gz、windows_amd64.zip）。
+- 实测：一键装（无参）装上 v0.5.29（linux/amd64），`sunshine version` 报 0.5.29；darwin_arm64 包 checksum b37ad3964a9c1515b9ac1c19d858e7456c6c498efd8d9e41044d442c0dd5ed64 与 checksums.txt 一致；`upgrade --dry-run` 这次通过（“已是最新版本（当前 0.5.29，最新 0.5.29），无需升级。”），v0.5.28 时沙箱曾两次报 403 rate limit。

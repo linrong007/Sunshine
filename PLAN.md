@@ -3146,3 +3146,14 @@ pre-commit install       # 在仓库根目录执行一次
 - CI 与发布：发布 workflow run 44458856999、CI（tag）run 44458856898、CI（main）run 44458824686 均 completed success。
 - Release：id 450884046，非草稿、非预发布，6 个资产在位（checksums.txt + sunshine_0.5.27_darwin_amd64/arm64.tar.gz、linux_amd64/arm64.tar.gz、windows_amd64.zip）。
 - 实测：一键装（无参）装上 v0.5.27（linux/amd64）；darwin_arm64 包 checksum OK，Mach-O arm64（macOS 二进制在 Linux 沙箱上不可执行，Exec format error 属预期，只核 checksum 与 file）；0.5.27 二进制 `upgrade --dry-run` 报已是最新。实测中 /tmp 周期清理会把 12MB 的 darwin 包删掉（两次下载后都消失），以后大文件验 checksum 改放 ~/workspace/scratch/。
+
+
+## 单页上限 400→500 行，个别情况允许超（2026-11-19，用户定，未发版）
+
+背景：用户问 400 行会不会有点少。实据：沙箱实测最复杂一页（借阅登记页）385 行，离上限只差 15 行；再复杂一点的表单页、数据密集表页就会撞线；拆子页能过，但演示一页变多页会碎。400 行只算页面本身（样式与 mock 在共用文件里不占），撞线通常是这页自己的结构加交互确实多。
+
+实施：18 个 prototype agent 文件（源文件 + 17 个平台副本，含 codex .toml 与 kiro .json）原型要求节同一条，改成“单页 500 行上限：每页 HTML 不超过 500 行（`wc -l` 为准，含本页内联样式与脚本，不含引用的共用文件）；超了必须拆——重复块抽成共用组件，或次要区块拆成子页；不砍需求里写明的功能与交互，不把该写的 mock/JS 换成静态占位。个别情况允许超：单页确实需要更多行时（如大表单、数据密集的表），可超上限，但汇报里要写明超了多少行和原因。”500 行有实据：实测三页 177/385/252 行全在 500 内还有余量。workflow 三份不动（不含行数），PLAN.md 旧节与 v0.5.27 记录里的 400 行是历史记录，不改。
+
+验收：gofmt/build/vet 全过；全量测试 21 包全过（跑前后清 /tmp/sunshine-test-bin-* 与 /tmp/go-build*）；grep 残留：templates/ 内“400 行”为 0 处；新二进制 `grep -a -c` 核“500 行上限”在位；逐文件核对 18 个文件改完且格式未破（toml/json 须过解析）。
+
+发版：本批不发版，等用户点选。

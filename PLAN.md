@@ -3246,7 +3246,7 @@ pre-commit install       # 在仓库根目录执行一次
 - 实测：一键装（无参）装上 v0.5.30（linux/amd64），`sunshine version` 报 0.5.30；darwin_arm64 包 checksum d50052533458d1b87ab2580e03758e3d2188bdd33ed0df6f8d24d1a7c941ba18 与 checksums.txt 一致；`upgrade --dry-run` 通过（“已是最新版本（当前 0.5.30，最新 0.5.30），无需升级。”）。
 
 
-## 注入顺序与会话去重（2026-11-19，用户定，执行中）
+## 注入顺序与会话去重（2026-11-19，用户定，已随 v0.5.31 发布）
 
 背景：GitHub 第三轮调研（2026-11-19）出 5 条，用户定 1、2 号一起做。1 号注入顺序（cachesplit 残余版）、2 号会话去重（sqz 去重半截）。
 
@@ -3281,13 +3281,13 @@ pre-commit install       # 在仓库根目录执行一次
 
 gofmt / build / vet 全过；全量测试 21 包全过；新单测（提示词顺序断言 + 去重命中 / 未命中 / 无会话 / 小输出 / 非 Claude 平台）；hook 端到端实测（subagent-context 提示词顺序 + post-tool-use 替换输出）；新二进制 grep 确认新文案在位。
 
-发版：本批不发版，等用户点选。
+发版：已随 v0.5.31 发布（见下节）。
 
 ## 窄版 RTK（PreToolUse 改写命令）
 
 ### 背景
 
-用户 2026-11-19 定：省 token 是目标，5 号（计量 + 护栏）不是一回事——计量只给 visibility、护栏只防跑飞，正常任务一个 token 都不省。1、2 号已做完（注入顺序 + 会话去重，未发版），剩下最大的一档是 RTK 式 PreToolUse 改写命令：独立基准每会话实省约 20-43%。用户点选“先做窄版 RTK”。
+用户 2026-11-19 定：省 token 是目标，5 号（计量 + 护栏）不是一回事——计量只给 visibility、护栏只防跑飞，正常任务一个 token 都不省。1、2 号已做完（注入顺序 + 会话去重，已随 v0.5.31 发布），剩下最大的一档是 RTK 式 PreToolUse 改写命令：独立基准每会话实省约 20-43%。用户点选“先做窄版 RTK”。
 
 ### 契约（2026-11-19 核 Claude Code 官方 hooks 文档）
 
@@ -3347,4 +3347,13 @@ gofmt / build / vet 全过；全量测试 21 包全过；新单测：两条 flag
 - cobra 会把 `--` 从位置参数里剥掉：`sunshine hook compress -- 'cmd'` 到 Run 时 args 只有 `['cmd']`，第一版按“args 里有 `--`”解析，包一层后静默退出 0、无输出；单测直调 RunCompress 时 `--` 还在所以全过，是端到端实测（固定任务前后对比）抓到的。修复：`--timeout` 注册成 hookCmd 的 cobra flag，RunCompress 只收位置参数 + timeoutMs。
 - 固定任务前后对比（25 提交仓库 + 120 行未提交 diff + 458 行 go test -v 输出）：git log 3340→441 字节（-86.8%）、git diff 8850→115 字节（-98.7%）、go test -v 30517→4660 字节（-84.7%，FAIL 行保留、退出码 1 不变）、go test（小输出）2157→2157 原样过、go vet 0→0。退出码全部一致。
 
-发版：本批不发版，等用户点选（与 1、2 号同批待定）。
+发版：已随 v0.5.31 发布（见下节）。
+
+## v0.5.31 发布记录（2026-11-19，已发布）
+
+- 内容：注入顺序、会话去重与窄版 RTK（省 token 三档）。1 号：四个子代理提示词 builder + Codex 上下文纯重排（稳定在前、易变在后），字节不变；2 号：PostToolUse 会话去重（`.sunshine/.runtime/dedup-<session>.jsonl`，只记哈希，上限 1000 行），Claude 首发，PostToolUse matcher 加 Read；窄版 RTK：PreToolUse 改写 Bash 命令（git log 加 --oneline、git diff 加 --stat、测试/lint/构建类包一层 `sunshine hook compress` 压缩输出，退出码原样），Claude 首发。
+- 主提交：本地 7ffe7abed9d92af5d3107a707fb8828d4c7f146f → 远端 983378313c194167e66a4a51cae880614ab6ee51，tree d4b006b23be420e9a8a5ce8c745b54ab46795fab，父提交 081acfefa5ad99d5e10548126e8f1f34f1e7e25d，作者 linrong007。12 个文件，+1701/-37。
+- tag：v0.5.31，annotated tag，tag 对象 c9b02b3c072aa2b8bd65ee9ef22a9a617a01a734 → 9833783。
+- CI 与发布：发布 workflow run 44553231021、CI（tag）run 44553230855、CI（main）run 44553165161 均 completed success。
+- Release：id 451527893，非草稿、非预发布，6 个资产在位（checksums.txt + sunshine_0.5.31_darwin_amd64/arm64.tar.gz、linux_amd64/arm64.tar.gz、windows_amd64.zip）。
+- 实测：一键装（无参）装上 v0.5.31（linux/amd64），`sunshine version` 报 0.5.31；darwin_arm64 包 checksum cc3084a36691cf598ed3b204a23103974a0667d0c7d49db01f6a364f69841ffa、linux_amd64 包 checksum f5dad5b2ca62b7eba066afefbbb80e5196cb4ce506797f176bf1c83729a87e59，均与 checksums.txt 一致；`upgrade --dry-run` 通过（“已是最新版本（当前 0.5.31，最新 0.5.31），无需升级。”）。发布包二进制 grep 确认“已包一层压缩输出”1 处、“pre-tool-use”5 处、“输出过长”1 处在位。

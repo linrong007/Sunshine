@@ -3123,7 +3123,7 @@ pre-commit install       # 在仓库根目录执行一次
 - 实测：一键装（无参）装上 v0.5.26（linux/amd64）；darwin_arm64 包 checksum OK，Mach-O arm64（macOS 二进制在 Linux 沙箱上不可执行，Exec format error 属预期，只核 checksum 与 file）；0.5.25 二进制 `upgrade --dry-run` 查到 0.5.26（一次通过）。
 
 
-## 原型提速三处（2026-11-19，用户定做，未发版）
+## 原型提速三处（2026-11-19，用户定做，已随 v0.5.27 发布）
 
 背景：用户问设计阶段产出原型会不会过度编程，并指出产出原型很慢。定：mock/JS 该写就写，标准是够用为止，不是能省则省（“最少演示”——静态占位、不写 JS——用户已否掉，提得过了）。慢的根因三处（已核模板原文）：①每轮派发把整个 `doc/prototype/` 目录给子代理，保一致要读已有页，页越多输入越大；②一页高保真带 mock + JS，输出本身几千上万 token；③一轮一页串行，6 个需求就是 6 次冷启动。修法只砍浪费、不砍保真度。
 
@@ -3135,4 +3135,14 @@ pre-commit install       # 在仓库根目录执行一次
 
 验收：gofmt/build/vet 全过；全量测试 21 包全过（跑前后清 /tmp/sunshine-test-bin-* 与 /tmp/go-build*）；grep 残留：templates/ 内“已有原型目录”为 0 处（docs/ 教程实录中文 2 处 + 英文 1 处保留，不改）；新二进制 `grep -a -c` 核三处新文案在位（只读文件、共用强制、400 行）；逐文件核对 21 个文件（3 workflow + 18 agent）改完且格式未破（toml/json 须过解析）。
 
-发版：本批不发版，等用户点选。
+发版：已随 v0.5.27 发布（见下节）。
+
+
+## v0.5.27 发布记录（2026-11-19，已发布）
+
+- 内容：原型提速三处——派发收窄 + 共用强制 + 单页 400 行上限。只改模板文字，不改 Go 代码；教程 §12.6 实录未动。沙箱实测（DSH headless，3 页图书借阅管理）：总 10.3 分钟，约 3.4 分钟/页，三页 177/385/252 行均 ≤400，派发收窄实证（R-003 派发点名 8 个文件，三轮子代理只读 index + 共用文件）；墙钟基本没变（实测共用文件本身涨到 1620 行成大头，第 3 轮只省约 25%，早先按教程实录算的 70% 已订正），并行先不做，用户 11-19 定保持一轮一页。
+- 主提交：本地 2f63bd80fdf305caad526adcc97fe4b8f2981841 → 远端 4ff850fcc0516bc12d154e6012c335e52501f349，tree 821c3a6cf6f80d2de5455aba247c90e221b07391，父提交 781c6dcf78a3f3f9087bc1ef3e7b94e823e75ff5，作者 linrong007。22 个文件，+105/-74。
+- tag：v0.5.27，annotated tag，tag 对象 af234b8b8848c0d4f6fc1cefbdda3c3da8dee0fe → 4ff850f。
+- CI 与发布：发布 workflow run 44458856999、CI（tag）run 44458856898、CI（main）run 44458824686 均 completed success。
+- Release：id 450884046，非草稿、非预发布，6 个资产在位（checksums.txt + sunshine_0.5.27_darwin_amd64/arm64.tar.gz、linux_amd64/arm64.tar.gz、windows_amd64.zip）。
+- 实测：一键装（无参）装上 v0.5.27（linux/amd64）；darwin_arm64 包 checksum OK，Mach-O arm64（macOS 二进制在 Linux 沙箱上不可执行，Exec format error 属预期，只核 checksum 与 file）；0.5.27 二进制 `upgrade --dry-run` 报已是最新。实测中 /tmp 周期清理会把 12MB 的 darwin 包删掉（两次下载后都消失），以后大文件验 checksum 改放 ~/workspace/scratch/。

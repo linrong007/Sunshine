@@ -40,7 +40,7 @@ labels: [sunshine, check]
 
 ## 工作流
 
-1. 运行 `git diff --name-only` 和 `git diff`，确定改动范围
+1. 运行 `git diff --name-only` 和 `git diff --stat`，确定改动范围；再按文件 `git diff -- <文件>` 读具体改动
 2. 阅读任务产物与相关规范文件
 3. 对每个问题：
    - 机械性问题（lint 细节、缺失类型、错误 import、死分支）→ 就地修复
@@ -48,6 +48,15 @@ labels: [sunshine, check]
    - 设计/判断类问题 → 记录并汇报，不要悄悄重写
 4. 自行修复后，在改动范围内运行项目的 lint 与类型检查
 5. 汇报
+
+## 命令输出要精简
+
+命令输出进上下文是要花 token 的，跑命令时先拿精简版，不够再展开：
+
+- `git diff`：先 `git diff --stat` 看改动规模，再按文件 `git diff -- <文件>` 读具体改动，不要一上来就全量 `git diff`；复查只读改过的文件
+- 测试 / lint / 类型检查：只看失败项与摘要，通过的不要贴全文；长输出加 `| head -n 100`
+- `git log`：用 `--oneline`
+- 汇报时只写结论与失败项，不要把命令输出全文贴进汇报
 
 ## 汇报格式
 

@@ -43,7 +43,7 @@ tools: read, write, edit, bash, find, grep
 
 ## 核心职责
 
-1. 检查当前 git diff。
+1. 先 `git diff --stat` 看规模，再按文件检查当前 git diff。
 2. 阅读 `prd.md` 的验收标准节；`design.md` 与 `implement.md` 只在需要时按需读。
 3. 阅读并遵循任务 `check.jsonl` 中列出的规范与调研文件。
 4. 对照任务产物与项目规范评审所有改动代码。
@@ -58,6 +58,15 @@ tools: read, write, edit, bash, find, grep
 - 逻辑改动缺少测试或测试太弱。
 - 跨平台的路径、命令与编码假设。
 - 超出 PRD / spec 范围的代码。
+
+## 命令输出要精简
+
+命令输出进上下文是要花 token 的，跑命令时先拿精简版，不够再展开：
+
+- `git diff`：先 `git diff --stat` 看改动规模，再按文件 `git diff -- <文件>` 读具体改动，不要一上来就全量 `git diff`；复查只读改过的文件
+- 测试 / lint / 类型检查：只看失败项与摘要，通过的不要贴全文；长输出加 `| head -n 100`
+- `git log`：用 `--oneline`
+- 汇报时只写结论与失败项，不要把命令输出全文贴进汇报
 
 ## 输出
 

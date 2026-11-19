@@ -3212,3 +3212,25 @@ pre-commit install       # 在仓库根目录执行一次
 - CI 与发布：发布 workflow run 44521558386、CI（tag）run 44521558495、CI（main）run 44521445354 均 completed success。
 - Release：id 451299884，非草稿、非预发布，6 个资产在位（checksums.txt + sunshine_0.5.29_darwin_amd64/arm64.tar.gz、linux_amd64/arm64.tar.gz、windows_amd64.zip）。
 - 实测：一键装（无参）装上 v0.5.29（linux/amd64），`sunshine version` 报 0.5.29；darwin_arm64 包 checksum b37ad3964a9c1515b9ac1c19d858e7456c6c498efd8d9e41044d442c0dd5ed64 与 checksums.txt 一致；`upgrade --dry-run` 这次通过（“已是最新版本（当前 0.5.29，最新 0.5.29），无需升级。”），v0.5.28 时沙箱曾两次报 403 rate limit。
+
+
+## 工具输出压缩（模板措辞第一档）（2026-11-19，用户定，执行中）
+
+背景：用户 2026-11-19 问还有没有省 token 的方案；第二轮调研出四条（工具输出压缩、子任务边界压缩、符号级检索、思考预算上限），另有两条不适合（Batch API、输出压缩）。用户定先做工具输出压缩，模板措辞这步先行，hook 改写命令那档后定。
+
+实施（第一档，模板措辞）：只改模板文字，不改 Go 代码。
+- implement/check agent 文件新增“## 命令输出要精简”节：测试 / lint / 类型检查只看失败项与摘要，通过的不要贴全文；长输出加 `| head -n 100`；`git log` 用 `--oneline`；汇报只写结论与失败项，不要把命令输出全文贴进汇报。
+- check 另加一条：`git diff` 先 `--stat` 看改动规模，再按文件 `git diff -- <文件>` 读具体改动，不要一上来就全量 `git diff`；复查只读改过的文件。check 工作流步骤 1 的全量 `git diff` 同步改成 `--stat` + 按文件。
+- 范围（41 个文件）：canonical implement.md/check.md + 18 个平台 implement/check 副本（claude/codebuddy/codex/copilot/cursor/droid/gemini/grok/kimi/kiro/omp/opencode/pi/qoder/reasonix/snow/trae/zcode，含 codex .toml 与 kiro .json，按转义原文替换）+ check skill + native/tdd 两份 workflow 的 2.1/2.2 验证行（12 处，加“（输出要精简：只看失败项与摘要）”）。
+- 落点：标准 .md 副本插在“## 汇报格式”前；omp/pi/reasonix implement 无汇报格式节、附在文件末尾，check 插在“## 输出”前；codex implement 插在“完成前，总结：”前，check 插在“输出格式：”前；kiro 按 JSON 转义原文插在“## 汇报格式”前。
+- check skill：步骤 1 加 `git diff --stat HEAD`，步骤 3 加只看失败项与摘要。
+
+不做（本批）：hook 改写命令（第二档，RTK 式 PreToolUse 改写，需设计自带压缩器还是只改写精简 flag，等第一档验证后再定）；子任务边界压缩、符号级检索、思考预算上限（下一版候选，用户未定）。
+
+效果预期（实话）：模板措辞靠 agent 自觉，效果不确定，不承诺具体数字；实证有效的数（RTK 独立基准每会话实省约 20-43%）是 hook 改写那档测出来的，不是本档的。量法：固定任务跑前后对比（待定；沙箱 DSH 无 Key，需用户定）。
+
+验收：gofmt/build/vet 全过；全量测试 21 包全过；新二进制 grep 确认新文案在位；各文件措辞逐处断言恰好一次。
+
+验证（2026-11-19）：41 个模板文件 + PLAN.md，+372/-32；kiro JSON 与 codex TOML 解析通过；新节“命令输出要精简”每文件恰好 1 处（38 个文件）；旧全量 `git diff` 代码块与旧步骤 1 行残留 0 处；工作流括号 12 处（native/tdd 各 6）；`git diff --stat` 模板内 38 处；gofmt 无输出、build/vet 全过；全量测试 21 包全过；新二进制“命令输出要精简”36 处、“输出要精简：只看失败项与摘要”12 处、“git diff --stat”36 处——二进制比模板少 2 处是链接器去重（claude 与 codebuddy 的 implement/check 两对文件逐字节相同，v0.5.27 已有同类去重记录）。
+
+发版：本批不发版，等用户点选。

@@ -534,7 +534,7 @@ sunshine task start <任务目录>
 派生 implement 子代理：
 
 - **子代理类型**：`sunshine-implement`
-- **任务描述**：按复核通过的任务产物实现，查阅 `{TASK_DIR}/research/` 下的材料；最后运行项目 lint 与类型检查
+- **任务描述**：按复核通过的任务产物实现，查阅 `{TASK_DIR}/research/` 下的材料；最后运行项目 lint 与类型检查（输出要精简：只看失败项与摘要）
 - **派发提示词守则**：提示词必须以 `Active task: <任务路径>` 开头，然后告诉被派生的子代理：它已经是 `sunshine-implement` 子代理，直接实现，不要再派生 `sunshine-implement` / `sunshine-check`。
 
 平台 hook/插件自动处理：
@@ -549,7 +549,7 @@ sunshine task start <任务目录>
 派生 implement 子代理：
 
 - **子代理类型**：`sunshine-implement`
-- **任务描述**：按复核通过的任务产物实现，查阅 `{TASK_DIR}/research/` 下的材料；最后运行项目 lint 与类型检查
+- **任务描述**：按复核通过的任务产物实现，查阅 `{TASK_DIR}/research/` 下的材料；最后运行项目 lint 与类型检查（输出要精简：只看失败项与摘要）
 - **派发提示词守则**：提示词必须以 `Active task: <任务路径>` 开头，然后明确告诉被派生的子代理：它已经是 `sunshine-implement`，直接实现，不要派生另一个 `sunshine-implement` / `sunshine-check`。
 
 拉取式子代理定义自动处理上下文加载要求：
@@ -563,7 +563,7 @@ sunshine task start <任务目录>
 派生 implement 子代理：
 
 - **子代理类型**：`sunshine-implement`
-- **任务描述**：按复核通过的任务产物实现，查阅 `{TASK_DIR}/research/` 下的材料；最后运行项目 lint 与类型检查
+- **任务描述**：按复核通过的任务产物实现，查阅 `{TASK_DIR}/research/` 下的材料；最后运行项目 lint 与类型检查（输出要精简：只看失败项与摘要）
 - **派发提示词守则**：告诉被派生的子代理：它已经是 `sunshine-implement` 子代理，直接实现，不要再派生 `sunshine-implement` / `sunshine-check`。
 
 平台前导自动处理上下文加载要求：
@@ -578,7 +578,7 @@ sunshine task start <任务目录>
 2. 读 `{TASK_DIR}/prd.md`，有则读 `design.md`，有则读 `implement.md`
 3. 查阅 `{TASK_DIR}/research/` 下的材料
 4. 按复核通过的产物实现代码
-5. 运行项目 lint 与类型检查
+5. 运行项目 lint 与类型检查（输出要精简：只看失败项与摘要）
 
 [/codex-inline, Kilo, Antigravity, Devin, DeepSeek Harness]
 
@@ -589,14 +589,14 @@ sunshine task start <任务目录>
 派生 check 子代理：
 
 - **子代理类型**：`sunshine-check`
-- **任务描述**：对照规范与任务产物复核全部代码改动；发现的问题直接修复；确保 lint 与类型检查通过
+- **任务描述**：对照规范与任务产物复核全部代码改动；发现的问题直接修复；确保 lint 与类型检查通过（输出要精简：只看失败项与摘要）
 - **派发提示词守则**：提示词必须以 `Active task: <任务路径>` 开头，然后告诉被派生的子代理：它已经是 `sunshine-check` 子代理，直接复核/修复，不要再派生 `sunshine-check` / `sunshine-implement`。
 
 check 子代理的工作：
 - 对照规范复核代码改动
 - 对照 `prd.md` 的验收标准节复核代码改动；`design.md` / `implement.md` 只在需要判断实现方式是否符合设计时再读
 - 自动修复发现的问题
-- 运行 lint 与类型检查验证
+- 运行 lint 与类型检查验证（输出要精简：只看失败项与摘要）
 
 [/Claude Code, Cursor, OpenCode, codex-sub-agent, Kiro, Gemini, Qoder, CodeBuddy, Copilot, Droid, Pi, Oh My Pi, ZCode, Snow, Reasonix, Trae, Grok, Kimi Code]
 

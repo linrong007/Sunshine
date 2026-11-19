@@ -87,7 +87,8 @@ Active task: <path from sunshine task current>
 
 ```bash
 git diff --name-only
-git diff
+git diff --stat
+git diff -- <文件>
 ```
 
 ### 步骤 2：对照规范与任务产物检查
@@ -110,6 +111,15 @@ git diff
 如果失败，修复问题并重新运行。
 
 ---
+
+## 命令输出要精简
+
+命令输出进上下文是要花 token 的，跑命令时先拿精简版，不够再展开：
+
+- `git diff`：先 `git diff --stat` 看改动规模，再按文件 `git diff -- <文件>` 读具体改动，不要一上来就全量 `git diff`；复查只读改过的文件
+- 测试 / lint / 类型检查：只看失败项与摘要，通过的不要贴全文；长输出加 `| head -n 100`
+- `git log`：用 `--oneline`
+- 汇报时只写结论与失败项，不要把命令输出全文贴进汇报
 
 ## 汇报格式
 

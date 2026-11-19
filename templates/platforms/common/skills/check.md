@@ -8,6 +8,7 @@
 
 ```bash
 git diff --name-only HEAD
+git diff --stat HEAD
 git status
 ```
 
@@ -32,7 +33,7 @@ cat .sunshine/spec/<package>/<layer>/index.md
 
 ## 步骤 3：运行项目检查
 
-运行项目的 Lint、类型检查与测试命令。先修好失败项再继续。
+运行项目的 Lint、类型检查与测试命令，只看失败项与摘要，通过的不要贴全文；长输出加 `| head -n 100`。先修好失败项再继续。
 
 ## 步骤 4：对照检查清单评审
 

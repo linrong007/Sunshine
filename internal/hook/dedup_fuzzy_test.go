@@ -241,3 +241,39 @@ func TestFuzzySketch_TooFewTokens(t *testing.T) {
 		t.Fatalf("不足 3 个 token 应无素描，实际 %d 个", len(s))
 	}
 }
+
+func TestFuzzy_SecondCandidate(t *testing.T) {
+	// 最佳候选长度比不足时，应试次优候选，而不是直接返回未命中。
+	// 用手工素描定 Jaccard：输入 {1..100}；记录 1 交集 95，
+	// Jaccard = 95/105 ≈ 0.905；记录 2 交集 92，Jaccard = 92/108 ≈ 0.852。
+	text := fuzzyOutput(20, -1) // 20 行，320 字符
+	sketch := make([]uint64, 0, 100)
+	for i := uint64(1); i <= 100; i++ {
+		sketch = append(sketch, i)
+	}
+	r1 := make([]uint64, 0, 100)
+	for i := uint64(1); i <= 95; i++ {
+		r1 = append(r1, i)
+	}
+	for i := uint64(1000); i <= 1004; i++ {
+		r1 = append(r1, i)
+	}
+	r2 := make([]uint64, 0, 100)
+	for i := uint64(1); i <= 92; i++ {
+		r2 = append(r2, i)
+	}
+	for i := uint64(2000); i <= 2007; i++ {
+		r2 = append(r2, i)
+	}
+	records := []dedupRecord{
+		{Seq: 1, Tool: "Bash", Key: "git status", Sketch: r1, Len: 621},
+		{Seq: 2, Tool: "Bash", Key: "git status", Sketch: r2, Len: 320},
+	}
+	seq, score, ok := fuzzyLookup(records, "Bash", "git status", text, sketch, 0)
+	if !ok || seq != 2 {
+		t.Fatalf("最佳候选长度比不足时应命中次优候选 seq=2，实际 seq=%d ok=%v score=%.3f", seq, ok, score)
+	}
+	if score < fuzzyMinJaccard || score > 0.86 {
+		t.Fatalf("次优候选 Jaccard 应约为 0.852，实际 %.3f", score)
+	}
+}

@@ -133,8 +133,8 @@ func dedupReadMtime(input HookInput, toolInput map[string]any) int64 {
 // fuzzyLookup 在最近 16 条同工具同键的记录里找模糊命中，返回
 // （首次记录 seq，Jaccard）。记录无素描或无长度时跳过（旧行
 // 没有这些字段，只做精确命中）；Read 命中须 mtime 与记录时
-// 一致（记录 mtime 为 0 或当前取不到时跳过）；长度比与净省
-// 在最佳候选上验。
+// 一致（记录 mtime 为 0 或当前取不到时跳过）；按 Jaccard 从高
+// 到低依次验长度比与净省，首个全过者命中。
 func fuzzyLookup(records []dedupRecord, tool, key, text string, sketch []uint64, mtime int64) (int, float64, bool) {
 	if len(sketch) == 0 || fuzzyLineCount(text) < fuzzyMinLines {
 		return 0, 0, false
@@ -145,7 +145,12 @@ func fuzzyLookup(records []dedupRecord, tool, key, text string, sketch []uint64,
 	if len(records) > fuzzyRecentWindow {
 		start = len(records) - fuzzyRecentWindow
 	}
-	bestSeq, bestScore := 0, 0.0
+	type candidate struct {
+		seq    int
+		score  float64
+		recLen int
+	}
+	var cands []candidate
 	for _, rec := range records[start:] {
 		if rec.Tool != tool || rec.Key != key || len(rec.Sketch) == 0 || rec.Len <= 0 {
 			continue
@@ -157,36 +162,29 @@ func fuzzyLookup(records []dedupRecord, tool, key, text string, sketch []uint64,
 			}
 		}
 		j := fuzzyJaccard(sketch, rec.Sketch)
-		if j < fuzzyMinJaccard || j <= bestScore {
+		if j < fuzzyMinJaccard {
 			continue
 		}
-		bestSeq, bestScore = rec.Seq, j
+		// 长度与 seq 一起带上，不再按 seq 二次查表（并发下 seq 可能重复）。
+		cands = append(cands, candidate{seq: rec.Seq, score: j, recLen: rec.Len})
 	}
-	if bestSeq == 0 {
-		return 0, 0, false
-	}
-	// 长度比：新旧输出字符数 min/max ≥ 0.80。
-	var recLen int
-	for _, rec := range records[start:] {
-		if rec.Seq == bestSeq {
-			recLen = rec.Len
-			break
+	// 按 Jaccard 从高到低，对每个依次验长度比与净省。
+	sort.Slice(cands, func(i, k int) bool { return cands[i].score > cands[k].score })
+	for _, c := range cands {
+		// 长度比：新旧输出字符数 min/max ≥ 0.80。
+		ratio := float64(textLen) / float64(c.recLen)
+		if c.recLen < textLen {
+			ratio = float64(c.recLen) / float64(textLen)
 		}
+		if ratio < fuzzyMinLengthRatio {
+			continue
+		}
+		// 净省：新输出字符数 - 引用文本字符数 ≥ 96。
+		ref := fuzzyReference(c.seq, int(c.score*100))
+		if textLen-len([]rune(ref)) < fuzzyMinNetSaving {
+			continue
+		}
+		return c.seq, c.score, true
 	}
-	if recLen <= 0 {
-		return 0, 0, false
-	}
-	ratio := float64(textLen) / float64(recLen)
-	if recLen < textLen {
-		ratio = float64(recLen) / float64(textLen)
-	}
-	if ratio < fuzzyMinLengthRatio {
-		return 0, 0, false
-	}
-	// 净省：新输出字符数 - 引用文本字符数 ≥ 96。
-	ref := fuzzyReference(bestSeq, int(bestScore*100))
-	if textLen-len([]rune(ref)) < fuzzyMinNetSaving {
-		return 0, 0, false
-	}
-	return bestSeq, bestScore, true
+	return 0, 0, false
 }

@@ -3428,4 +3428,13 @@ gofmt / build / vet 全过；全量测试 21 包全过；新单测：两条 flag
 
 gofmt / build / vet 全过；全量测试 21 包全过；新单测：模糊命中/未命中/阈值边界（0.85 上下）/长度比护栏/净省门槛/Read mtime 变化时只精确命中；log-template 折叠（四类变量/key=value/≥3 才折/失败行不折/样本截断）；限流注入（Read 缺 limit 注入 300、已有 limit 不动、Grep 缺 head_limit 注入 100、已有不动、非 Claude 不动、Glob 不注入）；重注（source=compact 注入在位、startup/resume/clear/fork 不注入、source 缺失不注入、指针 ≤4000 字符、compact 后 dedup 表已清）；hook 端到端实测（pre-tool-use stdin 真实输入、post-tool-use 模糊命中、session-start compact 后重注在位）；固定任务前后对比（同一组命令/读取：改写前输出字节 vs 改写后输出字节，退出码一致；模糊去重单独给命中前后字节数）；新二进制 grep 确认新文案在位。
 
+### 发版前 bug 检查修复（2026-11-20）
+
+发版前扫了一遍 squeez 三件与相关 hook 改动：发版前必须修的未发现；修了 2 处建议修：
+- 验收标准小数行被切错（compact_resume.go）：`1.5 倍性能提升` 被当成序号 `1.` 切成 `- 5 倍性能提升`；修为小数点后跟数字的不算序号（`1. ` 是序号，`1.5` 是小数），`、` 不用改。新增 TestCompactCriterionLine_Decimal，端到端复核指针块已无错切。
+- 模糊去重只验最佳候选（dedup_fuzzy.go）：最佳候选长度比不足时直接返回未命中，不试次优；改为按 Jaccard 从高到低依次验长度比与净省，首个全过者命中；顺带把长度随候选一起带上，不再按 seq 二次查表（并发下 seq 可能重复）。新增 TestFuzzy_SecondCandidate（手工素描定 Jaccard：最佳 0.905 长度比不足，次优 0.852 命中）。
+- 去重表无锁读-改-写并发竞态：失败模式良性（漏一次去重、compact 后一条旧引用复活），本批之前就存在，接受为已知限制，不加文件锁（hook 绝不能阻塞）。
+- 另 8 条小问题（重复计算、折叠顺序交互、Read 限流截断是否标明等）暂不修；全量测试 21 包全过，hook 包 128 单测全过。
+
+
 发版：本批不发版，等用户点选。

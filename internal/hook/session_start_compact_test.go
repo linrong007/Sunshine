@@ -134,3 +134,21 @@ func TestCompactResume_NoTask(t *testing.T) {
 		t.Fatalf("无任务时指针块应写当前任务无，实际：\n%s", ctx)
 	}
 }
+
+func TestCompactCriterionLine_Decimal(t *testing.T) {
+	cases := []struct{ in, want string }{
+		{"1.5 倍性能提升", ""},   // 小数不是序号
+		{"2.5s 内返回", ""},    // 小数不是序号
+		{"1.2.3 修复某问题", ""}, // 版本号不是序号
+		{"1. 标题", "标题"},     // 正常序号
+		{"12. 标题", "标题"},
+		{"1、标题", "标题"},
+		{"- 标题", "标题"},
+		{"* 标题", "标题"},
+	}
+	for _, c := range cases {
+		if got := compactCriterionLine(c.in); got != c.want {
+			t.Errorf("compactCriterionLine(%q) = %q, want %q", c.in, got, c.want)
+		}
+	}
+}

@@ -170,7 +170,8 @@ func compactCriterionLine(trimmed string) string {
 			return strings.TrimSpace(strings.TrimPrefix(trimmed, prefix))
 		}
 	}
-	// 数字序号 "1. xxx" / "1、xxx"。
+	// 数字序号 "1. xxx" / "1、xxx"。小数点后跟数字的不算序号
+	//（"1.5 倍性能提升" 不是序号 "1." + "5 倍性能提升"）。
 	i := 0
 	for i < len(trimmed) && trimmed[i] >= '0' && trimmed[i] <= '9' {
 		i++
@@ -179,7 +180,11 @@ func compactCriterionLine(trimmed string) string {
 		rest := trimmed[i:]
 		for _, sep := range []string{".", "、"} {
 			if strings.HasPrefix(rest, sep) {
-				if item := strings.TrimSpace(strings.TrimPrefix(rest, sep)); item != "" {
+				after := strings.TrimPrefix(rest, sep)
+				if sep == "." && after != "" && after[0] >= '0' && after[0] <= '9' {
+					continue
+				}
+				if item := strings.TrimSpace(after); item != "" {
 					return item
 				}
 			}

@@ -25,8 +25,9 @@ import (
 	"strings"
 )
 
-// RunPreToolUse 处理 PreToolUse 事件：只对 Claude 平台的 Bash 工具
-// 做白名单改写，其余一律静默放过。
+// RunPreToolUse 处理 PreToolUse 事件：只对 Claude 平台做改写，
+// 其余一律静默放过。按 tool_name 分发：Bash 走现有白名单改写，
+// Read/Grep 走限流注入（缺 limit/head_limit 时补默认值）。
 func RunPreToolUse(r io.Reader, opts Options) error {
 	if HooksDisabled() {
 		return nil
@@ -39,9 +40,18 @@ func RunPreToolUse(r io.Reader, opts Options) error {
 	if DetectPlatform(input) != "claude" {
 		return nil
 	}
-	if GetString(input, "tool_name") != "Bash" {
+	switch GetString(input, "tool_name") {
+	case "Bash":
+		return runPreToolUseBash(input, opts)
+	case "Read", "Grep":
+		return runPreToolUseLimit(input, opts)
+	default:
 		return nil
 	}
+}
+
+// runPreToolUseBash 是原有的 Bash 白名单改写分支。
+func runPreToolUseBash(input HookInput, opts Options) error {
 	toolInput, _ := input["tool_input"].(map[string]any)
 	if toolInput == nil {
 		return nil
@@ -65,6 +75,56 @@ func RunPreToolUse(r io.Reader, opts Options) error {
 		updated[k] = v
 	}
 	updated["command"] = rewritten
+	out := map[string]any{
+		"hookSpecificOutput": map[string]any{
+			"permissionDecision": "allow",
+			"updatedInput":       updated,
+			"additionalContext":  note,
+		},
+	}
+	WriteJSON(opts.out(), out)
+	return nil
+}
+
+// 限流注入的默认值（squeez 增量机制，read_max_lines /
+// grep_max_results）：只补缺失键，永不覆盖调用方显式值，
+// 不设上限（传 5000 也原样放过）；Glob 不注入。
+const (
+	readDefaultLimit     = 300
+	grepDefaultHeadLimit = 100
+)
+
+// runPreToolUseLimit 给 Read/Grep 补默认限流：Read 缺 limit 时
+// 注入 300，Grep 缺 head_limit 时注入 100。键已存在（任何值，
+// 含显式 0）时不动；解析失败原样放过。返回全量 updatedInput +
+// permissionDecision "allow"，口径与 Bash 改写一致。
+func runPreToolUseLimit(input HookInput, opts Options) error {
+	toolName := GetString(input, "tool_name")
+	toolInput, _ := input["tool_input"].(map[string]any)
+	if toolInput == nil {
+		return nil
+	}
+	var key string
+	var value int
+	var note string
+	switch toolName {
+	case "Read":
+		key, value = "limit", readDefaultLimit
+		note = "Sunshine 已补默认限流：Read 缺 limit，已注入 limit=300（只补缺失键，不改显式值）。"
+	case "Grep":
+		key, value = "head_limit", grepDefaultHeadLimit
+		note = "Sunshine 已补默认限流：Grep 缺 head_limit，已注入 head_limit=100（只补缺失键，不改显式值）。"
+	default:
+		return nil
+	}
+	if v, ok := toolInput[key]; ok && v != nil {
+		return nil
+	}
+	updated := make(map[string]any, len(toolInput)+1)
+	for k, v := range toolInput {
+		updated[k] = v
+	}
+	updated[key] = value
 	out := map[string]any{
 		"hookSpecificOutput": map[string]any{
 			"permissionDecision": "allow",

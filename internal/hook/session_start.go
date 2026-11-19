@@ -74,6 +74,15 @@ func RunSessionStart(r io.Reader, opts Options) error {
 	out.WriteString("<ready>\nContext loaded. Follow <task-status>. Load workflow/spec/task details only when needed.\n</ready>")
 
 	contextText := out.String()
+	// compact 后重注（squeez 增量机制）：只在 source == "compact"
+	// 时追加 <compact-resume> 指针块并清本会话去重表；其余
+	// source 与取不到 source 时静默不注。
+	if GetString(input, "source") == "compact" {
+		compactDeleteDedup(root, input)
+		if block := buildCompactResumeBlock(root, active); block != "" {
+			contextText += "\n\n" + block
+		}
+	}
 
 	// Kiro 把 hook 的 stdout 直接加进会话上下文，不用 JSON 信封。
 	if platform == "kiro" {

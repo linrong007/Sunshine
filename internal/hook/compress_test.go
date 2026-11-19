@@ -32,14 +32,14 @@ func TestCompressStreamTruncate(t *testing.T) {
 	if !strings.Contains(out, "原 500 行") {
 		t.Fatalf("截断说明应写原行数，实际首行: %q", strings.SplitN(out, "\n", 2)[0])
 	}
-	if !strings.Contains(out, "line 0\n") {
-		t.Fatal("应保留首行")
+	// "line <数字>" 是数字变量模板（≥3 次），按 log-template 先折成
+	// 一行标记，样本即首行；末行取值随其余出现一起丢弃。
+	if !strings.Contains(out, "[×500] line {}  (e.g. line 0)") {
+		t.Fatalf("应把 500 行同模板折成一行标记，实际：\n%s", out)
 	}
-	if !strings.Contains(out, "line 499\n") {
-		t.Fatal("应保留末行")
-	}
-	if !strings.Contains(out, "省略") {
-		t.Fatal("应有省略标记")
+	// 折后只剩 1 行标记，首尾之间没有可标的省略区间，不再有省略标记。
+	if lines := strings.Count(out, "\n"); lines > 3 {
+		t.Fatalf("折后应只剩标记行 + 截断说明，共 ≤3 行，实际 %d 行：\n%s", lines, out)
 	}
 	lines := strings.Count(out, "\n")
 	if lines > 201 { // 标记行 + 最多 200 行
@@ -118,8 +118,9 @@ func TestRunCompress(t *testing.T) {
 	if !strings.Contains(stdout.String(), "输出过长") {
 		t.Fatal("500 行输出应被压缩")
 	}
-	if !strings.Contains(stdout.String(), "500\n") {
-		t.Fatal("应保留末行")
+	// seq 每行是纯数字，按 log-template 折成一行标记，样本即首行 1。
+	if !strings.Contains(stdout.String(), "[×500] {}  (e.g. 1)") {
+		t.Fatalf("500 行纯数字应折成一行标记，实际：\n%s", stdout.String())
 	}
 
 	// 失败行保留。

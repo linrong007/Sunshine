@@ -8,11 +8,11 @@
 // 不再贴全文，只给一个短引用——原文已在会话上下文里，引用能找回它。
 //
 // 去重表：.sunshine/.runtime/dedup-<session>.jsonl，一行一条
-// {seq, tool, key, hash}，只记哈希不存原文；上限 1000 行，超了截断
-// 留最近（activity.go 同款追加 + 截断）。命中条件：同一会话（无
-// session_id 不去重，跨会话去重是错的）、同一键、输出哈希完全相同、
-// 输出不小于引用、Bash 要求成功。v1 只做 Claude（updatedToolOutput
-// 是 Claude Code 的契约；其它平台的输出替换契约未核实）。
+// {seq, tool, key, hash, sketch?, len?, mtime?}，只记哈希与素描
+// 不存原文；上限 1000 行，超了截断留最近（activity.go 同款追加
+// + 截断）。命中条件：同一会话（无 session_id 不去重，跨会话去
+// 重是错的）、同一键、输出哈希完全相同、输出不小于引用、Bash
+// 要求成功；精确未命中时再跑模糊去重（dedup_fuzzy.go）。
 //
 // 铁律：任何失败静默丢弃，绝不阻断 agent 会话；并发触发时读-查-写
 // 竞态的失败模式是良性的（漏一次去重或重复记一条）。
@@ -35,12 +35,17 @@ const MaxDedupLines = 1000
 
 // dedupRecord 是去重表里的一行。Seq 是行内序号（截断后仍单调递增，
 // 引用里的“第 N 次”指它）；Hash 是输出全文的 SHA-256，只记哈希，
-// 不存原文。
+// 不存原文。Sketch 是输出的 bottom-96 MinHash 素描（只在输出
+// ≥6 行时记，旧行无此字段）；Len 是输出字符数（长度比护栏用）；
+// Mtime 是 Read 目标文件记录时的 mtime（Unix 纳秒，Bash 为 0）。
 type dedupRecord struct {
-	Seq  int    `json:"seq"`
-	Tool string `json:"tool"`
-	Key  string `json:"key"`
-	Hash string `json:"hash"`
+	Seq    int      `json:"seq"`
+	Tool   string   `json:"tool"`
+	Key    string   `json:"key"`
+	Hash   string   `json:"hash"`
+	Sketch []uint64 `json:"sketch,omitempty"`
+	Len    int      `json:"len,omitempty"`
+	Mtime  int64    `json:"mtime,omitempty"`
 }
 
 // dedupFilePath 返回会话去重表的文件路径。
@@ -327,6 +332,28 @@ func dedupPostToolUse(input HookInput, root string, opts Options) bool {
 		})
 		return true
 	}
-	dedupAppend(root, sessionID, dedupRecord{Seq: dedupNextSeq(records), Tool: toolName, Key: key, Hash: hash})
+	// 精确未命中时跑模糊去重（squeez 增量机制）：同键近似输出
+	// 也换成短引用；未命中时照常记一条。
+	if seq, score, found := fuzzyLookup(records, toolName, key, text, fuzzySketch(text), dedupReadMtime(input, toolInput)); found {
+		ref := fuzzyReference(seq, int(score*100))
+		repl, ok := dedupReplacement(toolName, toolResponse, ref)
+		if ok {
+			WriteJSON(opts.out(), map[string]any{
+				"hookSpecificOutput": map[string]any{
+					"hookEventName":     "PostToolUse",
+					"updatedToolOutput": repl,
+				},
+			})
+			return true
+		}
+	}
+	rec := dedupRecord{Seq: dedupNextSeq(records), Tool: toolName, Key: key, Hash: hash, Len: len([]rune(text))}
+	if fuzzyLineCount(text) >= fuzzyMinLines {
+		rec.Sketch = fuzzySketch(text)
+	}
+	if toolName == "Read" {
+		rec.Mtime = dedupReadMtime(input, toolInput)
+	}
+	dedupAppend(root, sessionID, rec)
 	return false
 }

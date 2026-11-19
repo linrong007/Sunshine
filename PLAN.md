@@ -3357,3 +3357,75 @@ gofmt / build / vet 全过；全量测试 21 包全过；新单测：两条 flag
 - CI 与发布：发布 workflow run 44553231021、CI（tag）run 44553230855、CI（main）run 44553165161 均 completed success。
 - Release：id 451527893，非草稿、非预发布，6 个资产在位（checksums.txt + sunshine_0.5.31_darwin_amd64/arm64.tar.gz、linux_amd64/arm64.tar.gz、windows_amd64.zip）。
 - 实测：一键装（无参）装上 v0.5.31（linux/amd64），`sunshine version` 报 0.5.31；darwin_arm64 包 checksum cc3084a36691cf598ed3b204a23103974a0667d0c7d49db01f6a364f69841ffa、linux_amd64 包 checksum f5dad5b2ca62b7eba066afefbbb80e5196cb4ce506797f176bf1c83729a87e59，均与 checksums.txt 一致；`upgrade --dry-run` 通过（“已是最新版本（当前 0.5.31，最新 0.5.31），无需升级。”）。发布包二进制 grep 确认“已包一层压缩输出”1 处、“pre-tool-use”5 处、“输出过长”1 处在位。
+
+## squeez 增量机制（模糊去重 + Read/Grep 限流 + compact 后重注）
+
+### 背景
+
+用户 2026-11-19 点选“先做 squeez 增量机制”。第四轮调研结论：没有碾压已做三档（注入顺序、会话去重、窄版 RTK）的新机制，增量在三件可拆开做的事。squeez（https://github.com/claudioemmanuel/squeez，★237，Apache 2.0，Rust 单二进制），源码读于 v1.49.3（HEAD f2c6184），clone 在 `~/workspace/scratch/squeez-src`。
+
+注意 squeez 有两条去重线不要混：PostToolUse 跨调用去重（`context/redundancy.rs`）与 Bash wrap 管道内的行级 dedup / log-template（`strategies/`）。本批三件分属两条线：模糊去重走 PostToolUse、log-template 折叠与限流注入走 PreToolUse/压缩管道、compact 后重注走 SessionStart。
+
+### 数字实话
+
+- 91.2% 是 46 场景 × 5 次合成 benchmark（chars/4 计，229,443 → 20,249 token）；cl100k_base 真实 BPE 重算 22 个 fixture 得 83.5%（112,557 → 18,590）；**无真实会话端到端对照**。
+- v1.48.25–v1.49.1 统计 bug：finalize 把整小时共享会话日志的所有事件算进一个会话，单会话节省约高估 8 倍（已修，issue #284，commit 9f2377a）。
+- 无法压缩：Agent/Task 返回值、skills 与斜杠命令文件、用户顶层 prompt（README "What squeez CANNOT compress" 一节）。
+- 支持列表无 DSH、Cursor；本批 v1 只做 Claude。
+
+### 设计
+
+#### 1. 模糊去重（PostToolUse，复用 dedup.go）
+
+- 比较单位：整段工具输出（全部行 join 成一个字符串）；归一化只有空白折叠（连续空白等价），不去时间戳、不做语义归一化。
+- 素描：空白 token 的连续三元组（trigram），每组 FNV-1a-64 哈希，取最小的 96 个（bottom-k MinHash，SHINGLE_K=96），排序去重；Jaccard 在两个有序去重集合上算。Go 用标准库 `hash/fnv.New64a()`，无外部依赖。
+- 记录：dedupRecord 加可选 `sketch` 字段（≤96 个 u64，只在输出 ≥6 行时记；只记素描不存原文——sqz 旧版把短凭证行存进本地库的安全坑不要踩）。精确去重逻辑与现有字段不动；旧行无 sketch，模糊查找跳过。
+- 命中条件（全满足）：同会话 + 同键（dedupKey 现状）+ 输出 ≥6 行（MIN_LINES_FUZZY=6）+ 长度比 min/max ≥ 0.80（LENGTH_RATIO_GUARD）+ trigram Jaccard ≥ 0.85（similarity_threshold 默认值）+ 只查最近 16 次调用（RECENT_WINDOW=16）+ 净省 ≥24 token（约 96 字符，net_win_min_tokens=24）。
+- 替换文本：`[Sunshine: 与本会话第 N 次工具调用的输出约 X% 相似，已在上下文中，不再重复，如需确认请重读]`（X 为 Jaccard 百分比取整；N 为首次记录的 seq）。
+- 安全护栏（squeez A2 等价实现）：Read 模糊命中须文件 mtime 与记录时一致（记录时 stat 文件记 mtime，命中时再 stat 比对；取不到 mtime 时 Read 只允许精确命中）；Bash 不受此限（同命令键重跑）；MCP 工具结果不做模糊去重。
+- 误判兜底：相似度不够高不替换、任何解析失败原样放过、输出比引用短不换；精确命中路径先跑，模糊只在精确未命中时跑。
+
+#### 2. log-template 折叠（compress.go，Bash 输出管道内）
+
+- 位置：compress.go 压缩路径，在现有首 10 + 失败行 + 末 80 行截断之前先折叠（squeez 管道顺序 smart_filter → dedup → log_template → relevance-truncation）；失败特征行永不折叠（原样保留）。
+- 推导：整行按空白分词，逐 token 判变量；`key=value` 只把值换成 `{}`、键保留；变量四类：①纯数字形（仅数字 + `.:-/T+` 分隔符，如 12:30:45、2026-06-21T10:30:45、192.168.0.1、3.14）；②数字+单位（1ms、200ms、5s、3.2KB、50%、1.5x，后缀 ≤4 字母/%）；③hex/UUID（长度 ≥8、≥2 个数字、全 hex 或 `-`）；④复合 ID（带数字且含 `-`/`_` 分隔符，如 req-1；版本号 v1.24.0、1.2.3 因无 `-`/`_` 被保留）。纯单词（含 ERROR/INFO）是结构，不替换。
+- 阈值：模板出现次数 ≥3 才折叠（log_template_min=3）；只有含 `{}` 槽位的模板才折叠，无变量的逐字重复行留给现有连续重复折叠。
+- 标记：`[×N] <模板>  (e.g. <首行原文样本>)`，样本为首次出现行原文，trim 后超 100 字符截断加 `…`；折叠行发在首次出现位置保序，其余出现直接丢弃；其余 N−1 行的变量取值丢弃。
+- 范围：只在 Bash 输出管道（compress.go）内做，不碰 Read/Grep 结果（squeez 同款限定）。
+
+#### 3. Read/Grep 限流注入（PreToolUse）
+
+- Read 缺 limit 时注入 `limit: 300`；Grep 缺 head_limit 时注入 `head_limit: 100`（read_max_lines=300、grep_max_results=100）；只补不存在的键，永不覆盖调用方显式值，不设上限（传 5000 也原样放过）；Glob 不注入（squeez 名义上有、实际返回 None）。
+- 方式：改 tool_input 字段、返回全量 updatedInput + permissionDecision "allow"，口径与 RTK 一致；任何解析失败原样放过。
+- 注册：Claude settings.json 的 PreToolUse matcher 由 `Bash` 改为 `Bash|Read|Grep`；RunPreToolUse 按 tool_name 分发（Bash 走现有改写，Read/Grep 走限流注入）。
+
+#### 4. compact 后状态重注（SessionStart，source=compact 才注）
+
+- 触发判断：SessionStart 输入 `source` 字段（官方文档 5 个取值：startup 新会话、resume、clear、compact、fork）；只在 `source == "compact"` 时重注，其余一律不注；取不到 source 时静默不注。
+- 指针内容（≤4000 字符，MAX_SUMMARY_CHARS=4000）：当前任务（会话指针文件里的 current_task + 任务标题/状态）+ 下一步（任务状态与最近 activity.jsonl 事件推导）+ 关键约束（取自任务 prd.md 的验收标准节，最多 3 条，每条 ≤80 字符；取不到就空着）；不在指针里贴全文、不贴 jsonl 原文。
+- 指针不落盘：重注时直接从磁盘读现有状态拼（会话指针、task.json、activity.jsonl），不新增写盘文件、不新增常驻进程；复用 session_start.go 已有的任务解析 helper，不另造一套。
+- 与现有注入不重复：指针以 `<compact-resume>` 块追加在现有 SessionStart 上下文之后，不改现有 workflow 概览/当前任务/spec 地图。
+- clear 的处理：source=clear 时现有注入（workflow 概览 + 当前任务 + spec 地图）已足够重定向，不另加指针块（与任务书“compact/clear 后才重注”措辞的偏差：clear 是用户主动 fresh start，现有注入已含当前任务，再贴指针是重复；如主会话要改，改这一句）。
+- compact 后去重表失效：SessionStart 在 source=compact 时删本会话的 dedup-<session>.jsonl（compact 前调用的输出模型已看不见，旧引用会指到不存在的内容；删表后精确去重重建，代价是 compact 后第一次重读不省；删失败静默）。
+
+### 不做项
+
+- Bash 规则超集（squeez 41 条规则）：窄版 RTK 已覆盖本批需要的，规则数不扩。
+- agent prompt 超阈值时压缩：PreToolUse 拦截 Agent/Task 的 prompt，token 估算（chars/4）超 agent_prompt_max_tokens（默认 2000）时先跑 markdown 压缩，仍超则头部截断到预算并追加截断提示；另有并发派生上限（默认 5 个在途，超限直接 deny）。
+- SessionStart 注入上一会话摘要：squeez init 把上一会话终结写 `~/.claude/squeez/memory/` 的 Summary，新会话 banner 印最近 3 条摘要行 + 最新一条最多 3 条 Next steps。
+- 可逆取回（内容寻址 blob）：大输出压缩前原文存 `~/.claude/squeez/blobs/<16 位 hex FNV-1a 哈希>`，凭 key 调 squeez_retrieve 取回，存前有敏感内容护栏（含疑似凭证则拒存、改发原文）。
+- 其它平台（DSH、Cursor 等）不动；MCP 工具结果不做模糊去重（squeez 同款禁令）。
+
+### 风险与实话
+
+- squeez 的 91.2%/83.5% 是合成 benchmark，无真实会话端到端对照；本批收益以固定任务前后对比 + 模糊命中计数实测为准，不承诺整会话百分比。
+- 模糊匹配误判风险真实存在：阈值 0.85 + 长度比 0.80 + 净省 24 token 三道护栏 + Read 的 mtime 护栏；误判最坏情况是模型看到引用后需重读（替换文本里写明“如需确认请重读”），不丢数据（原文仍在磁盘文件里，Bash 输出可重跑）。
+- log-template 折叠丢弃 N−1 行的变量取值：只折叠 ≥3 次出现的模板，且失败行永不折叠；折叠后保留一条原文样本。
+- compact 检测不到（source 字段缺失或平台不传）时静默不注，不报错、不补注。
+- dedup 表加 sketch 字段后单行变长（≤96 个 u64，约 2KB/行）；表上限仍 1000 行，模糊只查最近 16 条，文件体积可控；旧行无 sketch，模糊查找跳过。
+
+### 验收
+
+gofmt / build / vet 全过；全量测试 21 包全过；新单测：模糊命中/未命中/阈值边界（0.85 上下）/长度比护栏/净省门槛/Read mtime 变化时只精确命中；log-template 折叠（四类变量/key=value/≥3 才折/失败行不折/样本截断）；限流注入（Read 缺 limit 注入 300、已有 limit 不动、Grep 缺 head_limit 注入 100、已有不动、非 Claude 不动、Glob 不注入）；重注（source=compact 注入在位、startup/resume/clear/fork 不注入、source 缺失不注入、指针 ≤4000 字符、compact 后 dedup 表已清）；hook 端到端实测（pre-tool-use stdin 真实输入、post-tool-use 模糊命中、session-start compact 后重注在位）；固定任务前后对比（同一组命令/读取：改写前输出字节 vs 改写后输出字节，退出码一致；模糊去重单独给命中前后字节数）；新二进制 grep 确认新文案在位。
+
+发版：本批不发版，等用户点选。

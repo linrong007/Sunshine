@@ -32,7 +32,7 @@
             "type": "command"
           }
         ],
-        "matcher": "Bash"
+        "matcher": "Bash|Read|Grep"
       }
     ],
     "SubagentStop": [

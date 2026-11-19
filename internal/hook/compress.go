@@ -104,6 +104,9 @@ func compressStream(s string) string {
 		return s
 	}
 	folded := foldDuplicates(lines)
+	// log-template 折叠（squeez 增量机制）：在截断之前先把重复
+	// 出现的日志模板折成一行标记；失败行永不折叠。
+	folded = foldLogTemplates(folded)
 	kept := selectKeptLines(folded)
 	var b strings.Builder
 	fmt.Fprintf(&b, "【Sunshine：输出过长（原 %d 行），已压缩为 %d 行：首 %d 行 + 失败行 + 末 %d 行；需要完整输出时在命令后加 | cat】\n",

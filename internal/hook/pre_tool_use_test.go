@@ -147,7 +147,9 @@ func TestRunPreToolUseNoRewrite(t *testing.T) {
 	t.Setenv("SUNSHINE_HOOK_PLATFORM", "claude")
 	cases := []string{
 		`{"session_id":"s","cwd":"/tmp","tool_name":"Bash","tool_input":{"command":"echo hi"}}`,
-		`{"session_id":"s","cwd":"/tmp","tool_name":"Read","tool_input":{"file_path":"/tmp/x"}}`,
+		`{"session_id":"s","cwd":"/tmp","tool_name":"Read","tool_input":{"file_path":"/tmp/x","limit":50}}`,
+		`{"session_id":"s","cwd":"/tmp","tool_name":"Grep","tool_input":{"pattern":"foo","head_limit":10}}`,
+		`{"session_id":"s","cwd":"/tmp","tool_name":"Glob","tool_input":{"pattern":"*.go"}}`,
 		`{"session_id":"s","cwd":"/tmp","tool_name":"Bash","tool_input":{"command":""}}`,
 		`not json`,
 		``,

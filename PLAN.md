@@ -3148,7 +3148,7 @@ pre-commit install       # 在仓库根目录执行一次
 - 实测：一键装（无参）装上 v0.5.27（linux/amd64）；darwin_arm64 包 checksum OK，Mach-O arm64（macOS 二进制在 Linux 沙箱上不可执行，Exec format error 属预期，只核 checksum 与 file）；0.5.27 二进制 `upgrade --dry-run` 报已是最新。实测中 /tmp 周期清理会把 12MB 的 darwin 包删掉（两次下载后都消失），以后大文件验 checksum 改放 ~/workspace/scratch/。
 
 
-## 单页上限 400→500 行，个别情况允许超（2026-11-19，用户定，未发版）
+## 单页上限 400→500 行，个别情况允许超（2026-11-19，用户定，已随 v0.5.28 发布）
 
 背景：用户问 400 行会不会有点少。实据：沙箱实测最复杂一页（借阅登记页）385 行，离上限只差 15 行；再复杂一点的表单页、数据密集表页就会撞线；拆子页能过，但演示一页变多页会碎。400 行只算页面本身（样式与 mock 在共用文件里不占），撞线通常是这页自己的结构加交互确实多。
 
@@ -3156,4 +3156,14 @@ pre-commit install       # 在仓库根目录执行一次
 
 验收：gofmt/build/vet 全过；全量测试 21 包全过（跑前后清 /tmp/sunshine-test-bin-* 与 /tmp/go-build*）；grep 残留：templates/ 内“400 行”为 0 处；新二进制 `grep -a -c` 核“500 行上限”在位；逐文件核对 18 个文件改完且格式未破（toml/json 须过解析）。
 
-发版：本批不发版，等用户点选。
+发版：已随 v0.5.28 发布（见下节）。
+
+
+## v0.5.28 发布记录（2026-11-19，已发布）
+
+- 内容：单页上限 400→500 行，个别情况允许超（单页确实需要更多行时可超，汇报写明超了多少行和原因）。18 个 prototype agent 文件同一条；workflow 三份不动；PLAN.md 旧节与 v0.5.27 记录里的 400 行是历史记录，不改。
+- 主提交：本地 e229a159d7af02ac1081c956cd7e4603aab8931a → 远端 a06d9bd76e4df6dbbd34f091d2e208b32e9e4d71，tree 1543f7dfbc135cba64c504051a3f7d62ee0ba6f4，父提交 d62afa2b15bf2c96787e2b2e74d97f13107c384f，作者 linrong007。19 个文件，+29/-18。
+- tag：v0.5.28，annotated tag，tag 对象 b403239303658ed1e87788537ef01c07563a0986 → a06d9bd。
+- CI 与发布：发布 workflow run 44467847386、CI（tag）run 44467847541、CI（main）run 44467816459 均 completed success。
+- Release：id 450933957，非草稿、非预发布，6 个资产在位（checksums.txt + sunshine_0.5.28_darwin_amd64/arm64.tar.gz、linux_amd64/arm64.tar.gz、windows_amd64.zip）。
+- 实测：一键装（无参）装上 v0.5.28（linux/amd64）；darwin_arm64 包 checksum OK，Mach-O arm64（macOS 二进制在 Linux 沙箱上不可执行，Exec format error 属预期，只核 checksum 与 file）；新装二进制 `grep -a -c` 核“500 行上限”与“个别情况允许超”各 15 处、“400 行上限”0 处。遗留：`upgrade --dry-run` 两次均报 GitHub API 403 rate limit exceeded（沙箱出口 IP 共享、未认证请求限额已满，与发布本身无关；v0.5.27 同命令曾通过），沙箱内无法复验，用户 Mac 上可直接跑 `sunshine upgrade --dry-run` 验证。

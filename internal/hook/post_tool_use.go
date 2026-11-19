@@ -1,9 +1,10 @@
 // RunPostToolUse 实现 sunshine hook post-tool-use，对应 Claude Code
-// 的 PostToolUse 事件（settings.json 里 matcher 接 Edit|Write|Bash）
+// 的 PostToolUse 事件（settings.json 里 matcher 接 Edit|Write|Bash|Read）
 // 与 Codex 的 PostToolUse 事件（hooks.json 里 matcher 接
 // apply_patch|Bash）：文件写盘后立即把 spec 索引同步一次，agent
 // 不用再记得跑 `sunshine spec index`，同 turn 内改完 spec 再派子代理
-// 也能读到新鲜索引。
+// 也能读到新鲜索引；Bash / Read 的重复输出走会话去重
+// （dedup.go，命中时用 updatedToolOutput 换成短引用）。
 //
 // 索引是强制的（2026-11-16 用户定：为省 token，.sunshine/spec/ 下
 // 全部文件都要带索引）：同步用完整 SyncFile/SyncDir，无索引节的
@@ -84,8 +85,15 @@ func RunPostToolUse(r io.Reader, opts Options) error {
 			return nil
 		}
 		_, _ = specindex.SyncDir(filepath.Join(root, ".sunshine", "spec"))
+	case "Read":
+		// Read 不改文件，不同步索引；只走下面的会话去重。
 	default:
 		return nil
+	}
+	// 会话去重（2026-11-19）：只对 Bash / Read 生效，其它工具在
+	// dedupKey 里拒绝；命中时写出 updatedToolOutput 替换输出。
+	if root := ResolveProjectRoot(input); root != "" {
+		dedupPostToolUse(input, root, opts)
 	}
 	return nil
 }

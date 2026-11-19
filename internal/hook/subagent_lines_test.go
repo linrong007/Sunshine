@@ -268,3 +268,39 @@ func TestSubagentContext_CheckDietFallback(t *testing.T) {
 		t.Errorf("无验收标准与需求节时应全文兜底，得到：\n%s", prompt2)
 	}
 }
+
+// TestSubagentContext_InjectionOrder：注入顺序——稳定在前、易变在后。
+// implement / check / finish 提示词里，固定 Workflow / Constraints 应
+// 在派发任务（Your Task）之前；research 的 Workflow / Report Format
+// 也应在 Your Task 之前；Codex 的 Curated Context 应在 Active task 行之前。
+func TestSubagentContext_InjectionOrder(t *testing.T) {
+	before := func(t *testing.T, prompt, stable, volatile string) {
+		t.Helper()
+		i, j := strings.Index(prompt, stable), strings.Index(prompt, volatile)
+		if i < 0 || j < 0 || i > j {
+			t.Errorf("%q 应在 %q 之前\n全文：\n%s", stable, volatile, prompt)
+		}
+	}
+	impl := buildImplementPrompt("实现演示功能", "规范上下文")
+	before(t, impl, "## Your Context", "## Your Task")
+	before(t, impl, "## Workflow", "## Your Task")
+	before(t, impl, "## Important Constraints", "## Your Task")
+
+	fin := buildFinishPrompt("收尾复核", "检查上下文")
+	before(t, fin, "## Workflow", "## Your Task")
+	before(t, fin, "## Important Constraints", "## Your Task")
+
+	res := buildResearchPrompt("查一下接口", "规范目录树")
+	before(t, res, "## Workflow", "## Your Task")
+	before(t, res, "## Report Format", "## Your Task")
+
+	// check：端到端，确认真实注入的提示词也是这个顺序。
+	root, _ := makeProject(t)
+	check := checkPrompt(t, root)
+	before(t, check, "## Workflow", "## Your Task")
+	before(t, check, "## Important Constraints", "## Your Task")
+
+	// Codex：Curated Context 在前，Active task 行在后。
+	codex := buildCodexSubagentContext("sunshine-check", ".sunshine/tasks/11-09-demo", "规范上下文")
+	before(t, codex, "## Curated Context", "Active task:")
+}

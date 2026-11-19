@@ -3244,3 +3244,107 @@ pre-commit install       # 在仓库根目录执行一次
 - CI 与发布：发布 workflow run 44542343736、CI（tag）run 44542343712、CI（main）run 44542296040 均 completed success。
 - Release：id 451451858，非草稿、非预发布，6 个资产在位（checksums.txt + sunshine_0.5.30_darwin_amd64/arm64.tar.gz、linux_amd64/arm64.tar.gz、windows_amd64.zip）。
 - 实测：一键装（无参）装上 v0.5.30（linux/amd64），`sunshine version` 报 0.5.30；darwin_arm64 包 checksum d50052533458d1b87ab2580e03758e3d2188bdd33ed0df6f8d24d1a7c941ba18 与 checksums.txt 一致；`upgrade --dry-run` 通过（“已是最新版本（当前 0.5.30，最新 0.5.30），无需升级。”）。
+
+
+## 注入顺序与会话去重（2026-11-19，用户定，执行中）
+
+背景：GitHub 第三轮调研（2026-11-19）出 5 条，用户定 1、2 号一起做。1 号注入顺序（cachesplit 残余版）、2 号会话去重（sqz 去重半截）。
+
+### 1 号：注入顺序（稳定在前、易变在后）
+
+现状：四个子代理提示词 builder（`internal/hook/subagent.go` 的 buildImplementPrompt / buildCheckPrompt / buildFinishPrompt / buildResearchPrompt）都是“固定头 + context（稳定）+ originalPrompt（易变，含派发文本）+ Workflow / Constraints（固定、稳定）”；Codex 的 buildCodexSubagentContext 是“Active task（易变）+ Curated Context（稳定）”。易变内容夹在中间，把其后的稳定段也拖出缓存前缀。
+
+改法：纯重排，字节不变。四个 builder 改成“固定头 + context + Workflow / Constraints + Your Task（originalPrompt）”；Codex 改成“Curated Context + Active task”。agent 定义文件本身已跨子任务逐字节稳定，不动。
+
+收益预期（实话）：未在 Sunshine 上实测；cachesplit 的 34% 是代理改写 system prompt 测出来的，不是这个改动的数。同一角色跨子任务的前缀更长，显式断点（Anthropic / Bedrock / Vertex）与隐式最长前缀缓存（DeepSeek 等）都受益于更长的一致前缀。改动本身零成本。
+
+不做：SessionStart 重排（那是会话前缀、一次注入，收益是另一回事，另立项）；channel spawn 组装不动（supervisor 层，另立项）。
+
+### 2 号：会话去重（PostToolUse 换引用，Claude Code 首发）
+
+机制已核 Claude Code 官方 hooks 文档（2026-11-19）：PostToolUse 可返回 `hookSpecificOutput.updatedToolOutput` 替换工具结果，值须匹配工具输出形状；Bash 是 `{stdout, stderr, interrupted, isImage}`；PostToolUseFailure 不能改写，失败原样过（正好，失败项本来就要让 agent 看到）。sqz 本体用的是 PreToolUse 改写命令（`sqz compress --cmd *`），那是另一条路，本批不用。本批只做去重半截，不做格式化那半截（格式化是 RTK 那档的活，别重复造）。
+
+- 去重表：`.sunshine/.runtime/dedup-<session>.jsonl`，一行一条 `{seq, tool, key, hash}`，seq 为行内序号（截断后仍单调）；上限 1000 行，超了截断留最近（activity.go 同款追加 + 截断）。只记哈希，不存原文（原文已在会话上下文里）。
+- 键：Bash = 去空白后的命令串；Read = file_path + offset + limit（缺省为空）。
+- 命中条件（全满足才替换）：同一会话（无 session_id 不去重，跨会话去重是错的——新会话里模型没有原文）；同一键；输出哈希完全相同；输出不小于引用（太短的换引用反而更长）；Bash 要求成功（stderr 为空；tool_response 有 exitCode 字段时要求为 0）。
+- 替换文本：`[Sunshine: 与本会话第 N 次工具调用的输出相同，已在上下文中，不再重复]`（N = 首次记录的 seq）。Bash 替换后 stdout 为该行、stderr 置空、interrupted / isImage 原样；Read 按实际 tool_response 形状替换，形状不符不替换、原样放过。
+- 平台门：v1 只做 Claude（updatedToolOutput 是 Claude Code 的契约）；其它平台不替换（Codex 等的 PostToolUse 输出替换契约未核实，另立项）。
+- 注册：Claude `templates/platforms/claude/settings.json` 的 PostToolUse matcher 加 Read（`Edit|Write|Bash|Read`），否则 Read 重读根本不触发 hook。Codex 不动。
+- 并发：PostToolUse 对并行工具调用并发触发；追加用 O_APPEND 单行写，读-查-写竞态的失败模式是良性的（漏一次去重或重复记一条），不阻塞。
+- 铁律：任何失败静默返回 nil，绝不阻断会话。
+
+收益预期（实话）：sqz 的 24.7% 是它全套（格式化 + 去重）的累计数，不是本批的数；本批只做去重，收益集中在吵闹会话（重复命令输出、改后重读），安静会话省得少。量法：固定任务跑前后对比（待定）+ 去重表可计数命中次数。
+
+残留风险：Read 的 tool_response 实际形状以真机为准（字符串或对象两种都接，形状不符时不替换、原样放过）；Codex 等平台的输出替换契约未核实，v1 不做。
+
+### 验收
+
+gofmt / build / vet 全过；全量测试 21 包全过；新单测（提示词顺序断言 + 去重命中 / 未命中 / 无会话 / 小输出 / 非 Claude 平台）；hook 端到端实测（subagent-context 提示词顺序 + post-tool-use 替换输出）；新二进制 grep 确认新文案在位。
+
+发版：本批不发版，等用户点选。
+
+## 窄版 RTK（PreToolUse 改写命令）
+
+### 背景
+
+用户 2026-11-19 定：省 token 是目标，5 号（计量 + 护栏）不是一回事——计量只给 visibility、护栏只防跑飞，正常任务一个 token 都不省。1、2 号已做完（注入顺序 + 会话去重，未发版），剩下最大的一档是 RTK 式 PreToolUse 改写命令：独立基准每会话实省约 20-43%。用户点选“先做窄版 RTK”。
+
+### 契约（2026-11-19 核 Claude Code 官方 hooks 文档）
+
+- PreToolUse 输入：`tool_name`、`tool_input`、`tool_use_id`；Bash 的 tool_input 字段是 `command`（string）、`description`（可选）、`timeout`（可选，毫秒）、`run_in_background`（可选）。
+- 输出走 `hookSpecificOutput`：`updatedInput` 替换整个 tool_input 对象——必须把原字段原样带上、只改 `command`，漏掉 description/timeout 它们就没了；`permissionDecision` 与 updatedInput 搭配：`"allow"` 跳过权限提示（deny/ask 规则仍照常评估，always_ask 的工具与网络路径读不受影响），`"ask"` 把改写后的命令拿给用户确认，`"defer"` 只用于 `-p` 非交互模式；**不带 permissionDecision 时 auto 模式可能直接拒绝改写后的调用**（服务端审的是原输入，不是改写后的），所以必须带。
+- 多个 PreToolUse hook 意见不一致时优先级 deny > defer > ask > allow。
+- 2.1.300 起 updatedInput 按工具 schema 校验：未知字段丢弃、不合法的输入直接拒绝调用——改写后的 command 必须是合法 Bash 输入。
+- `additionalContext` 是附加给 Claude 的说明文字，随工具结果一起进上下文。
+
+### 设计（窄版，v1 只做 Claude）
+
+新增 `sunshine hook pre-tool-use`（`internal/hook/pre_tool_use.go`）+ `sunshine hook compress`（`internal/hook/compress.go`，复用 sqz 的包一层模式：`sqz compress --cmd *`），注册进 Claude `templates/platforms/claude/settings.json` 的 PreToolUse，matcher `Bash`，timeout 10 秒。Codex 的 PreToolUse 改写契约未核实、DSH 有无对应事件未核实，都另立项，本批不动。
+
+改写只做白名单，命中才返回 JSON（不命中时无输出、退出 0，等于没意见）；任何解析失败、平台不是 Claude、工具不是 Bash、命令为空时都原样放过（fail open）。
+
+#### 直接加 flag（不改命令结构，不动退出码）
+
+- `git log`（无 `--oneline` / `--format` / `-p` / `--patch` / `--stat` / `--name-only` / `--name-status` / `--graph` 时）→ 在 `log` 后插 `--oneline`。
+- `git diff`（无 `--stat` / `--name-only` / `--name-status` / `--numstat` / `-p` / `--patch` / `--check` 时）→ 在 `diff` 后插 `--stat`。agent 要看某文件再跑 `git diff -- <文件>`。
+
+#### 包一层（测试 / lint / 构建类吵闹命令）
+
+白名单命令头：`go test` / `go vet` / `go build`、`npm test` / `npm run test` / `npx tsc` / `tsc` / `eslint`、`cargo test` / `cargo clippy`、`pytest` / `python -m pytest`、`make test` / `make check`。命中时把该段命令改写为 `sunshine hook compress --timeout <原 timeout> -- '<原命令>'`（timeout 原没有就不带；二进制用 `os.Executable()` 的绝对路径，不依赖 PATH）。
+
+`compress` 用 `bash -c` 跑原命令（stdout/stderr 分开抓），压缩后分别写回自己的 stdout/stderr，**以原命令的退出码退出**——退出码是底线，绝不能像 `| head` 那样把失败掩盖成成功。
+
+压缩规则（每条流独立算）：
+- ≤200 行且 ≤12000 字节：原样通过，不加标记。
+- 超了：保留首 10 行 + 失败特征行 + 末 80 行，总保留 ≤200 行；连续重复行折叠（同一行连续出现记 `（×N）`）；行首加一条截断说明，注明原行数、保留行数与绕过办法（命令后加 `| cat` 即不包一层）。
+
+失败特征行（大小写不敏感子串）：FAIL / `--- FAIL` / FAILED / Error / `error:` / panic / exception / ✗ / ✘ / `not ok`。
+
+#### 不改写的情形
+
+- 命令含管道 `|`：agent 已在自己管输出，不插手（这也是绕过办法）。
+- 复合命令（`&&` / `||` / `;` / 换行）按段切分：用引号感知的切分器（跟踪单双引号与反斜杠转义），每段独立判断是否命中白名单、命中只改写该段；引号不平衡时整条命令不动。
+- 已含 `sunshine hook compress`：不重复包（幂等）。
+- `git log` / `git diff` 已带等价 flag：不动。
+- 后台命令（`run_in_background: true`）照常改写：压缩后的输出进 BashOutput 文件，机制不变。
+
+#### 权限决定
+
+改写时返回 `permissionDecision: "allow"` + 全量 `updatedInput` + 一句 `additionalContext`（说明改了什么，例如“Sunshine 已将 git log 改为 --oneline 以节省 token”）。理由：改写是原命令的严格收窄——同一条命令、更少的输出，不增加任何新能力；deny/ask 规则仍照常评估；用户本来就要跑原命令。`allow` 跳过的只是对改写后命令的重复提示，不是绕过规则。
+
+### 风险与实话
+
+- 20-43% 是 RTK 那套在别人会话上的独立基准数，不是 Sunshine 的。v0.5.30 的模板措辞已经让 agent 自觉做同样的事（git log --oneline、只看失败项、截断），hook 挣的是 agent 没照做的那部分——这部分有多大，**没量过**，本批固定任务跑前后对比就是来量这个的。
+- 改写是唯一会动 agent 实际执行命令的一档，改错的风险真实存在：白名单 + 引号感知切分 + 失败原样放过是三道防线；`git diff → --stat` 是有意的语义收窄（agent 要看细节再跑单文件），不是无损改写，写进文档。
+- wrapper 会缓冲整段输出再一次性打印，长测试跑完前界面看不到实时输出（模型侧本来就是等跑完才看到结果，无影响）。
+
+### 验收
+
+gofmt / build / vet 全过；全量测试 21 包全过；新单测：两条 flag 改写（命中 / 已带 flag 不动 / 管道不动 / 引号不平衡不动 / 复合命令只改命中段）、包一层（白名单命中 / 已包过不动 / 含管道不动 / 非 Claude 不动）、compress（小输出原样过、长输出截断、失败行保留、重复行折叠、退出码原样、stderr 分开）；端到端实测：新二进制跑 pre-tool-use（git log / git diff / go test 三例）+ compress 真跑；固定任务前后对比（同一组命令：原命令输出字节 vs 改写后输出字节，退出码一致）；新二进制 grep 确认新文案在位。
+
+### 实测发现
+
+- cobra 会把 `--` 从位置参数里剥掉：`sunshine hook compress -- 'cmd'` 到 Run 时 args 只有 `['cmd']`，第一版按“args 里有 `--`”解析，包一层后静默退出 0、无输出；单测直调 RunCompress 时 `--` 还在所以全过，是端到端实测（固定任务前后对比）抓到的。修复：`--timeout` 注册成 hookCmd 的 cobra flag，RunCompress 只收位置参数 + timeoutMs。
+- 固定任务前后对比（25 提交仓库 + 120 行未提交 diff + 458 行 go test -v 输出）：git log 3340→441 字节（-86.8%）、git diff 8850→115 字节（-98.7%）、go test -v 30517→4660 字节（-84.7%，FAIL 行保留、退出码 1 不变）、go test（小输出）2157→2157 原样过、go vet 0→0。退出码全部一致。
+
+发版：本批不发版，等用户点选（与 1、2 号同批待定）。

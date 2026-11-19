@@ -232,6 +232,8 @@ func buildCodexSubagentContext(subagentType, taskDir, context string) string {
 	if title != "" {
 		title = strings.ToUpper(title[:1]) + title[1:]
 	}
+	// 注入顺序（2026-11-19）：稳定在前、易变在后。Active task 行
+	// （易变，任务指针）放最后，Curated Context（稳定）放前面。
 	return fmt.Sprintf(`<!-- sunshine-hook-injected -->
 # Sunshine Native %s Subagent
 
@@ -239,11 +241,11 @@ You are the dispatched %s role for this task. Perform that role
 directly; do not follow main-session dispatch or wait instructions, and do not
 spawn another Sunshine subagent.
 
-Active task: %s
-
 ## Curated Context
 
-%s`, title, "`"+subagentType+"`", taskDir, context)
+%s
+
+Active task: %s`, title, "`"+subagentType+"`", context, taskDir)
 }
 
 // parseHookInput 解析各平台的 hook 输入，返回（子代理类型，原始提示词，tool_input）。
@@ -831,6 +833,10 @@ func GetResearchContext(repoRoot, taskDir string) string {
 }
 
 func buildImplementPrompt(originalPrompt, context string) string {
+	// 注入顺序（2026-11-19）：稳定在前、易变在后。派发文本
+	// （originalPrompt，含任务指针等易变内容）放最后，让同一角色
+	// 跨子任务的前缀缓存更长；Workflow / Constraints 是固定文本，
+	// 放在 context 之后、任务之前。
 	return fmt.Sprintf(`<!-- sunshine-hook-injected -->
 # Implement Agent Task
 
@@ -839,12 +845,6 @@ You are the Implement Agent in the Multi-Agent Pipeline.
 ## Your Context
 
 All the information you need has been prepared for you:
-
-%s
-
----
-
-## Your Task
 
 %s
 
@@ -861,10 +861,17 @@ All the information you need has been prepared for you:
 
 - Do NOT execute git commit, only code modifications
 - Follow all dev specs injected above
-- Report list of modified/created files when done`, context, originalPrompt)
+- Report list of modified/created files when done
+
+---
+
+## Your Task
+
+%s`, context, originalPrompt)
 }
 
 func buildCheckPrompt(originalPrompt, context string) string {
+	// 注入顺序（2026-11-19）：稳定在前、易变在后，派发文本放最后。
 	return fmt.Sprintf(`<!-- sunshine-hook-injected -->
 # Check Agent Task
 
@@ -873,12 +880,6 @@ You are the Check Agent in the Multi-Agent Pipeline (code and cross-layer checke
 ## Your Context
 
 All check specs and dev specs you need:
-
-%s
-
----
-
-## Your Task
 
 %s
 
@@ -895,10 +896,17 @@ All check specs and dev specs you need:
 
 - Fix issues yourself, don't just report
 - Must execute complete checklist in check specs
-- Pay special attention to impact radius analysis (L1-L5)`, context, originalPrompt)
+- Pay special attention to impact radius analysis (L1-L5)
+
+---
+
+## Your Task
+
+%s`, context, originalPrompt)
 }
 
 func buildFinishPrompt(originalPrompt, context string) string {
+	// 注入顺序（2026-11-19）：稳定在前、易变在后，派发文本放最后。
 	return fmt.Sprintf(`<!-- sunshine-hook-injected -->
 # Finish Agent Task
 
@@ -907,12 +915,6 @@ You are performing the final check before creating a PR.
 ## Your Context
 
 Finish checklist and requirements:
-
-%s
-
----
-
-## Your Task
 
 %s
 
@@ -936,10 +938,17 @@ Finish checklist and requirements:
 - Do NOT update specs for trivial changes (typos, formatting, obvious fixes)
 - If critical CODE issues found, report them clearly (fix specs, not code)
 - Verify all acceptance criteria in prd.md are met
-- Verify design.md and implement.md constraints when you read those files for design-level judgment`, context, originalPrompt)
+- Verify design.md and implement.md constraints when you read those files for design-level judgment
+
+---
+
+## Your Task
+
+%s`, context, originalPrompt)
 }
 
 func buildResearchPrompt(originalPrompt, context string) string {
+	// 注入顺序（2026-11-19）：稳定在前、易变在后，派发文本放最后。
 	return fmt.Sprintf(`# Research Agent Task
 
 You are the Research Agent in the Multi-Agent Pipeline (search researcher).
@@ -951,12 +960,6 @@ You are the Research Agent in the Multi-Agent Pipeline (search researcher).
 You are a documenter, not a reviewer.
 
 ## Project Info
-
-%s
-
----
-
-## Your Task
 
 %s
 
@@ -995,5 +998,11 @@ Provide structured search results including:
 - List of files found (with paths)
 - Code pattern analysis (if applicable)
 - Related spec documents
-- External references (if any)`, context, originalPrompt)
+- External references (if any)
+
+---
+
+## Your Task
+
+%s`, context, originalPrompt)
 }

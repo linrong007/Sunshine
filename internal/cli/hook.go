@@ -37,15 +37,23 @@ var hookCmd = &cobra.Command{
   post-tool-use      文件写盘后：刚改的 spec 文件立即同步索引一次
                      （无索引节也补一个，索引是强制的），不用再记得
                      跑 sunshine spec index（PostToolUse）
+  pre-tool-use       命令执行前：白名单命令改写省 token（git log 加
+                     --oneline、git diff 加 --stat、测试/lint/构建
+                     命令包一层 compress），不命中时无输出
+                     （PreToolUse）
+  compress           运行原命令并压缩输出、退出码原样返回；只由
+                     pre-tool-use 改写后的命令调用，返回的是原命令
+                     的退出码，不是 hook 的退出码
 
 各事件都从 stdin 读 hook JSON。无 .sunshine/ 时静默退出 0；任何失败
-都静默退出 0，绝不阻断 agent 会话。`,
+都静默退出 0，绝不阻断 agent 会话（compress 除外：它返回原命令的
+退出码）。`,
 	Example: `  echo '{"session_id":"abc","cwd":"."}' | sunshine hook session-start
   echo '{"prompt":"继续","cwd":"."}' | sunshine hook workflow-state`,
 	Args: cobra.ArbitraryArgs,
 	Run: func(cmd *cobra.Command, args []string) {
 		if len(args) == 0 {
-			fmt.Fprintln(os.Stderr, "用法：sunshine hook <事件>，事件为 session-start、workflow-state、subagent-context、subagent-stop、shell-session、statusline 之一")
+			fmt.Fprintln(os.Stderr, "用法：sunshine hook <事件>，事件为 session-start、workflow-state、subagent-context、subagent-stop、shell-session、statusline、post-tool-use、pre-tool-use、compress 之一")
 			return
 		}
 		opts := hook.Options{Version: version, Stdout: cmd.OutOrStdout(), Stderr: cmd.ErrOrStderr()}
@@ -66,12 +74,23 @@ var hookCmd = &cobra.Command{
 			_ = hook.RunStatusline(os.Stdin, opts)
 		case "post-tool-use":
 			_ = hook.RunPostToolUse(os.Stdin, opts)
+		case "pre-tool-use":
+			_ = hook.RunPreToolUse(os.Stdin, opts)
+		case "compress":
+			// compress 返回原命令的退出码（不是 hook 的退出码），
+			// 这里直接转交。--timeout 由 pre-tool-use 的改写带上，
+			// cobra 已把它解析为 flag（位置参数里的 `--` 已被剥掉）。
+			timeoutMs, _ := cmd.Flags().GetInt("timeout")
+			os.Exit(hook.RunCompress(args[1:], timeoutMs, opts))
 		default:
-			fmt.Fprintf(os.Stderr, "未知 hook 事件 %q，可用事件为 session-start、workflow-state、subagent-context、subagent-stop、shell-session、statusline、post-tool-use\n", args[0])
+			fmt.Fprintf(os.Stderr, "未知 hook 事件 %q，可用事件为 session-start、workflow-state、subagent-context、subagent-stop、shell-session、statusline、post-tool-use、pre-tool-use、compress\n", args[0])
 		}
 	},
 }
 
 func init() {
+	// --timeout 只用于 hook compress（pre-tool-use 改写时带上）：
+	// 超过该时间 compress 杀掉子命令、返回 124；其它事件忽略它。
+	hookCmd.Flags().Int("timeout", 0, "hook compress 的超时时间（毫秒）")
 	rootCmd.AddCommand(hookCmd)
 }

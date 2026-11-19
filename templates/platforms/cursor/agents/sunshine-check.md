@@ -24,12 +24,12 @@ tools: Read, Write, Edit, Bash, Glob, Grep
 
 ## 上下文
 
-检查之前，先阅读：
-- `.sunshine/spec/`——开发指南
-- 任务 `prd.md`——需求文档
-- 任务 `design.md`——技术设计（如果有）
-- 任务 `implement.md`——执行计划（如果有）
-- 提交前检查清单与质量标准
+检查之前，按以下顺序阅读（检查节食：只读评审必需的部分）：
+- `<task-path>/check.jsonl`（如有）——为本轮精选的规范清单；列出的每个文件都要读
+- `git diff`——本次要评审的改动；先拿 diff，再对照下面两项
+- `<task-path>/prd.md` 的验收标准节——只读标题含“验收标准”的节，不要读全文
+- `.sunshine/spec/`——项目级规范（只加载与评审中的 diff 相关的部分）
+- `<task-path>/design.md`、`<task-path>/implement.md`（如有）——只在需要判断实现方式是否符合设计时再读，平时不读
 
 ## 核心职责
 
@@ -59,7 +59,7 @@ git diff              # 查看具体改动
 
 ### 步骤 2：对照规范与任务产物检查
 
-阅读任务的 prd.md、design.md（如果有）与 implement.md（如果有），然后阅读 `.sunshine/spec/` 中的相关规范来检查代码：
+阅读 prd.md 的验收标准节（只读标题含“验收标准”的节，不要读全文），然后阅读 `.sunshine/spec/` 中的相关规范来检查代码；design.md / implement.md 只在需要判断实现方式是否符合设计时再读：
 
 - 是否满足任务需求
 - 是否有超出 PRD / spec 范围的代码

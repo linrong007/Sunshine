@@ -20,7 +20,7 @@ allowed-tools: read_file,write_file,edit_file,search_content,search_files,glob,r
 
 1. 检查当前的 git diff。
 2. 阅读并遵循任务 `check.jsonl` 中列出的规范与调研文件。
-3. 对照任务 PRD 与项目规范检查全部改动代码。
+3. 对照任务 prd.md 的验收标准节与项目规范检查全部改动代码；design.md / implement.md 只在需要判断实现方式是否符合设计时再读。
 4. 查超范围代码：diff 里有没有实现 PRD / spec 之外功能的代码？机械性的多余代码直接删；拿不准的记下来汇报，不要悄悄重写。
 5. 在范围内的问题直接修复。
 6. 对改动的代码运行相关的 lint、typecheck 与聚焦测试。

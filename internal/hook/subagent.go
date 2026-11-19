@@ -678,10 +678,84 @@ func GetImplementContext(repoRoot, taskDir string) string {
 	return getTaskContext(repoRoot, taskDir, "implement")
 }
 
-// GetCheckContext 生成 Check 子代理的上下文：check.jsonl + 任务产物。
+// containsAny 报告 s 是否包含任一 keywords。
+func containsAny(s string, keywords []string) bool {
+	for _, k := range keywords {
+		if k != "" && strings.Contains(s, k) {
+			return true
+		}
+	}
+	return false
+}
+
+// extractSectionsByTitle 只保留标题含任一 keywords 的 ## / ### 节；
+// ## 节保留时其下的 ### 子节一并保留；### 节本身标题命中时也保留
+// （如 ## 追加需求下的 ### 客户列表的验收标准）。无命中返回 ""。
+func extractSectionsByTitle(content string, keywords ...string) string {
+	var out []string
+	keep := false       // 当前行是否属于被保留的节
+	parentKeep := false // 当前所在的 ## 节是否被保留
+	for _, line := range strings.Split(content, "\n") {
+		if strings.HasPrefix(line, "## ") {
+			title := strings.TrimSpace(strings.TrimPrefix(line, "## "))
+			parentKeep = containsAny(title, keywords)
+			keep = parentKeep
+		} else if strings.HasPrefix(line, "### ") {
+			title := strings.TrimSpace(strings.TrimPrefix(line, "### "))
+			keep = parentKeep || containsAny(title, keywords)
+		}
+		if keep {
+			out = append(out, line)
+		}
+	}
+	return strings.Trim(strings.Join(out, "\n"), "\n")
+}
+
+// materializePRDForCheck 给检查代理准备 prd.md：只取验收标准节；没有则取
+// 需求节；都没有则全文兜底（仍受单产物上限约束）。
+func materializePRDForCheck(basePath, prdPath string, limits Limits, b *budget) string {
+	data := readFileBytes(basePath, prdPath)
+	if data == nil {
+		return ""
+	}
+	content := string(data)
+	label := ""
+	if sec := extractSectionsByTitle(content, "验收标准"); sec != "" {
+		content = sec
+		label = " (验收标准节)"
+	} else if sec := extractSectionsByTitle(content, "需求"); sec != "" {
+		content = sec
+		label = " (需求节)"
+	} else {
+		return materializeArtifact(basePath, prdPath, prdPath+" (Requirements)", "Requirements document", limits, b)
+	}
+	size := len(content)
+	truncated := truncateUTF8([]byte(content), limits.MaxArtifactBytes)
+	out := string(truncated)
+	if len(truncated) < size {
+		out += truncateNotice(prdPath, limits.MaxArtifactBytes)
+	}
+	return budgetedBlock(b, prdPath+label, prdPath, out, "Acceptance criteria", size)
+}
+
+// GetCheckContext 生成 Check 子代理的瘦上下文：check.jsonl 精选条目 +
+// prd.md 验收标准节（无则需求节、无则全文兜底）；design.md 与 implement.md
+// 不注入，需要判断实现方式是否符合设计时由检查代理按需读。
 // Finish 阶段复用同一上下文（最终检查即同一套材料）。
 func GetCheckContext(repoRoot, taskDir string) string {
-	return getTaskContext(repoRoot, taskDir, "check")
+	cfg := LoadConfig(repoRoot)
+	limits := limitsFromConfig(cfg)
+	b := &budget{maxTotal: limits.MaxTotalBytes}
+	var parts []string
+	base := getAgentContext(repoRoot, taskDir, "check", limits, b, os.Stderr)
+	if base != "" {
+		parts = append(parts, base)
+	}
+	if block := materializePRDForCheck(repoRoot, taskDir+"/prd.md", limits, b); block != "" {
+		parts = append(parts, block)
+	}
+	parts = append(parts, "[Sunshine: check diet — design.md and implement.md are not injected. Read them only when judging whether the implementation approach matches the design. Get the diff with git diff.]")
+	return strings.Join(parts, "\n\n")
 }
 
 func getTaskContext(repoRoot, taskDir, agent string) string {
@@ -847,7 +921,7 @@ Finish checklist and requirements:
 ## Workflow
 
 1. **Review changes** - Run `+"`"+`git diff --name-only`+"`"+` to see all changed files
-	2. **Verify task artifacts** - Check requirements in prd.md and, when present, design.md / implement.md
+	2. **Verify task artifacts** - Check acceptance criteria (injected above); when the implementation approach needs design-level judgment, read design.md / implement.md
 3. **Spec sync** - Analyze whether changes introduce new patterns, contracts, or conventions
    - If new pattern/convention found: read target spec file → update it → update index.md if needed
    - If infra/cross-layer change: follow the 7-section mandatory template from update-spec.md
@@ -862,7 +936,7 @@ Finish checklist and requirements:
 - Do NOT update specs for trivial changes (typos, formatting, obvious fixes)
 - If critical CODE issues found, report them clearly (fix specs, not code)
 - Verify all acceptance criteria in prd.md are met
-- Verify design.md and implement.md constraints when those files are present`, context, originalPrompt)
+- Verify design.md and implement.md constraints when you read those files for design-level judgment`, context, originalPrompt)
 }
 
 func buildResearchPrompt(originalPrompt, context string) string {

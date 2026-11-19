@@ -188,3 +188,83 @@ func TestSubagentContext_ImplementLines(t *testing.T) {
 		}
 	}
 }
+
+// TestExtractSectionsByTitle：只保留标题含关键词的 ## / ### 节。
+func TestExtractSectionsByTitle(t *testing.T) {
+	content := "# 演示任务\n\n## 目标\n目标行\n\n## 验收标准\n标准一\n\n### 子项\n子项行\n\n## 参考\n参考行\n\n## 追加需求\n追加行\n\n### 客户列表的验收标准（R-006）\nR006标准行\n\n## 开放问题\n问题行\n"
+	got := extractSectionsByTitle(content, "验收标准")
+	for _, want := range []string{"## 验收标准", "标准一", "### 子项", "子项行", "### 客户列表的验收标准（R-006）", "R006标准行"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("验收标准节应含 %q，得到：\n%s", want, got)
+		}
+	}
+	for _, notWant := range []string{"目标行", "参考行", "追加行", "问题行", "## 目标", "## 参考", "## 追加需求", "## 开放问题"} {
+		if strings.Contains(got, notWant) {
+			t.Errorf("验收标准节不应含 %q，得到：\n%s", notWant, got)
+		}
+	}
+	if got2 := extractSectionsByTitle(content, "不存在的关键词"); got2 != "" {
+		t.Errorf("无命中应返回空串，得到：%q", got2)
+	}
+}
+
+// checkDietProject 搭一个带 prd/design/implement.md 与 check.jsonl 的任务目录。
+func checkDietProject(t *testing.T, prd string) (root, taskDir string) {
+	t.Helper()
+	root, _ = makeProject(t)
+	tenLineSpecFile(t, root)
+	taskDir = ".sunshine/tasks/11-09-demo"
+	mustWrite(t, filepath.Join(root, taskDir, "check.jsonl"),
+		"{\"file\": \".sunshine/spec/backend.md\", \"reason\": \"后端规范：接口定义\", \"lines\": \"3-5\"}\n")
+	mustWrite(t, filepath.Join(root, taskDir, "prd.md"), prd)
+	mustWrite(t, filepath.Join(root, taskDir, "design.md"), "# 技术设计\n\n设计正文-不应注入。\n")
+	mustWrite(t, filepath.Join(root, taskDir, "implement.md"), "# 执行计划\n\n执行计划正文-不应注入。\n")
+	return root, taskDir
+}
+
+func checkPrompt(t *testing.T, root string) string {
+	t.Helper()
+	out, _ := runWithInput(t, func(in *strings.Reader, o Options) error { return RunSubagentContext(in, o) },
+		`{"session_id":"sess-1","cwd":`+strconv_quot(root)+`,"tool_name":"Task","tool_input":{"subagent_type":"sunshine-check","prompt":"复核演示改动"}}`)
+	data := mustJSON(t, out)
+	hs := data["hookSpecificOutput"].(map[string]any)
+	updated := hs["updatedInput"].(map[string]any)
+	prompt, _ := updated["prompt"].(string)
+	return prompt
+}
+
+// TestSubagentContext_CheckDiet：端到端——check 注入只含验收标准节与
+// check.jsonl 精选条目，不含 design.md / implement.md 全文与 prd 其余节。
+func TestSubagentContext_CheckDiet(t *testing.T) {
+	root, _ := checkDietProject(t, "# 演示任务\n\n## 目标\n目标正文-不应注入。\n\n## 需求\n需求正文-不应注入。\n\n## 验收标准\n- 验收标准一\n- 验收标准二\n\n## 参考文档\n参考正文-不应注入。\n")
+	prompt := checkPrompt(t, root)
+	for _, want := range []string{"验收标准一", "验收标准二", "第3行-规范内容", "check diet"} {
+		if !strings.Contains(prompt, want) {
+			t.Errorf("check 提示词缺少 %q\n全文：\n%s", want, prompt)
+		}
+	}
+	for _, notWant := range []string{"目标正文", "需求正文", "参考正文", "设计正文", "执行计划正文"} {
+		if strings.Contains(prompt, notWant) {
+			t.Errorf("check 提示词不应含 %q\n全文：\n%s", notWant, prompt)
+		}
+	}
+}
+
+// TestSubagentContext_CheckDietFallback：prd 无验收标准节时取需求节；
+// 两者都没有时全文兜底。
+func TestSubagentContext_CheckDietFallback(t *testing.T) {
+	root, _ := checkDietProject(t, "# 演示任务\n\n## 目标\n目标正文-不应注入。\n\n## 需求\n需求正文-需求节。\n")
+	prompt := checkPrompt(t, root)
+	if !strings.Contains(prompt, "需求正文-需求节") {
+		t.Errorf("无验收标准节时应取需求节，得到：\n%s", prompt)
+	}
+	if strings.Contains(prompt, "目标正文") {
+		t.Errorf("取需求节时不应含目标节，得到：\n%s", prompt)
+	}
+
+	root2, _ := checkDietProject(t, "# 演示任务\n\n## 目标\n目标正文-全文兜底。\n")
+	prompt2 := checkPrompt(t, root2)
+	if !strings.Contains(prompt2, "目标正文-全文兜底") {
+		t.Errorf("无验收标准与需求节时应全文兜底，得到：\n%s", prompt2)
+	}
+}

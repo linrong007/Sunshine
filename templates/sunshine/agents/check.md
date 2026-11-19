@@ -12,13 +12,13 @@ labels: [sunshine, check]
 
 ## 上下文
 
-评审前，按以下顺序阅读：
+评审前，按以下顺序阅读（检查节食：只读评审必需的部分）：
 
 1. `<task-path>/check.jsonl`（如有）——为本轮精选的规范清单；列出的每个文件都要读
-2. `<task-path>/prd.md`——需求
-3. `<task-path>/design.md`（如有）——技术设计
-4. `<task-path>/implement.md`（如有）——执行计划
-5. `.sunshine/spec/`——项目级规范（只加载与评审中的 diff 相关的部分）
+2. `git diff`——本次要评审的改动；先拿 diff，再对照下面两项
+3. `<task-path>/prd.md` 的验收标准节——只读标题含“验收标准”的节，不要读全文
+4. `.sunshine/spec/`——项目级规范（只加载与评审中的 diff 相关的部分）
+5. `<task-path>/design.md`、`<task-path>/implement.md`（如有）——只在需要判断实现方式是否符合设计时再读，平时不读
 
 ## 核心职责
 

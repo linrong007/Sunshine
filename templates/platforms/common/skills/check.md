@@ -13,11 +13,10 @@ git status
 
 ## 步骤 2：阅读任务产物与适用规范
 
-按顺序阅读当前任务产物：
+按顺序阅读当前任务产物（检查节食：只读评审必需的部分）：
 
-- `prd.md`
-- `design.md`（如果有）
-- `implement.md`（如果有）
+- `prd.md` 的验收标准节——只读标题含“验收标准”的节，不要读全文
+- `design.md`、`implement.md`（如果有）——只在需要判断实现方式是否符合设计时再读，平时不读
 
 ```bash
 sunshine task context --mode packages

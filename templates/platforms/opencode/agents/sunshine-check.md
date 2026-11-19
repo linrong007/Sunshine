@@ -28,16 +28,16 @@ permission:
 在你上方的输入中查找 `<!-- sunshine-hook-injected -->` 标记。
 
 - **标记存在**：任务产物、规范与调研文件已经自动加载到上方。直接开始检查工作。
-- **标记不存在**：hook 注入未触发（Windows + Claude Code、`--continue` 恢复、fork 分发、hook 未启用等）。从派发提示的第一行 `Active task: <path>` 找到当前任务路径（或运行 `sunshine task current --source` 作为兜底），然后在动手之前阅读 `<task-path>/check.jsonl`、其中列出的每个文件、`<task-path>/prd.md`、`<task-path>/design.md`（如果有）与 `<task-path>/implement.md`（如果有）。
+- **标记不存在**：hook 注入未触发（Windows + Claude Code、`--continue` 恢复、fork 分发、hook 未启用等）。从派发提示的第一行 `Active task: <path>` 找到当前任务路径（或运行 `sunshine task current --source` 作为兜底），然后在动手之前阅读 `<task-path>/check.jsonl`、其中列出的每个文件、`<task-path>/prd.md` 的验收标准节（只读标题含“验收标准”的节，不要读全文）；`<task-path>/design.md` 与 `<task-path>/implement.md`（如果有）只在需要判断实现方式是否符合设计时再读，平时不读。
 
 ## 上下文
 
-检查之前，先阅读：
-- `.sunshine/spec/`——开发指南
-- 任务 `prd.md`——需求文档
-- 任务 `design.md`——技术设计（如果有）
-- 任务 `implement.md`——执行计划（如果有）
-- 提交前检查清单（质量标准）
+检查之前，按以下顺序阅读（检查节食：只读评审必需的部分）：
+- `<task-path>/check.jsonl`（如有）——为本轮精选的规范清单；列出的每个文件都要读
+- `git diff`——本次要评审的改动；先拿 diff，再对照下面两项
+- `<task-path>/prd.md` 的验收标准节——只读标题含“验收标准”的节，不要读全文
+- `.sunshine/spec/`——项目级规范（只加载与评审中的 diff 相关的部分）
+- `<task-path>/design.md`、`<task-path>/implement.md`（如有）——只在需要判断实现方式是否符合设计时再读，平时不读
 
 ## 核心职责
 
@@ -67,7 +67,7 @@ git diff              # 查看具体改动
 
 ### 第 2 步：对照规范与任务产物检查
 
-阅读任务的 prd.md、design.md（如果有）与 implement.md（如果有），再阅读 `.sunshine/spec/` 中的相关规范来检查代码：
+阅读 prd.md 的验收标准节（只读标题含“验收标准”的节，不要读全文），再阅读 `.sunshine/spec/` 中的相关规范来检查代码；design.md / implement.md 只在需要判断实现方式是否符合设计时再读：
 
 - 是否满足任务需求
 - 是否有超出 PRD / spec 范围的代码

@@ -21,7 +21,7 @@ tools: Read, Write, Edit, Bash, Glob, Grep
 
 - `doc/design/需求列表.md`——需求，每条对应系统原型里的一个页面
 - spec 下的前端样式约束（如 `.sunshine/spec/frontend.md` 里的设计约束）——原型样式的依据
-- 派发提示点名的原型文件——只读 `doc/prototype/index.html`（导航入口）+ 共用样式/mock 文件 + 本轮要做/改的那一页；不要读其它已有页，不要把整个 `doc/prototype/` 目录当上下文
+- 派发提示点名的原型文件——只读 `doc/prototype/index.html`（导航入口）+ `doc/prototype/assets/tokens.css` + `doc/prototype/assets/components-index.md` + `doc/prototype/assets/mock-common.js` + 本轮要做/改的那一页 + 本轮的 `doc/prototype/assets/mock-Rxxx.js`（Rxxx 为需求编号）；`components.css` 只在新增或改组件样式时读相关部分，不读其它页的 mock 文件，不读其它已有页，不把整个 `doc/prototype/` 目录当上下文
 
 只读派发提示里给出的这三样。spec 只读其中的前端样式约束，不要读 spec 里的其它内容；不要读 workflow.md、任务 `prd.md`、`implement.jsonl`、`check.jsonl`——原型是独立演示物，不是产品；你的上下文就是派发提示里的这些，不需要 hook 再注入任务上下文。
 
@@ -35,6 +35,7 @@ tools: Read, Write, Edit, Bash, Glob, Grep
 ## 原型要求
 
 - 按页分文件：每页一个文件（如 `doc/prototype/申请页.html`），`doc/prototype/index.html` 做导航入口；共享样式、mock 数据、导航组件必须抽成共用文件，各页只引用、不许重复内联：新页不得重复写已有共用文件里的样式、mock 数据或导航代码；共用文件里没有的才在本页写
+- 共用文件拆分（省输入）：样式拆成 `doc/prototype/assets/tokens.css`（设计 token）+ `doc/prototype/assets/components.css`（组件样式）+ `doc/prototype/assets/components-index.md`（组件索引，一行一个类名加一句话说明，新增组件样式时同步加一行）；mock 拆成 `doc/prototype/assets/mock-common.js`（跨页共用的实体数据）+ `doc/prototype/assets/mock-Rxxx.js`（本页数据，Rxxx 为需求编号）。每轮只读 tokens、组件索引、mock-common 和本轮的 mock 文件；`components.css` 只在新增或改组件样式时读相关部分，不读全文，不读其它页的 mock 文件。
 - 单页 500 行上限：每页 HTML 不超过 500 行（`wc -l` 为准，含本页内联样式与脚本，不含引用的共用文件）；超了必须拆——重复块抽成共用组件，或次要区块拆成子页；不砍需求里写明的功能与交互，不把该写的 mock/JS 换成静态占位。个别情况允许超：单页确实需要更多行时（如大表单、数据密集的表），可超上限，但汇报里要写明超了多少行和原因。
 - 只做派发提示里指明的那条需求对应的页，不多做、不打磨样式细节
 - mock 数据只放演示够用的几条

@@ -3167,3 +3167,38 @@ pre-commit install       # 在仓库根目录执行一次
 - CI 与发布：发布 workflow run 44467847386、CI（tag）run 44467847541、CI（main）run 44467816459 均 completed success。
 - Release：id 450933957，非草稿、非预发布，6 个资产在位（checksums.txt + sunshine_0.5.28_darwin_amd64/arm64.tar.gz、linux_amd64/arm64.tar.gz、windows_amd64.zip）。
 - 实测：一键装（无参）装上 v0.5.28（linux/amd64）；darwin_arm64 包 checksum OK，Mach-O arm64（macOS 二进制在 Linux 沙箱上不可执行，Exec format error 属预期，只核 checksum 与 file）；新装二进制 `grep -a -c` 核“500 行上限”与“个别情况允许超”各 15 处、“400 行上限”0 处。遗留：`upgrade --dry-run` 两次均报 GitHub API 403 rate limit exceeded（沙箱出口 IP 共享、未认证请求限额已满，与发布本身无关；v0.5.27 同命令曾通过），沙箱内无法复验，用户 Mac 上可直接跑 `sunshine upgrade --dry-run` 验证。
+
+
+## CSS 和 mock 拆分（2026-11-19，用户定，未发版）
+
+背景：三处提速发完 v0.5.27 后实测墙钟基本没动；用户问还有什么地方可以加快速度。结论：一轮一页的前提下墙钟大头已无处可砍（并行是唯一大改，用户定不做），剩下的是省 token。共用文件本身成了输入大头：沙箱实测共用文件 1620 行（prototype.css 1079、mock.js 314、nav.js 122、ui.js 105），第 3 轮新派发读 1644 行、旧派发约 2206 行，只省约 25%。
+
+实施：共用文件拆开，都放在 `doc/prototype/assets/` 下——样式拆三件：`tokens.css`（设计 token：颜色、字体、间距、圆角）+ `components.css`（组件样式）+ `components-index.md`（组件索引，一行一个类名加一句话说明，新增组件样式时同步加一行），每轮只读 tokens 和组件索引，`components.css` 只在新增或改组件样式时读相关部分，不读全文；mock 拆两件：`mock-common.js`（跨页共用的实体数据）+ `mock-Rxxx.js`（本页数据，Rxxx 为需求编号），每轮只读 mock-common 和本轮的 mock 文件，不读其它页的 mock 文件。nav.js、ui.js 不动（122/105 行，仍整份读）。改动：18 个 prototype agent 文件（上下文第 3 项 + 原型要求节新增拆分一条）+ 3 份 workflow 派发段落（只读文件清单改成拆分后的清单）；只改模板文字，不改 Go 代码；教程 §12.6 实录不改。
+
+测算（非实测）：按沙箱实测文件量算，第 3 轮派发输入约从 1644 行降到约 480 行（index 24 + tokens 约 50 + 组件索引约 30 + mock-common 约 50 + nav 122 + ui 105 + 本轮 mock 约 100），省约 70%；tokens/索引/mock-common 的行数是估算，实测以真跑为准。沙箱重跑需 DeepSeek Key（沙箱无存储的 Key），等用户定。
+
+后续：标准 UI 套件暂不做，保持开放，日后有可能从模板市场带进来（不放进内置模板）。
+
+验收：gofmt/build/vet 全过；全量测试 21 包全过（跑前后清 /tmp/sunshine-test-bin-* 与 /tmp/go-build*）；grep 残留：templates/ 内“共用样式/mock 文件”为 0 处；新二进制 `grep -a -c` 核新文案在位（components-index.md、mock-common.js、mock-Rxxx.js）；逐文件核对 21 个文件改完且格式未破（toml/json 须过解析）。
+
+发版：本批不发版，等用户点选。
+
+
+## 检查代理节食（2026-11-19，用户定，执行中）
+
+背景：用户转述 Trellis 开发一大小程序花 60 元 token 只完成 1/10；用户要求从架构上找优化，即使推倒重来。先核了注入链：每子任务实现、检查各一次子代理注入，上限 128KB（jsonl 整理条目 + prd/design/implement.md 三份产物各上限 64KB）；SessionStart 只注一次；原型已收窄。
+
+修正（重要）：汇报时曾说“缓存顺序调整能让检查那轮命中缓存、省约一半注入量”，核查后是错的——实现与检查是两个不同的 agent 文件（不同的 system prompt），API 请求从第一个 token 就分叉，检查不可能命中实现的缓存；顺序调整只帮同一角色跨子任务共享系统提示词加模板头那几 KB，省的很少。缓存顺序不做。真正的省法是少读，而不是指望缓存。
+
+实施（检查节食）：检查真正需要的是 diff + 验收标准 + 相关规范节，不是三份产物全文。
+- hook：GetCheckContext 不再走 getTaskContext 全量，改成 check.jsonl 精选条目（保留）+ prd.md 只取验收标准节（标题含“验收标准”的 ## / ### 节；没有则取标题含“需求”的节；都没有则全文兜底，仍受产物上限约束）+ 一行未注入说明（design.md / implement.md 未注入，需要判断实现方式是否符合设计时再按需读）。finish（[finish] 检查）用同一套瘦上下文。
+- agent 文件：templates/sunshine/agents/check.md 上下文节改成节食顺序（check.jsonl → git diff → prd.md 验收标准节 → 相关规范节；design.md / implement.md 按需读）。
+- 平台副本（2026-11-19 补）：18 个平台 check 文件（claude/codebuddy/codex/copilot/cursor/droid/gemini/grok/kimi/kiro/omp/opencode/pi/qoder/reasonix/snow/trae/zcode，含 codex .toml 与 kiro .json）+ check skill 的上下文段落也改成节食口径，共 40 处替换（Python 脚本逐处断言恰好一次）；此前只改了 hook 与 channel 运行时那一份，平台副本仍写“读 prd/design/implement.md 全文”、Snow 还明说 hook 注入只是面包屑要重读，拉取式平台上节食会被 agent 自己重读抵掉——已补齐。验证：旧措辞残留 0 处；kiro JSON 与 codex TOML 校验通过；gofmt/build/vet 全过，全量测试 21 包全过；新二进制 grep 确认嵌了节食文本（“检查节食”16 处、Snow 新行 1 处）。
+- workflow：native 与 tdd 的 2.2 节“对照 prd.md、有则对照 design.md、implement.md”改成节食口径；channel-driven 的 2.2 节 spawn 命令去掉 `--file design.md` / `--file implement.md`（检查工作线程按需再读），`--file prd.md` 保留——channel 路径上 prd.md 仍是全文注入（assembleSpawnContext 直接拼全文，无按节切分），是本批已知缺口，不在这批补。
+- 预算上限不动（单文件 32KB、单产物 64KB、总 128KB），节食后自然远低于上限；diff 不注入（检查自己跑 git diff 拿，注了也是同样的 token 数）。
+
+验收：gofmt/build/vet 全过；全量测试 21 包全过；新单测钉住 GetCheckContext（只含验收标准节、不含 design/implement.md 全文、无验收标准节时取需求节、都没有时全文兜底）；hook 实测：用 demo14 量级的任务目录跑 `sunshine hook subagent-context`，检查注入字节数前后对比。实测结果（2026-11-19）：测试夹具 prd 10420 + design 18017 + implement 21617 字节，检查注入旧 51285 字节 → 新 1460 字节，少约 97%；新注入含验收标准一/二与 check.jsonl 两条规范节，不含目标/需求/参考/design/implement 全文；gofmt/build/vet 全过，全量测试 21 包全过（cli 22.1s、update 23.5s，跑前后清 /tmp）。
+
+发版：本批不发版，等用户点选。
+
+后续：常驻 worker（推倒版）用户 2026-11-19 定暂时不考虑；检查换便宜模型是待验证的实验，不在这批。

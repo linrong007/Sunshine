@@ -21,9 +21,9 @@ tools: read, write, edit, bash, find, grep
 
 1. 阅读 `<task-path>/check.jsonl`——与本 agent 相关的规范/调研文件 JSONL 列表。
 2. 逐条阅读 JSONL 中每条的 `file` 路径——这些是你必须遵循的规范与调研笔记。**跳过没有 `"file"` 字段的行**（例如旧版 `sunshine task create` 留下的 `{"_example": "..."}` 占位行）。
-3. 阅读任务的 `prd.md`（需求），然后是 `design.md`（如果有，技术设计），再是 `implement.md`（如果有，执行计划）。
+3. 阅读任务 `prd.md` 的验收标准节（只读标题含“验收标准”的节，不要读全文）；`design.md`（如果有，技术设计）与 `implement.md`（如果有，执行计划）只在需要判断实现方式是否符合设计时再读，平时不读。
 
-如果 `check.jsonl` 里没有精选条目（为空、只有占位行、或文件不存在），退化为：阅读任务产物，用 `sunshine task context --mode packages` 列出可用规范，自己挑选与任务领域匹配的规范。不要因为缺少 jsonl 就停下——轻量任务可能只有 PRD，复杂任务还可能有 `design.md` 与 `implement.md`。
+如果 `check.jsonl` 里没有精选条目（为空、只有占位行、或文件不存在），退化为：阅读任务 prd.md 的验收标准节，用 `sunshine task context --mode packages` 列出可用规范，自己挑选与任务领域匹配的规范。不要因为缺少 jsonl 就停下——轻量任务可能只有 PRD，复杂任务还可能有 `design.md` 与 `implement.md`（需要时再按需读）。
 
 如果确定的任务路径下没有 `prd.md`，问用户要做什么；没有上下文不要继续。
 
@@ -44,7 +44,7 @@ tools: read, write, edit, bash, find, grep
 ## 核心职责
 
 1. 检查当前 git diff。
-2. 阅读 `prd.md`、有的话阅读 `design.md` 与 `implement.md`。
+2. 阅读 `prd.md` 的验收标准节；`design.md` 与 `implement.md` 只在需要时按需读。
 3. 阅读并遵循任务 `check.jsonl` 中列出的规范与调研文件。
 4. 对照任务产物与项目规范评审所有改动代码。
 5. 查超范围代码：diff 里有没有实现 PRD / spec 之外功能的代码？机械性的多余代码直接删；拿不准的记下来汇报，不要悄悄重写。

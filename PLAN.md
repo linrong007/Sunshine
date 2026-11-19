@@ -3122,3 +3122,17 @@ pre-commit install       # 在仓库根目录执行一次
 - Release：id 449470432，非草稿、非预发布，6 个资产在位（checksums.txt + sunshine_0.5.26_darwin_amd64/arm64.tar.gz、linux_amd64/arm64.tar.gz、windows_amd64.zip）。
 - 实测：一键装（无参）装上 v0.5.26（linux/amd64）；darwin_arm64 包 checksum OK，Mach-O arm64（macOS 二进制在 Linux 沙箱上不可执行，Exec format error 属预期，只核 checksum 与 file）；0.5.25 二进制 `upgrade --dry-run` 查到 0.5.26（一次通过）。
 
+
+## 原型提速三处（2026-11-19，用户定做，未发版）
+
+背景：用户问设计阶段产出原型会不会过度编程，并指出产出原型很慢。定：mock/JS 该写就写，标准是够用为止，不是能省则省（“最少演示”——静态占位、不写 JS——用户已否掉，提得过了）。慢的根因三处（已核模板原文）：①每轮派发把整个 `doc/prototype/` 目录给子代理，保一致要读已有页，页越多输入越大；②一页高保真带 mock + JS，输出本身几千上万 token；③一轮一页串行，6 个需求就是 6 次冷启动。修法只砍浪费、不砍保真度。
+
+实施：
+1. 派发收窄：三份 workflow.md（native/tdd/channel-driven-subagent-dispatch）的原型派发段落 + 18 个 prototype agent 文件的上下文节，改成只给本轮只读文件（`doc/prototype/index.html` 导航入口 + 共用样式/mock 文件 + 本轮要做/改的那一页，如已有），不要给整个 `doc/prototype/` 目录，不要读其它已有页。agent 文件里的三处措辞同步改（派发消息/派发提示、上下文列表、工作流第 1 步）。
+2. 共用强制：agent 原型要求节，“共享样式、mock 数据抽成共用文件，各页引用”改成必须抽共用：新页不得重复写已有共用文件里的样式、mock 数据或导航代码；共用文件里没有的才在本页写。
+3. 单页 400 行上限：agent 原型要求节新增一条——每页 HTML 不超过 400 行（`wc -l` 为准，含本页内联样式与脚本，不含引用的共用文件）；超了必须拆（重复块抽共用组件，或次要区块拆子页），不砍需求写明的功能与交互，不把该写的 mock/JS 换成静态占位。400 行有实据：教程 §12.6 实录四页为 72/145/215/86 行，mock.js 17 行，均在上限内。
+4. 不动：docs/tutorial.md 与 .en.md 的 §12.6 是 s6-loop 真实实录，不改写（其中“输入三样……已有原型目录”是当时的派发方式，属历史记录）；不改 Go 代码，只改模板文字；已装好的项目跑 update 才生效。18 个 agent 文件：源文件 templates/sunshine/agents/prototype.md（channel 运行时，措辞“派发消息”）+ 17 个平台副本（措辞“派发提示”；含 codex .toml 与 kiro .json 两种格式，改其内嵌正文）；平台副本互不相同（claude、codebuddy、qoder、trae 四份逐字节相同，其余各异），逐文件按各自原文改，不许用一份覆盖另一份。
+
+验收：gofmt/build/vet 全过；全量测试 21 包全过（跑前后清 /tmp/sunshine-test-bin-* 与 /tmp/go-build*）；grep 残留：templates/ 内“已有原型目录”为 0 处（docs/ 教程实录中文 2 处 + 英文 1 处保留，不改）；新二进制 `grep -a -c` 核三处新文案在位（只读文件、共用强制、400 行）；逐文件核对 21 个文件（3 workflow + 18 agent）改完且格式未破（toml/json 须过解析）。
+
+发版：本批不发版，等用户点选。

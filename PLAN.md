@@ -3214,7 +3214,7 @@ pre-commit install       # 在仓库根目录执行一次
 - 实测：一键装（无参）装上 v0.5.29（linux/amd64），`sunshine version` 报 0.5.29；darwin_arm64 包 checksum b37ad3964a9c1515b9ac1c19d858e7456c6c498efd8d9e41044d442c0dd5ed64 与 checksums.txt 一致；`upgrade --dry-run` 这次通过（“已是最新版本（当前 0.5.29，最新 0.5.29），无需升级。”），v0.5.28 时沙箱曾两次报 403 rate limit。
 
 
-## 工具输出压缩（模板措辞第一档）（2026-11-19，用户定，执行中）
+## 工具输出压缩（模板措辞第一档）（2026-11-19，用户定，已随 v0.5.30 发布）
 
 背景：用户 2026-11-19 问还有没有省 token 的方案；第二轮调研出四条（工具输出压缩、子任务边界压缩、符号级检索、思考预算上限），另有两条不适合（Batch API、输出压缩）。用户定先做工具输出压缩，模板措辞这步先行，hook 改写命令那档后定。
 
@@ -3233,4 +3233,14 @@ pre-commit install       # 在仓库根目录执行一次
 
 验证（2026-11-19）：41 个模板文件 + PLAN.md，+372/-32；kiro JSON 与 codex TOML 解析通过；新节“命令输出要精简”每文件恰好 1 处（38 个文件）；旧全量 `git diff` 代码块与旧步骤 1 行残留 0 处；工作流括号 12 处（native/tdd 各 6）；`git diff --stat` 模板内 38 处；gofmt 无输出、build/vet 全过；全量测试 21 包全过；新二进制“命令输出要精简”36 处、“输出要精简：只看失败项与摘要”12 处、“git diff --stat”36 处——二进制比模板少 2 处是链接器去重（claude 与 codebuddy 的 implement/check 两对文件逐字节相同，v0.5.27 已有同类去重记录）。
 
-发版：本批不发版，等用户点选。
+发版：已随 v0.5.30 发布（见下节）。
+
+
+## v0.5.30 发布记录（2026-11-19，已发布）
+
+- 内容：工具输出压缩（模板措辞第一档）。implement/check agent 文件新增“命令输出要精简”节（测试 / lint / 类型检查只看失败项与摘要，通过的不要贴全文；长输出加 `| head -n 100`；`git log` 用 `--oneline`；汇报不贴命令输出全文；check 的 `git diff` 先 `--stat` 再按文件）；check skill 与 native/tdd 两份 workflow 同步。41 个模板文件，只改模板文字，不改 Go 代码。
+- 主提交：本地 39c793cd8f014ec3feca97aae4d308881a00570f → 远端 348e43c6cb7b294d5aa85f071d1aea55f6a4d450，tree c457cbc3c700b3b106780a71d18bdf5c641dc887，父提交 0123d7a2a5bf089403edfb419c9deedced197c59，作者 linrong007。42 个文件，+374/-32。
+- tag：v0.5.30，annotated tag，tag 对象 6108fc3c2e89d740feeffbcbe5288132e3f1f1ac → 348e43c。
+- CI 与发布：发布 workflow run 44542343736、CI（tag）run 44542343712、CI（main）run 44542296040 均 completed success。
+- Release：id 451451858，非草稿、非预发布，6 个资产在位（checksums.txt + sunshine_0.5.30_darwin_amd64/arm64.tar.gz、linux_amd64/arm64.tar.gz、windows_amd64.zip）。
+- 实测：一键装（无参）装上 v0.5.30（linux/amd64），`sunshine version` 报 0.5.30；darwin_arm64 包 checksum d50052533458d1b87ab2580e03758e3d2188bdd33ed0df6f8d24d1a7c941ba18 与 checksums.txt 一致；`upgrade --dry-run` 通过（“已是最新版本（当前 0.5.30，最新 0.5.30），无需升级。”）。

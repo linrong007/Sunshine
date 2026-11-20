@@ -3565,7 +3565,7 @@ hook 19 条、CLI 与任务系统 7 条、平台与 registry 11 条、serve/chan
 - Release：id 452343442，非草稿，6 个资产在位（checksums.txt + sunshine_0.5.35_darwin_amd64/arm64.tar.gz、linux_amd64/arm64.tar.gz、windows_amd64.zip）。
 - 实测：一键装（无参）装上 v0.5.35（linux/amd64），`sunshine version` 报 0.5.35；darwin_arm64 包 checksum c2489ebfcef0bd077f1cba2570e174e418e9b3865547e63b9fccaebfd21c69f9、linux_amd64 包 checksum 69617bdfe2c7c5dd8cc67765c9b3db0b009acfb64f4cadbbde775a214854445f，均与 checksums.txt 一致；`upgrade --dry-run` 通过（“已是最新版本（当前 0.5.35，最新 0.5.35），无需升级。”）；发布包二进制 grep 确认 “默套句式” 12 处、“sunshine-audit” 40 处在位；发版前全量测试 21 包全过、init 实测四平台装出 audit 文件、hook 端到端记下 audit started 事件。
 
-## 证据化检查 + 风险两档 + EARS 配图补遗（2026-11-20，已实现，待发版）
+## 证据化检查 + 风险两档 + EARS 配图补遗（2026-11-20，已随 v0.5.36 发布）
 
 ### 起因
 
@@ -3597,6 +3597,15 @@ hook 19 条、CLI 与任务系统 7 条、平台与 registry 11 条、serve/chan
 ### 验证口径
 
 - 全量测试 21 包全过；grep 核对新措辞在各目标文件的在位份数（check 代理 19、audit 18、brainstorm 2、workflow 6、check skill 1）；新二进制临时项目 init 实测装出的 check 代理含对账段、brainstorm 含校验时机；task CLI 实测 `--meta risk=light` 落盘与 set-meta 改档。
-- 发版：本批不发版，等用户点选。
+- 发版：已随 v0.5.36 发布，见文末 v0.5.36 发布记录。
 
 - 落地结果（2026-11-20）：三部分全部实现，共 47 个文件 +409/-65（含 PLAN.md 本节）。证据化检查：brainstorm 2 份与 workflow 6 份补 AC 编号；check 代理 19 份加「验收标准对账」段并把运行验证补齐测试；check skill 1 份补对账报告要求；workflow 6 份加「对账把关」。风险两档：workflow 6 份加 1.2「风险标档」与开发阶段「风险档路由」，存储复用 task.json 的 meta（`--meta risk=light` / `set-meta`），无 Go 代码改动。EARS 配图补遗：brainstorm 2 份补校验时机、审计留痕与跨类「时机、顺序与时效」；audit 18 份补校验时机、审计日志口径与深查「时机、顺序与负边界」。全量测试 21 包全过；新二进制临时项目 init 实测装出的 check 含对账段、audit 含负边界、workflow 含标档/路由/对账把关；task CLI 实测 `--meta risk=light` 落盘与 `set-meta` 改档均正确。
+
+## v0.5.36 发布记录（2026-11-20，已发布）
+
+- 内容：三部分同批。①证据化检查：验收标准逐条编号 AC-1……（brainstorm 2 份 + workflow 6 份）；check 代理 19 份加「验收标准对账」段（逐条结论 已实现/未实现/超范围/未验证 + 证据，无证据只能标未验证，有未实现/未验证不许写全部通过）且运行验证补齐实跑项目测试；check skill 同步对账要求；workflow 6 份加主会话「对账把关」。②风险两档：workflow 6 份加 1.2「风险标档」（轻量判据 + 五类强制标准）与开发阶段「风险档路由」（轻量档主会话直做不派 implement、check 照跑、档位只在拆解定），存储复用 task.json 的 meta.risk，无 Go 代码改动。③EARS 配图补遗：brainstorm 2 份补校验时机、审计留痕与跨类「时机、顺序与时效」；audit 18 份补校验时机、审计日志口径与深查「时机、顺序与负边界」。共 47 个文件 +411/-65。
+- 主提交：本地 f522706a8f52df00805808fbd3eec57d6b751a18 → 远端 a7e7d50dfcfcdba4419460230b7310a4bd3dc4e2，tree 008b43e88f5e011ddf0e91a303f2cc1b10c470f8，父提交 9c9c779bb7e962f790cb0dce328dde57889a43ec。
+- tag：v0.5.36，annotated tag，tag 对象 e247392c34252e8af22c40244f076ecb18736e60 → a7e7d50。
+- CI 与发布：发布 workflow run 44691572288、CI（tag）run 44691572253、CI（main）run 44691536611 均 completed success。
+- Release：id 452367868，非草稿，6 个资产在位（checksums.txt + sunshine_0.5.36_darwin_amd64/arm64.tar.gz、linux_amd64/arm64.tar.gz、windows_amd64.zip）。
+- 实测：一键装（无参）装上 v0.5.36（linux/amd64），`sunshine version` 报 0.5.36；darwin_arm64 包 checksum 5386f62b68d5ce402b8cdf9872c1aa5a9f49ba4be3a618c5602d566fa8afbed3、linux_amd64 包 checksum 6ef8c853176970f6ffccf8d54512494f224db5bc9b483c689206ea7ef9bcbead，均与 checksums.txt 一致；`upgrade --dry-run` 通过（“已是最新版本（当前 0.5.36，最新 0.5.36），无需升级。”）；发布包二进制 grep 确认 “验收标准对账” 50 处、“风险标档” 4 处在位；发版前全量测试 21 包全过、init 实测装出新内容、task CLI 实测 meta 标档与改档正确。

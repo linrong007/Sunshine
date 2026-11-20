@@ -3520,3 +3520,38 @@ hook 19 条、CLI 与任务系统 7 条、平台与 registry 11 条、serve/chan
 - CI 与发布：发布 workflow run 44661082024、CI（tag）run 44661081886、CI（main）run 44661049994 均 completed success。
 - Release：id 452197015，非草稿，6 个资产在位（checksums.txt + sunshine_0.5.34_darwin_amd64/arm64.tar.gz、linux_amd64/arm64.tar.gz、windows_amd64.zip）。
 - 实测：一键装（无参）装上 v0.5.34（linux/amd64），`sunshine version` 报 0.5.34；darwin_arm64 包 checksum 75288be8ef50fe2cca86999c9099186f35eef701b781affe8825a1ba1db18715、linux_amd64 包 checksum 70f94803a3b0041856b7fecd2e217fee5b4cca046084d768221d3197e78828bc，均与 checksums.txt 一致；`upgrade --dry-run` 通过（“已是最新版本（当前 0.5.34，最新 0.5.34），无需升级。”）；发布包二进制 grep 确认 “渲染自检最多一轮” 在位；发版前全量测试 21 包全过、临时项目 init 实测 claude/codex/kiro 装出文件含新条。
+
+## 需求边界三件套（2026-11-20，已实现，待发版）
+
+- 起因：用户担心拆解出的需求边界不够细（上传允许什么类型/多大、配置是本地文件还是网络配置等），问细度在哪一阶段定、能不能做到。核查现状：细粒度澄清的主战场是设计阶段每条需求的澄清轮；拆解是机械转换、照单全收；子任务开工只处理 `[待定]`，中途发现缺失是兜底。brainstorm 八维清单是维度级不是条目级，具体项靠 agent 临场判断，会漏。用户又转来另一方案的产出（EARS 规格改写后汇成的待确认清单：背景 → 问题 → 建议选项 → 不确认的影响挂 REQ 编号，分必须确认/次要，基准文档缺失时数值标“不冻结”暂按正文执行），问可借鉴处。用户定口径：需求分业务与技术两块，两块边界都要问出来定下来、每条挂影响到的需求与模块，清零才进编码，功能才做得全。
+- 改动（三件，纯模板措辞）：
+  1. **功能型必问项**（事前防漏）：brainstorm 的「需求维度清单」节后新增「功能型必问项」节——八个功能型（文件上传、配置项、列表与查询、登录与权限、导入导出、通知、金额与判定、状态流转）各列必问条目，只收用户能拍板的业务边界；命中功能型就并入决策清单逐项问。末尾定口径：碰到偏技术的实现选择不当场定、不跳过，记 `[待定]` 写进 prd。改 2 个文件（`templates/platforms/common/skills/brainstorm.md`、copilot 的 `brainstorm.prompt.md`）。
+  2. **缺失项扫描**（事后找茬）：workflow 1.5「需求评审」段后新增一段——呈报前把 prd 与需求列表当待挑错的稿子逐条过，专找四类缺失（判定规则/术语未定义、写了“可配置/灵活/适当”没定口径、文档内部自相矛盾、引用了不存在的文档或数据）；每条写清背景、问题、建议选项、不确认影响哪条 R-xxx 或哪个模块，汇成待确认清单；影响核心功能验收的当场问完记回 prd 才算材料齐，其余转 `[待定]`；基准文档缺失时相关数值标“不冻结”并写明暂行口径。
+  3. **技术待定分流**：workflow 1.2「拆解只做一次」段后新增一段——拆解时收齐 `[待定]` 技术项：全局性的归技术选型与脚手架子任务随选型在它的 1.1 定；单条需求局部的写进对应子任务 prd，开工先问答或先写 design.md 定再动手；`[待定]` 不许原样带进实现靠猜。
+  - 第 2、3 件改 6 个文件（`templates/workflows/` 三份 + `marketplace/workflows/` 三份镜像，两处锚点在六份里均唯一且原文一致）。
+- 验证：8 个文件共 +58 行、0 删除；全量测试 21 包全过；新二进制临时项目 `init -y --claude` 实测：装出的 `.claude/skills/sunshine-brainstorm/SKILL.md` 含「功能型必问项」，`.sunshine/workflow.md` 含「缺失项扫描」「技术待定分流」各一处。
+- 附带发现（未处理）：`marketplace/workflows/` 镜像有两处旧漂移（原型派发段仍是派发收窄前的旧文案、lint/类型检查缺“输出要精简”后缀），是此前批次未同步镜像所致，与本批无关，待用户定是否做一次镜像全量同步。
+- 发版：待用户点选。
+
+## 找茬子代理 sunshine-audit（2026-11-20，用户批准）
+
+起因：三件套的缺失项扫描是主会话自查，与写稿的是同一个 agent、盲区重合；用户问“有找茬的机制吗”后点选把扫描独立成子代理。做法：新增第五个子代理 `sunshine-audit`，评审前派一次，只读、只出清单。
+
+- 代理定义：源 `templates/sunshine/agents/audit.md`（channel 运行时）+ 平台副本 17 份（md 13 平台、codex TOML 只读沙箱、kiro JSON 只读工具集、copilot agent.md、droid），共 18 个新文件。各平台 tools/permission 一律收成只读（Read/Glob/Grep 等价物），正文统一：递归防护、只读 prd.md 与需求列表两份文档、四类缺失（没定义/没口径/自相矛盾/引用不存在）、功能型必问项逐条核对（与 brainstorm 同一份八类清单）、必须确认/可延后两级、禁止改文档与直接问用户、待确认清单汇报格式（背景/问题/建议选项/影响 R-xxx）。
+- 注册接线：`internal/platforms/platforms.go` 的 agentNames 加 audit（md/pull/skill 副本平台自动覆盖），codex、kiro、copilot、droid 四个显式清单各加一条；reasonix 只有 implement/check 两代理、DSH 靠自包含 prompt 派发，均不加文件，与现状口径一致。平台安装计数断言同步更新（E 组三平台各 +1；新平台组各 +1、kimi +2 含 skill 副本）。
+- hook：`internal/hook/subagent.go` 加 AgentAudit 并进 agentsAll；Claude 与 Codex 两条路径都按 prototype 口径处理——只记 subagent_started 活动事件、不注入上下文、不要求有当前任务。serve 的 nativeAgentRoles 与 app.js 角色表/热力行同步加 audit。
+- workflow：三份 workflow 模板与三份 marketplace 镜像的「缺失项扫描」段改为派 sunshine-audit 专扫，平台不支持派发或派发失败时主会话按同一口径自查兜底。
+- 验证：全量测试 21 包全过；新二进制 init 实测（claude/codex/kiro/copilot 四平台）装出四种格式的 audit 文件且无裸 {{ 残留，.sunshine/agents/audit.md 同步装出；hook 端到端实测 subagent-context 对 sunshine-audit 退出 0、不注入、activity.jsonl 记下 agent=audit 的 started 事件。
+
+发版：与需求边界三件套同批，待用户点选。
+
+## EARS 打散吸收（2026-11-20，用户批准）
+
+起因：用户转来《AI 编程实践第 17 节：使用 EARS 实现需求重写》并要求综合评估。评估结论：EARS（Mavin 2009，Rolls-Royce 出身）诊断与机制成立，最值钱的是“改写逼出待确认”；但文章零实测数据、只覆盖需求入口一环、全量重写有第二份文档与中文评审负担。用户在“单独工具 / 单独环节 / 打散”三选中定打散：不做独立 Skill、不加新环节、不产出重写文档，把零件放进已有位置。
+
+- 写侧：brainstorm（common + copilot prompt 两份）在「功能型必问项」后加「验收标准写法（规则型需求）」节——判定/状态流转/异常处理的验收标准按“当……时 / 如果…… / 在……状态时，系统应……”句式写，一条一个动作，响应可衡量，不写测不出来的词，页面展示型不套；问答记进 prd 时就按此格式。workflow 六份（3 模板 + 3 镜像）的按需求循环段在需求列表写入处同步补一句。
+- 查侧：sunshine-audit 18 份定义统一加——①「登录与权限」必问项加细（登录失败处理：错误文案、失败次数、锁定阈值与时长、计数窗口、解锁方式；账号禁用/失效表现；会话超时与多处登录），brainstorm 表格行同步加细；②新增「再做两遍深查」段：默套句式（对规则型需求在心里套句式，触发/响应/数字填不出算缺失，只做内部检查不产出改写文档）与可测性（留模糊词、一 条多动作、说不清怎么验证的都算缺失）；③汇报格式加推断标注（文档未提、凭推断怀疑的条目标明“（推断，文档未提及）”）。
+- 有意不取：全量 EARS 重写留档（第二份需求文档、双份真相）、独立 EARS Skill（靠人记得调）、非功能需求套句式（作者自己也说单独放）。
+- 验证：全量测试 21 包全过；init 实测装出的 audit 含默套句式与计数窗口、brainstorm 含验收标准写法节、workflow 含句式句；18 份 audit 定义均含默套段。
+
+发版：与需求边界三件套、找茬子代理同批，待用户点选。

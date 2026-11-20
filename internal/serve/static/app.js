@@ -497,6 +497,7 @@
           if (lower.indexOf('check') !== -1) return 'check';
           if (lower.indexOf('research') !== -1) return 'research';
           if (lower.indexOf('prototype') !== -1) return 'prototype';
+          if (lower.indexOf('audit') !== -1) return 'audit';
           if (lower.indexOf('main') !== -1) return 'main';
           return null;
         },
@@ -507,6 +508,7 @@
             { key: 'check', label: 'check' },
             { key: 'research', label: 'research' },
             { key: 'prototype', label: 'prototype' },
+            { key: 'audit', label: 'audit' },
             { key: 'main', label: '主会话' }
           ];
           return roles.map(function (r) {
@@ -787,6 +789,7 @@
           if (lower.indexOf('check') !== -1) return 'check';
           if (lower.indexOf('research') !== -1) return 'research';
           if (lower.indexOf('prototype') !== -1) return 'prototype';
+          if (lower.indexOf('audit') !== -1) return 'audit';
           return 'main';
         },
         /* ============ 大屏（v0.4.2）：底部指标 + 热力格 + 火花线 ============ */
@@ -856,7 +859,7 @@
           canvas.height = Math.round(h * dpr);
           ctx.scale(dpr, dpr);
           ctx.clearRect(0, 0, w, h);
-          var rows = ['implement', 'check', 'research', 'prototype', 'main'];
+          var rows = ['implement', 'check', 'research', 'prototype', 'audit', 'main'];
           var cols = 12, bucketMs = 2500, rowH = h / rows.length, colW = w / cols;
           var now = Date.now();
           var counts = {};

@@ -8,12 +8,12 @@ import (
 )
 
 // E 路（codebuddy、copilot、droid）安装测试：每平台在临时目录实跑
-// Install，断言生成文件集与 E 规格 §3 的总数一致（codebuddy 51、
-// copilot 53、droid 51），并抽查关键内容。
+// Install，断言生成文件集与 E 规格 §3 的总数一致（codebuddy 52、
+// copilot 54、droid 52；2026-11-20 新增 sunshine-audit 后各 +1），并抽查关键内容。
 // v0.3.11：prototype agent 各 +1（codebuddy/copilot/droid 各一文件）。
 // spec 索引层：spec-import skill 各 +1。
 func TestInstallEPlatforms(t *testing.T) {
-	wantCounts := map[string]int{"codebuddy": 51, "copilot": 53, "droid": 51}
+	wantCounts := map[string]int{"codebuddy": 52, "copilot": 54, "droid": 52}
 	for _, id := range []string{"codebuddy", "copilot", "droid"} {
 		t.Run(id, func(t *testing.T) {
 			dir := t.TempDir()

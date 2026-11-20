@@ -191,6 +191,7 @@ var registry = []Platform{
 			{Src: "platforms/codex/agents/sunshine-check.toml", Dst: ".codex/agents/sunshine-check.toml"},
 			{Src: "platforms/codex/agents/sunshine-research.toml", Dst: ".codex/agents/sunshine-research.toml"},
 			{Src: "platforms/codex/agents/sunshine-prototype.toml", Dst: ".codex/agents/sunshine-prototype.toml"},
+			{Src: "platforms/codex/agents/sunshine-audit.toml", Dst: ".codex/agents/sunshine-audit.toml"},
 		},
 		ExtraFiles: []PlatformFile{
 			{Src: "platforms/codex/hooks.json", Dst: ".codex/hooks.json"},
@@ -211,6 +212,7 @@ var registry = []Platform{
 			{Src: "platforms/kiro/agents/sunshine-check.json", Dst: ".kiro/agents/sunshine-check.json"},
 			{Src: "platforms/kiro/agents/sunshine-research.json", Dst: ".kiro/agents/sunshine-research.json"},
 			{Src: "platforms/kiro/agents/sunshine-prototype.json", Dst: ".kiro/agents/sunshine-prototype.json"},
+			{Src: "platforms/kiro/agents/sunshine-audit.json", Dst: ".kiro/agents/sunshine-audit.json"},
 		},
 		ExtraFiles: []PlatformFile{
 			{Src: "platforms/kiro/hooks/sunshine-workflow-state.kiro.hook", Dst: ".kiro/hooks/sunshine-workflow-state.kiro.hook"},
@@ -407,6 +409,7 @@ var registry = []Platform{
 			{Src: "platforms/copilot/agents/sunshine-check.agent.md", Dst: ".github/agents/sunshine-check.agent.md"},
 			{Src: "platforms/copilot/agents/sunshine-research.agent.md", Dst: ".github/agents/sunshine-research.agent.md"},
 			{Src: "platforms/copilot/agents/sunshine-prototype.agent.md", Dst: ".github/agents/sunshine-prototype.agent.md"},
+			{Src: "platforms/copilot/agents/sunshine-audit.agent.md", Dst: ".github/agents/sunshine-audit.agent.md"},
 		},
 		ExtraFiles: []PlatformFile{
 			{Src: "platforms/copilot/copilot-instructions.md", Dst: ".github/copilot-instructions.md"},
@@ -426,6 +429,7 @@ var registry = []Platform{
 			{Src: "platforms/droid/droids/sunshine-check.md", Dst: ".factory/droids/sunshine-check.md"},
 			{Src: "platforms/droid/droids/sunshine-research.md", Dst: ".factory/droids/sunshine-research.md"},
 			{Src: "platforms/droid/droids/sunshine-prototype.md", Dst: ".factory/droids/sunshine-prototype.md"},
+			{Src: "platforms/droid/droids/sunshine-audit.md", Dst: ".factory/droids/sunshine-audit.md"},
 		},
 		ExtraFiles: []PlatformFile{{Src: "platforms/droid/settings.json", Dst: ".factory/settings.json"}},
 		executorAI: "Bash scripts or Task calls", userActionLabel: "Slash commands",
@@ -618,7 +622,7 @@ var autoSkillNames = []string{"before-dev", "brainstorm", "break-loop", "check",
 var commandNames = []string{"continue", "finish-work", "start"}
 
 // agent 定义名（不含 sunshine- 前缀）。
-var agentNames = []string{"implement", "check", "research", "prototype"}
+var agentNames = []string{"implement", "check", "research", "prototype", "audit"}
 
 // 内置多文件 skill 的目录名（不含 sunshine- 前缀）。
 // 实际文件由 B 组写入 templates/platforms/common/bundled-skills/；

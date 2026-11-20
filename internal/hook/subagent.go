@@ -19,9 +19,10 @@ const (
 	AgentCheck     = "sunshine-check"
 	AgentResearch  = "sunshine-research"
 	AgentPrototype = "sunshine-prototype"
+	AgentAudit     = "sunshine-audit"
 )
 
-var agentsAll = []string{AgentImplement, AgentCheck, AgentResearch, AgentPrototype}
+var agentsAll = []string{AgentImplement, AgentCheck, AgentResearch, AgentPrototype, AgentAudit}
 
 // shortAgentName 把 sunshine- 前缀去掉，得到 implement/check/research/prototype，
 // 与 activity.jsonl 与 serve 前端的角色键一致（agentType 已归一化）。
@@ -94,6 +95,12 @@ func RunSubagentContext(r io.Reader, opts Options) error {
 		// （v0.3.11 token 规则：brief 由主会话在派发提示里给两份设计
 		// 文档路径，hook 不再注入；也不读 spec/workflow.md）。
 		RecordSubagentStart(root, "prototype", taskDir, GetString(input, "session_id", "sessionId", "sessionID"))
+		return nil
+	}
+	if agentType == AgentAudit {
+		// audit（找茬）同 prototype 口径：只记 start 事件，不注入上下文
+		// （它只读派发提示里给的 prd.md 与需求列表，自己读盘找缺失）。
+		RecordSubagentStart(root, "audit", taskDir, GetString(input, "session_id", "sessionId", "sessionID"))
 		return nil
 	}
 	var context, newPrompt string
@@ -201,6 +208,11 @@ func handleCodexSubagentStart(input HookInput, opts Options) {
 	if agentType == AgentPrototype {
 		// prototype 只记 start 事件，不注入上下文（同 Claude 路径）。
 		RecordSubagentStart(root, "prototype", taskDir, parentSessionID)
+		return
+	}
+	if agentType == AgentAudit {
+		// audit（找茬）只记 start 事件，不注入上下文（同 Claude 路径）。
+		RecordSubagentStart(root, "audit", taskDir, parentSessionID)
 		return
 	}
 	var context string

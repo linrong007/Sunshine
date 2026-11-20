@@ -194,7 +194,7 @@ const NativeActivityMaxRead = 500
 
 // nativeAgentRoles 是活动事件里的角色顺序（与前端 clusterRoles 一致）。
 // 主会话不在事件里，本批不推导主会话。
-var nativeAgentRoles = []string{"implement", "check", "research", "prototype"}
+var nativeAgentRoles = []string{"implement", "check", "research", "prototype", "audit"}
 
 // loadNativeEvents 读 .sunshine/.runtime/activity.jsonl；
 // 文件不存在或读失败返回空（不是错误：旧项目与未派发时本就没有）。

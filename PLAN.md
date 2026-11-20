@@ -3531,7 +3531,7 @@ hook 19 条、CLI 与任务系统 7 条、平台与 registry 11 条、serve/chan
   - 第 2、3 件改 6 个文件（`templates/workflows/` 三份 + `marketplace/workflows/` 三份镜像，两处锚点在六份里均唯一且原文一致）。
 - 验证：8 个文件共 +58 行、0 删除；全量测试 21 包全过；新二进制临时项目 `init -y --claude` 实测：装出的 `.claude/skills/sunshine-brainstorm/SKILL.md` 含「功能型必问项」，`.sunshine/workflow.md` 含「缺失项扫描」「技术待定分流」各一处。
 - 附带发现（未处理）：`marketplace/workflows/` 镜像有两处旧漂移（原型派发段仍是派发收窄前的旧文案、lint/类型检查缺“输出要精简”后缀），是此前批次未同步镜像所致，与本批无关，待用户定是否做一次镜像全量同步。
-- 发版：待用户点选。
+- 发版：已随 v0.5.35 发布，见文末 v0.5.35 发布记录。
 
 ## 找茬子代理 sunshine-audit（2026-11-20，用户批准）
 
@@ -3543,7 +3543,7 @@ hook 19 条、CLI 与任务系统 7 条、平台与 registry 11 条、serve/chan
 - workflow：三份 workflow 模板与三份 marketplace 镜像的「缺失项扫描」段改为派 sunshine-audit 专扫，平台不支持派发或派发失败时主会话按同一口径自查兜底。
 - 验证：全量测试 21 包全过；新二进制 init 实测（claude/codex/kiro/copilot 四平台）装出四种格式的 audit 文件且无裸 {{ 残留，.sunshine/agents/audit.md 同步装出；hook 端到端实测 subagent-context 对 sunshine-audit 退出 0、不注入、activity.jsonl 记下 agent=audit 的 started 事件。
 
-发版：与需求边界三件套同批，待用户点选。
+发版：已随 v0.5.35 发布，见文末 v0.5.35 发布记录。
 
 ## EARS 打散吸收（2026-11-20，用户批准）
 
@@ -3554,4 +3554,13 @@ hook 19 条、CLI 与任务系统 7 条、平台与 registry 11 条、serve/chan
 - 有意不取：全量 EARS 重写留档（第二份需求文档、双份真相）、独立 EARS Skill（靠人记得调）、非功能需求套句式（作者自己也说单独放）。
 - 验证：全量测试 21 包全过；init 实测装出的 audit 含默套句式与计数窗口、brainstorm 含验收标准写法节、workflow 含句式句；18 份 audit 定义均含默套段。
 
-发版：与需求边界三件套、找茬子代理同批，待用户点选。
+发版：已随 v0.5.35 发布，见文末 v0.5.35 发布记录。
+
+## v0.5.35 发布记录（2026-11-20，已发布）
+
+- 内容：三部分同批。①需求边界三件套：brainstorm 加「功能型必问项」（八类，只收业务边界，技术选择记 [待定]）、workflow 1.5 加「缺失项扫描」、1.2 加「技术待定分流」。②找茬子代理 sunshine-audit：新增第五个子代理（channel 源 + 17 份平台副本共 18 个新文件，工具一律只读；platforms 注册、hook 只记活动不注入、serve 角色同步；平台安装计数断言同步），缺失项扫描改为派它专扫、派不了主会话自查兜底。③EARS 打散吸收：规则型需求验收标准句式化（brainstorm 加「验收标准写法」节、workflow 六份同步），audit 加登录必问项细化、「再做两遍深查」（默套句式、可测性）、推断标注。共 33 个文件 +1606/-16。
+- 主提交：本地 302a4d52f46071d58bf05a8f165092df62acf7f9 → 远端 155e445915a7bc19c4cdc5e2b672e36cb6c56835，tree ce54cc7b4fa71e9b8bef0c94e15a559ab4998396，父提交 63cab7264763cc9a7710cddad220f6dedd5b9cd2。
+- tag：v0.5.35，annotated tag，tag 对象 bd04f07ac620f914fbbb382e01dd676881c04923 → 155e445。
+- CI 与发布：发布 workflow run 44687555584、CI（tag）run 44687555480、CI（main）run 44687496430 均 completed success。
+- Release：id 452343442，非草稿，6 个资产在位（checksums.txt + sunshine_0.5.35_darwin_amd64/arm64.tar.gz、linux_amd64/arm64.tar.gz、windows_amd64.zip）。
+- 实测：一键装（无参）装上 v0.5.35（linux/amd64），`sunshine version` 报 0.5.35；darwin_arm64 包 checksum c2489ebfcef0bd077f1cba2570e174e418e9b3865547e63b9fccaebfd21c69f9、linux_amd64 包 checksum 69617bdfe2c7c5dd8cc67765c9b3db0b009acfb64f4cadbbde775a214854445f，均与 checksums.txt 一致；`upgrade --dry-run` 通过（“已是最新版本（当前 0.5.35，最新 0.5.35），无需升级。”）；发布包二进制 grep 确认 “默套句式” 12 处、“sunshine-audit” 40 处在位；发版前全量测试 21 包全过、init 实测四平台装出 audit 文件、hook 端到端记下 audit started 事件。

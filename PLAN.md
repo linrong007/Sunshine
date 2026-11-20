@@ -3610,7 +3610,7 @@ hook 19 条、CLI 与任务系统 7 条、平台与 registry 11 条、serve/chan
 - Release：id 452367868，非草稿，6 个资产在位（checksums.txt + sunshine_0.5.36_darwin_amd64/arm64.tar.gz、linux_amd64/arm64.tar.gz、windows_amd64.zip）。
 - 实测：一键装（无参）装上 v0.5.36（linux/amd64），`sunshine version` 报 0.5.36；darwin_arm64 包 checksum 5386f62b68d5ce402b8cdf9872c1aa5a9f49ba4be3a618c5602d566fa8afbed3、linux_amd64 包 checksum 6ef8c853176970f6ffccf8d54512494f224db5bc9b483c689206ea7ef9bcbead，均与 checksums.txt 一致；`upgrade --dry-run` 通过（“已是最新版本（当前 0.5.36，最新 0.5.36），无需升级。”）；发布包二进制 grep 确认 “验收标准对账” 50 处、“风险标档” 4 处在位；发版前全量测试 21 包全过、init 实测装出新内容、task CLI 实测 meta 标档与改档正确。
 
-## CodeGraph 浅集成（2026-11-20，已实现，待发版）
+## CodeGraph 浅集成（2026-11-20，已随 v0.5.37 发布）
 
 - 背景与定调：对比网易 CodeWave 的 CodeMap 后，用户定调不自建代码地图、只借入现成工具，并拍板不用测、就用 CodeGraph（colbymchenry/codegraph，MIT，tree-sitter 确定性解析建图、零 LLM token，文件监听自动同步，MCP 工具与 CLI 孪生命令双通道）。范围收敛为**只针对存量项目**：核心用途是存量入场摸底与整理 spec（spec-bootstrap、spec 与代码对齐时 research 查图核对），图建好后该项目的开发阶段顺带复用（implement 改符号前查调用方、check 查波及面）；纯新建项目不装不建。用户特别交代教程里要维护好这一块。
 - 口径（两层缺什么补什么）：init 时项目里已有代码才触发；①工具层：PATH 上没有 codegraph 就跑官方安装脚本装上（装到用户机器、不打进 Sunshine 发布包，失败退 npm 全局装，再失败只警告给手动命令）；装了跳过。②项目层：没有 .codegraph/ 就 `codegraph init --yes` 建图；有就跳过。③接线层：`codegraph install --target=<映射> --yes` 把 MCP 写进各平台配置，仅在刚装上工具、刚建图或本次 init 新装了平台时执行（该命令幂等）。全程失败不阻断 init（外部工具不得拖垮主流程）；`--no-codegraph` 与环境变量 SUNSHINE_NO_CODEGRAPH=1 可关闭；测试桩二进制路径含 sunshine-test-bin 时自动跳过，免得端到端测试触发真安装。
@@ -3619,5 +3619,14 @@ hook 19 条、CLI 与任务系统 7 条、平台与 registry 11 条、serve/chan
 - 模板规矩：workflow 6 份（及 marketplace 镜像）加「代码地图（CodeGraph，仅存量项目）」小节（何时有图、整理 spec 与 research 先查图、implement 改符号前查 callers、check 用 affected/impact 出波及面证据、无图跳过）；research / implement / check 三种代理的全部副本各加一段对应的查图规矩（MCP 与 CLI 两种写法并列）；spec-bootstrap 相关 skill 同步一句。
 - 教程：docs/tutorial.md 与 docs/tutorial-en.md 各加一节专讲（只针对存量、何时装、两层口径、整理 spec 怎么用、开发阶段复用、关闭办法、图与升级归 CodeGraph 自己管）。
 - 验证口径：全量测试；新包单测（存量检测、映射、Provision 决策表用假 Runner）；init 端到端用桩 codegraph（PATH 注入、记录调用）验四态（空项目不触发、存量+无工具走安装、存量+有工具只建图、全就绪全跳过）；沙箱真装 CodeGraph 后对夹具存量项目跑真 init 并用 codegraph explore 查一次证明图可用。
-- 发版：本批不发版，等用户点选。
+- 发版：已随 v0.5.37 发布，见文末 v0.5.37 发布记录。
 - 落地结果（2026-11-20）：已实现并验证。新增 internal/codegraph 包（存量检测 / 平台映射 / Provision 三层供给，Runner 可注入）与 init 三分支接入（--no-codegraph 与 SUNSHINE_NO_CODEGRAPH 关闭、测试桩路径自动跳过）；模板 64 处（research/implement/check 代理 56 份、workflow 6 份、spec-bootstrap 与 check 两份 skill）；教程中英文各加一节（§12.2 内）。共 70 个文件。全量测试全过；新增单测覆盖存量检测、映射与 Provision 决策表，init 端到端桩测四态全过（存量接线建图、空项目不触发、--no-codegraph 跳过、二次 init 零调用）。沙箱真装实测：全新环境跑 init，自动经官方脚本装上 CodeGraph、接线 claude、建图成功，`codegraph callers Charge` 准确返回 CreateOrder（order.go:7），二次 init 报已就绪跳过，空项目 init 零代码地图输出。
+
+## v0.5.37 发布记录（2026-11-20，已发布）
+
+- 内容：CodeGraph 浅集成，只针对存量项目。新增 internal/codegraph 包并接入 init 三个分支：init 写文件前判定存量，三层供给缺什么补什么（工具缺了跑官方脚本装、失败退 npm、再失败只警告；项目没图就建；接线只在刚装工具/刚建图/本次新装平台时补，14 个平台有 CodeGraph target 映射），全程失败不阻断 init，--no-codegraph 与 SUNSHINE_NO_CODEGRAPH=1 可关闭，测试桩二进制自动跳过。模板 64 处：research/implement/check 代理 56 份各加查图段、workflow 6 份加「代码地图（CodeGraph，仅存量项目）」小节、spec-bootstrap 与 check 两份 skill 同步；教程中英文 §12.2 各加 CodeGraph 专节。共 71 个文件 +997/-11。
+- 主提交：本地 e58af94397db4b212fc10cf0f9388130818dcd0f → 远端 ec2b35f9a27ec2f08007614773b5709b14d3e4e3，tree 11487612dc369d4af3c2d9575895872b7125a2b2，父提交 6ad25b6046defd397ac82ccd6c617043c3f3a4f8。
+- tag：v0.5.37，annotated tag，tag 对象 ec1c057eeb06ec098b48dead6cd6865503245374 → ec2b35f。
+- CI 与发布：发布 workflow run 44698031004、CI（tag）run 44698031142、CI（main）run 44697995236 均 completed success。
+- Release：id 452406960，非草稿，6 个资产在位（checksums.txt + sunshine_0.5.37_darwin_amd64/arm64.tar.gz、linux_amd64/arm64.tar.gz、windows_amd64.zip）。
+- 实测：一键装装上 v0.5.37，`sunshine version` 报 0.5.37，`init --help` 含 --no-codegraph；darwin_arm64 包 checksum 8f8910f065c6e8b2fb933700a046c0ce79b63d00bbe74aca750505e01dce19cd、linux_amd64 包 checksum 7c19a9cd7bc67c43d7f40ff5ec4dd5416b623e63ae2a7f6179f624a2a81b9259，均与 checksums.txt 一致；`upgrade --dry-run` 通过；发布包二进制含“代码地图”67 处；发版前全量测试全过、桩测四态全过、沙箱真装 CodeGraph 端到端实测通过（自动安装、接线、建图、callers 查询准确、二次 init 跳过、空项目不触发）。

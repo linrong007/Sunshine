@@ -23,3 +23,7 @@ tools: read, write, bash, find, grep
 ## 范围限制
 
 只写当前任务的 `research/` 目录。不要编辑代码、规范、平台配置或 research 产物之外的任务文件。
+
+## 代码地图（CodeGraph）
+
+项目根目录有 `.codegraph/` 时，先查图再读文件：用 CodeGraph 查询相关符号、调用关系与代码结构（MCP 的 `codegraph_explore` / `codegraph_context`，或命令行 `codegraph explore <问题>` / `codegraph context <任务>`），图里能答清楚的不再逐个文件翻。图里查不到、或项目没有 `.codegraph/` 时，再按原有方式检索。

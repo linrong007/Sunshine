@@ -1274,6 +1274,22 @@ Example prompt (an example, not a real session record):
 
 No need to name every area to dig into in the opening prompt: spec-bootstrap's repository analysis is full coverage by default — runtime layers (CLI, backend, frontend, worker, shared libraries), deployment (build, deploy steps, rollback), startup, configuration, data flow, error handling, testing, and troubleshooting are all in the default dimension table, and anything with evidence in the code lands in the spec. So the two-step prompt above is the most practical opening line for a legacy project. The only limit is what the code actually contains: nothing is invented without evidence, and template files for layers the repository does not have are deleted outright.
 
+#### Code map: CodeGraph for existing projects
+
+The hard part of an existing project is not writing new code; it is helping the agent find the right old code: who calls a function, what a change touches. Grepping file by file is slow and easy to get wrong. For existing projects Sunshine borrows a ready-made code map — CodeGraph (an open-source tool that parses code into a graph of symbols and call relations; building the graph is deterministic parsing, no LLM and no tokens, and it auto-syncs when files change).
+
+**When it is installed**: only when `sunshine init` finds existing code in the project; a brand-new project gets neither the tool nor a graph. Each of the three layers fills in only what is missing:
+
+1. No CodeGraph on the machine — install it with its official script (onto your machine, not into Sunshine's packages);
+2. No `.codegraph/` in the project — build the graph;
+3. Wire the queries into the platforms selected in this init (MCP where the platform supports it, equivalent CLI queries elsewhere).
+
+Any failed step only warns and prints the manual command; it never blocks init. To opt out: `sunshine init --no-codegraph`, or set `SUNSHINE_NO_CODEGRAPH=1`.
+
+**How it is used**: you do not query it by hand — the workflow and subagents do. When landing a spec for an existing project (spec-bootstrap) or doing research, they query the graph first to map symbols, call relations and structure, then read files; before changing an existing function they check its callers; during checks they use the graph for affected tests and change impact as evidence for the acceptance reconciliation. To look yourself, run `codegraph explore <question>` in the project.
+
+**Boundary**: the graph is CodeGraph's own — it syncs itself on file changes, upgrades with `codegraph upgrade`, and can be removed with `codegraph uninstall` (wiring) and `codegraph uninit` (the graph). Sunshine only installs, builds, and writes the rules into the workflow and subagents.
+
 ### 12.3 Delivering a product feature: one task across product, API, data, and UI
 
 When one task spans four layers, the usual failure is changing one layer and missing another — Sunshine's answer is one task: what changes in all four layers goes into the same PRD, the change order goes through a channel, and acceptance checks against the same API contract. The demo is the same web store that has run for two years, and the task is making the delivery address mandatory at checkout: the checkout page (UI) gets an address field, the order endpoint (API) returns 400 without one, and the order record (data) gains an address field.

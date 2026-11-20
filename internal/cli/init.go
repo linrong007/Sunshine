@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -10,6 +11,7 @@ import (
 
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/AlecAivazis/survey/v2/terminal"
+	"github.com/linrong007/Sunshine/internal/codegraph"
 	"github.com/linrong007/Sunshine/internal/platforms"
 	"github.com/linrong007/Sunshine/internal/projecttype"
 	"github.com/linrong007/Sunshine/internal/registry"
@@ -46,6 +48,7 @@ var (
 	initCopilot        bool
 	initDroid          bool
 	initWithStatusline bool
+	initNoCodegraph    bool
 	initType           string
 )
 
@@ -105,6 +108,11 @@ GitHub Copilot、Factory Droid）。
 重复执行 init 时进入增量模式：只追加新选的平台，
 不动已有平台文件与 .sunshine/ 骨架。
 
+存量项目（目录里已有代码）还会顺带供给 CodeGraph 代码地图：
+机器上没装 CodeGraph 就用官方脚本装上，项目里没建图就建图，
+并把查询接进所选平台；三层都是缺什么补什么、在就不动，
+任何一步失败都只警告不阻断 init。--no-codegraph 可整体跳过。
+
 --registry 从模板市场安装规范模板：
   - 有 index.json 的来源是模板市场；市场里恰好一个 spec 模板时
     --template 可省，自动选中；多个 spec 模板时须用 --template 指定条目 id；
@@ -136,6 +144,9 @@ GitHub Copilot、Factory Droid）。
 			return err
 		}
 		initialized := dirExists(filepath.Join(cwd, ".sunshine"))
+		// 存量判定必须在 scaffold 与平台安装写文件之前做，
+		// 否则会把 Sunshine 自己生成的文件误判为已有代码。
+		legacyProject := codegraph.HasExistingCode(cwd)
 
 		selected, withStatusline, err := resolvePlatformSelection(cmd)
 		if err != nil {
@@ -214,6 +225,7 @@ GitHub Copilot、Factory Droid）。
 			if err != nil {
 				return err
 			}
+			provisionCodegraph(cwd, legacyProject, selected, len(installed))
 			if target != nil {
 				installRegistryTemplates(cwd, target, strategy)
 			}
@@ -244,6 +256,7 @@ GitHub Copilot、Factory Droid）。
 			if err != nil {
 				return err
 			}
+			provisionCodegraph(cwd, legacyProject, selected, len(installed))
 			if target != nil {
 				installRegistryTemplates(cwd, target, strategy)
 			}
@@ -260,19 +273,20 @@ GitHub Copilot、Factory Droid）。
 			for _, id := range skipped {
 				fmt.Printf("  ○ %s 已安装，跳过\n", platformDisplayNames[id])
 			}
-			if len(toInstall) == 0 && target == nil {
-				fmt.Println("所选平台均已安装，没有需要安装的新平台。")
-				warnDshGitRootHijack(cwd)
-				return nil
-			}
+			installedCount := 0
 			if len(toInstall) > 0 {
 				installed, err := installPlatforms(cwd, toInstall, withStatusline, false)
 				if err != nil {
 					return err
 				}
+				installedCount = len(installed)
 				printPlatformSummary(installed, withStatusline, initYes || !stdinIsTTY())
-				warnDshGitRootHijack(cwd)
 			}
+			acted := provisionCodegraph(cwd, legacyProject, selected, installedCount)
+			if len(toInstall) == 0 && target == nil && !acted {
+				fmt.Println("所选平台均已安装，没有需要安装的新平台。")
+			}
+			warnDshGitRootHijack(cwd)
 			if target != nil {
 				installRegistryTemplates(cwd, target, strategy)
 			}
@@ -309,9 +323,36 @@ func init() {
 	initCmd.Flags().BoolVar(&initCopilot, "copilot", false, "安装 GitHub Copilot 平台配置")
 	initCmd.Flags().BoolVar(&initDroid, "droid", false, "安装 Factory Droid 平台配置")
 	initCmd.Flags().BoolVar(&initWithStatusline, "with-statusline", false, "为 Claude Code 安装状态栏（仅 Claude Code 入选时有效）")
+	initCmd.Flags().BoolVar(&initNoCodegraph, "no-codegraph", false, "跳过 CodeGraph 代码地图的自动安装与建图（仅对存量项目生效）")
 	initCmd.Flags().StringVar(&initType, "type", "", "项目类型：前端、后端、全栈、产品设计（默认自动检测，检测不到时交互选择）")
 	registerRegistryFlags(initCmd)
 	rootCmd.AddCommand(initCmd)
+}
+
+// codegraphDisabled 判断代码地图供给是否被关闭：
+// --no-codegraph、环境变量 SUNSHINE_NO_CODEGRAPH=1，或测试桩二进制
+// （路径含 sunshine-test-bin，端到端测试不得触发真实安装）。
+func codegraphDisabled() bool {
+	if initNoCodegraph || os.Getenv("SUNSHINE_NO_CODEGRAPH") == "1" {
+		return true
+	}
+	if exe, err := os.Executable(); err == nil && strings.Contains(exe, "sunshine-test-bin") {
+		return true
+	}
+	return false
+}
+
+// provisionCodegraph 为存量项目供给 CodeGraph 代码地图并打印结果行，
+// 返回是否执行过外部动作。失败只体现在结果行里，绝不阻断 init。
+func provisionCodegraph(cwd string, legacy bool, selected []string, installedCount int) bool {
+	res := codegraph.Provision(context.Background(), codegraph.Options{
+		Dir: cwd, Legacy: legacy, Disabled: codegraphDisabled(),
+		Platforms: selected, PlatformsInstalled: installedCount,
+	}, codegraph.DefaultRunner())
+	for _, line := range res.Lines {
+		fmt.Println(line)
+	}
+	return res.Acted
 }
 
 // resolveUser 按“-u 参数 > git user.name > developer”的顺序确定开发者名称。

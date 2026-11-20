@@ -136,3 +136,7 @@ mkdir -p <TASK_DIR>/research
 - 不要猜测不确定的信息
 - 不要把完整研究文本粘贴到回复里（文件才是交付物）
 - 不要提改进建议或批评实现（那不是你的职责）
+
+## 代码地图（CodeGraph）
+
+项目根目录有 `.codegraph/` 时，先查图再读文件：用 CodeGraph 查询相关符号、调用关系与代码结构（MCP 的 `codegraph_explore` / `codegraph_context`，或命令行 `codegraph explore <问题>` / `codegraph context <任务>`），图里能答清楚的不再逐个文件翻。图里查不到、或项目没有 `.codegraph/` 时，再按原有方式检索。

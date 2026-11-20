@@ -54,3 +54,7 @@ tools: read, write, edit, bash, find, search, ast_grep, lsp
 
 汇报已修复的问题、改动的文件与验证结果。
 如果没有问题，明确说明。
+
+## 代码地图（CodeGraph）
+
+项目根目录有 `.codegraph/` 时，用图给检查结论补证据：把 `git diff --name-only` 的输出经 `codegraph affected --stdin` 查受影响的测试，核对是否都跑过；用 `codegraph impact <符号>`（或 MCP 的 `codegraph_impact`）核对改动的波及面，作为验收标准对账里超范围判定与回归范围的依据。项目没有 `.codegraph/` 时跳过本节。

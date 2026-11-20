@@ -157,3 +157,7 @@ git diff -- <文件>    # 按文件读具体改动
 
 检查了 X 个文件，发现 Y 个问题，全部已修复。
 ```
+
+## 代码地图（CodeGraph）
+
+项目根目录有 `.codegraph/` 时，用图给检查结论补证据：把 `git diff --name-only` 的输出经 `codegraph affected --stdin` 查受影响的测试，核对是否都跑过；用 `codegraph impact <符号>`（或 MCP 的 `codegraph_impact`）核对改动的波及面，作为验收标准对账里超范围判定与回归范围的依据。项目没有 `.codegraph/` 时跳过本节。

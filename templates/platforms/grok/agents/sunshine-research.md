@@ -145,3 +145,7 @@ spawn_subagent(
 - 不要猜测不确定的信息
 - 不要把完整调研文本粘贴进回复
 - 除非主代理明确要求调研方案，否则不要提实现改动建议
+
+## 代码地图（CodeGraph）
+
+项目根目录有 `.codegraph/` 时，先查图再读文件：用 CodeGraph 查询相关符号、调用关系与代码结构（MCP 的 `codegraph_explore` / `codegraph_context`，或命令行 `codegraph explore <问题>` / `codegraph context <任务>`），图里能答清楚的不再逐个文件翻。图里查不到、或项目没有 `.codegraph/` 时，再按原有方式检索。

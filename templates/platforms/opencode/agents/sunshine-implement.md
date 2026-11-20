@@ -136,3 +136,7 @@ permission:
 - 不要加不必要的抽象
 - 只做要求的事，不要过度设计
 - 保持代码可读
+
+## 代码地图（CodeGraph）
+
+项目根目录有 `.codegraph/` 时：动手前先用 CodeGraph 查任务区域的结构与相关代码（MCP 的 `codegraph_explore` / `codegraph_context`，或命令行 `codegraph explore <问题>` / `codegraph context <任务>`）；改动已有函数或方法前，先查它的调用方（MCP 的 `codegraph_callers`，或命令行 `codegraph callers <符号>`）确认波及面。项目没有 `.codegraph/` 时跳过本节。

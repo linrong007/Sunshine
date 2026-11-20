@@ -10,7 +10,7 @@ description: "用平台中立的单 Agent 工作流，引导创建项目专属�
 ## 工作流
 
 1. 确认 Sunshine 已初始化，并检查当前的 `.sunshine/spec/` 树。
-2. 用最好的可用工具分析仓库架构：GitNexus、ABCoder、语言工具和直接源码阅读。
+2. 用最好的可用工具分析仓库架构：项目有 `.codegraph/` 时先用 CodeGraph 查图（`codegraph explore` / `codegraph context`）摸清符号与调用关系，再辅以 GitNexus、ABCoder、语言工具和直接源码阅读。
 3. 只有当包和层的划分真实反映代码库时，才按包和层分解规范工作。
 4. 用项目中具体的模式、文件路径、示例和反模式填充或重塑规范文件。
 5. 验证最终规范内部一致，且不含模板占位符。

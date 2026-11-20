@@ -33,6 +33,16 @@ sunshine init -u <你的名字>
 sunshine task context --mode packages   # 列出规范地图：按适用分组，一行一个
 ```
 
+### 代码地图（CodeGraph，仅存量项目）
+
+存量项目（已有代码）在 `sunshine init` 时会供给 CodeGraph 代码地图：机器没装就装、项目没图就建（`.codegraph/`），并把查询接进平台。用法只有三处：
+
+- **整理规范与研究**：给存量项目落 spec（spec-bootstrap）或做 1.3 研究时，research 先查图摸清符号、调用关系与结构，再读文件落字；spec 与代码对不上时也先查图核对。
+- **实现**：implement 动手前先查任务区域，改已有函数/方法前先查调用方确认波及面。
+- **检查**：check 用图查受影响的测试与改动波及面，作为对账中超范围判定与回归范围的证据。
+
+查询两路：平台支持 MCP 时用 `codegraph_explore` / `codegraph_context` / `codegraph_callers` / `codegraph_impact` 等工具；不支持时用等价的命令行 `codegraph explore <问题>`、`codegraph context <任务>`、`codegraph callers <符号>`、`codegraph impact <符号>`、`codegraph affected`。项目没有 `.codegraph/`（新建项目，或 init 时用 --no-codegraph 关掉）就跳过本节，按原有方式检索与读文件。图的同步与 CodeGraph 自身的升级不归 Sunshine 管。
+
 ### 任务系统
 
 每个任务在 `.sunshine/tasks/{MM-DD-名称}/` 下有自己的目录，内含 `task.json`、`prd.md`、可选的 `design.md`、可选的 `implement.md`、可选的 `research/`，以及 `implement.jsonl` / `check.jsonl`。

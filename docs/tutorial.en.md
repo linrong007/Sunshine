@@ -1292,6 +1292,8 @@ The hard part of an existing project is not writing new code; it is helping the 
 
 Any failed step only warns and prints the manual command; it never blocks init. To opt out: `sunshine init --no-codegraph`, or set `SUNSHINE_NO_CODEGRAPH=1`.
 
+**Manual trigger**: no need to wait for init — `sunshine codegraph install` installs the tool, wires it, and builds the graph at any time (manual runs are not gated on the existing-code check and re-wire on every run); `sunshine codegraph status` only reports state and changes nothing.
+
 **How it is used**: you do not query it by hand — the workflow and subagents do. When landing a spec for an existing project (spec-bootstrap) or doing research, they query the graph first to map symbols, call relations and structure, then read files; before changing an existing function they check its callers; during checks they use the graph for affected tests and change impact as evidence for the acceptance reconciliation. To look yourself, run `codegraph explore <question>` in the project.
 
 **Boundary**: the graph is CodeGraph's own — it syncs itself on file changes, upgrades with `codegraph upgrade`, and can be removed with `codegraph uninstall` (wiring) and `codegraph uninit` (the graph). Sunshine only installs, builds, and writes the rules into the workflow and subagents.
@@ -2218,7 +2220,7 @@ Project-type detection reads `package.json` dependencies and common frontend/bac
 
 | Option | What it does |
 | --- | --- |
-| `-u, --user <name>` | Developer name, written to `.sunshine/.developer`; priority: `-u` > git user.name > `developer`; new tasks default their creator and assignee to it |
+| `-u, --user <name>` | Developer name, written to `.sunshine/.developer`; priority: `-u` > existing `.developer` > git user.name > `developer` (re-running init without `-u` keeps the recorded name); new tasks default their creator and assignee to it |
 | `-y, --yes` | Skip all prompts: a platform flag is required to pick at least one platform, default fullstack, default blank specs, no statusline |
 | `-f, --force` | Rebuild the skeleton and platform files even when already initialized (see "Three modes" below) |
 | `--type <前端/后端/全栈/产品设计>` | Specify the project type explicitly (前端=frontend, 后端=backend, 全栈=fullstack, 产品设计=product design), skipping detection and the question |
@@ -2287,4 +2289,5 @@ sunshine platforms
 | Multi-agent work | `sunshine channel list` / `sunshine channel messages <name>` | Inspect channels and their event timelines ([section 10](#10-channel-multi-agent-collaboration)) |
 | Update the CLI itself | `sunshine upgrade --dry-run` (drop `--dry-run` to apply) | Upgrade the `sunshine` binary ([section 11](#11-upgrade-update-the-cli-itself)) |
 | See what is configured | `sunshine platforms` | Show the platforms configured for this project |
+| Install / build the code map manually | `sunshine codegraph install` / `sunshine codegraph status` | init provisions CodeGraph only for existing projects; a manual run is not gated on that check and re-wires on every run |
 | Remove Sunshine from a project | `sunshine uninstall` / `sunshine ablate` / `sunshine restore` | Delete all Sunshine files, temporarily remove them (reversible), or restore exactly what `ablate` saved |

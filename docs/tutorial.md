@@ -1180,6 +1180,8 @@ agent 先读现有的 spec 树（全是模板），再分析仓库：顶层结�
 
 任何一步失败都只警告并给出手动命令，不挡 init。想关掉：`sunshine init --no-codegraph`，或设环境变量 `SUNSHINE_NO_CODEGRAPH=1`。
 
+**手动触发**：不用等 init——`sunshine codegraph install` 随时可装工具、接线、建图（手动执行不受存量判定限制，每次都会重新接线），`sunshine codegraph status` 只看状态不动手。
+
 **怎么用**：不用你手动查，工作流和子代理会自己用——给存量项目落 spec（spec-bootstrap）和做研究时，先查图摸清符号、调用关系与结构，再读文件落字；改已有函数前先查它的调用方确认波及面；检查时用图查受影响的测试与改动波及面，给验收标准对账当证据。你想自己看时，在项目里跑 `codegraph explore <问题>` 就能问它。
 
 **边界**：图归 CodeGraph 自己管——它跟着文件变化自动同步，升级用 `codegraph upgrade`，不用了用 `codegraph uninstall` 拆接线、`codegraph uninit` 删图。Sunshine 只负责装、建，和把规矩写进工作流与子代理。
@@ -2094,7 +2096,7 @@ f37743d chore: record journal
 
 | 选项 | 作用 |
 | --- | --- |
-| `-u, --user <名字>` | 开发者名字，写进 `.sunshine/.developer`；优先级：`-u` > git user.name > `developer`；任务的创建人与负责人默认就是它 |
+| `-u, --user <名字>` | 开发者名字，写进 `.sunshine/.developer`；优先级：`-u` > 已有 `.developer` > git user.name > `developer`（重跑 init 不带 `-u` 时沿用已记的名字）；任务的创建人与负责人默认就是它 |
 | `-y, --yes` | 跳过全部提问：须用平台 flag 至少选一个平台、默认全栈、默认空白规范、不装状态栏 |
 | `-f, --force` | 已初始化时覆盖重建骨架与平台文件（见下“三种模式”） |
 | `--type <前端/后端/全栈/产品设计>` | 显式指定项目类型，跳过检测与提问 |
@@ -2145,5 +2147,6 @@ init 生成了 115 个文件（不含 `.git`），其中给 agent 读的是这�
 | 看 channel | `sunshine channel list` / `sunshine channel messages <名字>` | 事件时间线；`wait` 等某个 worker 的 `done` 事件 |
 | 升级 CLI 自身 | `sunshine upgrade --dry-run` / `sunshine upgrade` | 与 `update`（更新项目模板文件）是两回事 |
 | 看已配置平台 | `sunshine platforms` | 按哈希清单判断，避免误判原生平台目录 |
+| 手动装 / 建代码地图 | `sunshine codegraph install` / `sunshine codegraph status` | init 只对存量项目自动供给；手动触发不受存量判定限制，install 每次都会重新接线 |
 | 临时移除全部 Sunshine 表面（可逆） | `sunshine ablate` / `sunshine restore` | 切除内容存入项目外的恢复事务，`restore` 精确恢复 |
 | 删除项目内全部 Sunshine 文件 | `sunshine uninstall` | 只删哈希清单列出的托管内容，再移除整个 `.sunshine/` |

@@ -206,3 +206,18 @@ func TestProvisionInstallFailureSoft(t *testing.T) {
 		t.Errorf("应给出安装失败提示: %v", res.Lines)
 	}
 }
+
+// Force（手动触发）时工具与图都就绪也要重新接线一次。
+func TestProvisionForceWires(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(dir, ".codegraph"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	r := &fakeRunner{paths: map[string]string{"codegraph": "/bin/codegraph", "sh": "/bin/sh"}}
+	o := legacyOpts(dir)
+	o.Force = true
+	res := Provision(context.Background(), o, r)
+	if !res.Acted || len(r.calls) != 1 || !strings.Contains(r.calls[0], "install --target=claude,codex") {
+		t.Errorf("Force 应只接线一次: %+v calls=%v", res, r.calls)
+	}
+}

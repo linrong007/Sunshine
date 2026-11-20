@@ -68,6 +68,11 @@ func RunSessionStart(r io.Reader, opts Options) error {
 		out.WriteString(specindex.FormatSpecMap(specMap))
 		out.WriteString("\n")
 	}
+	if memIdx := collectMemoryIndex(root); memIdx != "" {
+		out.WriteString("## 长期记忆索引（故事档案：与当前任务相关的条目按需读 .sunshine/memory/ 下正文；与规范冲突时以规范为准）\n")
+		out.WriteString(memIdx)
+		out.WriteString("\n")
+	}
 	out.WriteString("</guidelines>\n\n")
 
 	out.WriteString("<task-status>\n" + taskStatusBlock(root, input, active) + "\n</task-status>\n\n")
@@ -254,6 +259,56 @@ func collectSpecMap(root string, allowedPkgs map[string]bool) []specindex.SpecEn
 		}
 	}
 	return out
+}
+
+// memoryIndexMaxBytes 是注入的长期记忆索引上限：索引只作导航，
+// 过长时按行截断并注明，正文仍在 .sunshine/memory/index.md 里。
+const memoryIndexMaxBytes = 4000
+
+// MemoryIndexText 是给 task context 等其它上下文装配面的导出入口。
+func MemoryIndexText(root string) string { return collectMemoryIndex(root) }
+
+// collectMemoryIndex 读 .sunshine/memory/index.md 的数据行（标题、
+// 摘要、文件三列表格），拼成注入用的小表。无文件、无数据行时
+// 返回空串（不注入）。索引过长按行截断，绝不半行截断。
+func collectMemoryIndex(root string) string {
+	data, err := os.ReadFile(filepath.Join(root, ".sunshine", "memory", "index.md"))
+	if err != nil {
+		return ""
+	}
+	var rows []string
+	for _, line := range strings.Split(string(data), "\n") {
+		line = strings.TrimSpace(line)
+		if !strings.HasPrefix(line, "|") {
+			continue
+		}
+		if strings.Contains(line, "标题") && strings.Contains(line, "摘要") {
+			continue // 表头
+		}
+		if strings.Trim(line, "|-: ") == "" {
+			continue // 分隔行
+		}
+		rows = append(rows, line)
+	}
+	if len(rows) == 0 {
+		return ""
+	}
+	var b strings.Builder
+	b.WriteString("| 标题 | 摘要 | 文件 |\n|------|------|------|\n")
+	used := 0
+	truncated := false
+	for _, row := range rows {
+		if used+len(row)+1 > memoryIndexMaxBytes {
+			truncated = true
+			break
+		}
+		b.WriteString(row + "\n")
+		used += len(row) + 1
+	}
+	if truncated {
+		b.WriteString("（索引较长已截断，余下条目见 .sunshine/memory/index.md）\n")
+	}
+	return b.String()
 }
 
 func isFile(path string) bool {

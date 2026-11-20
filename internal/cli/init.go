@@ -213,7 +213,7 @@ GitHub Copilot、Factory Droid）。
 
 		switch {
 		case !initialized:
-			user := resolveUser(initUser)
+			user := resolveUser(initUser, cwd)
 			specType, typeSource, err := resolveInitProjectType(cwd, skipSpec)
 			if err != nil {
 				return handleInitErr(err)
@@ -244,7 +244,7 @@ GitHub Copilot、Factory Droid）。
 			}
 			return nil
 		case initForce:
-			user := resolveUser(initUser)
+			user := resolveUser(initUser, cwd)
 			specType, typeSource, err := resolveInitProjectType(cwd, skipSpec)
 			if err != nil {
 				return handleInitErr(err)
@@ -296,7 +296,7 @@ GitHub Copilot、Factory Droid）。
 }
 
 func init() {
-	initCmd.Flags().StringVarP(&initUser, "user", "u", "", "开发者名称（默认读取 git 配置，未配置时为 developer）")
+	initCmd.Flags().StringVarP(&initUser, "user", "u", "", "开发者名称（默认沿用项目已记的 .developer，其次 git 配置）")
 	initCmd.Flags().BoolVarP(&initYes, "yes", "y", false, "跳过全部提问，使用默认配置")
 	initCmd.Flags().BoolVarP(&initForce, "force", "f", false, "已初始化时仍覆盖重建（会先把旧 .sunshine/ 备份到 .sunshine.backup-<时间戳> 再重建）")
 	initCmd.Flags().BoolVar(&initClaude, "claude", false, "安装 Claude Code 平台配置")
@@ -355,10 +355,17 @@ func provisionCodegraph(cwd string, legacy bool, selected []string, installedCou
 	return res.Acted
 }
 
-// resolveUser 按“-u 参数 > git user.name > developer”的顺序确定开发者名称。
-func resolveUser(flag string) string {
+// resolveUser 按“-u 参数 > 已有 .sunshine/.developer > git user.name >
+// developer”的顺序确定开发者名称。重跑 init 时优先认项目里已记下的名字，
+// 避免 git 配置不同就把开发者身份改掉；-u 显式指定永远最高。
+func resolveUser(flag, dir string) string {
 	if strings.TrimSpace(flag) != "" {
 		return strings.TrimSpace(flag)
+	}
+	if data, err := os.ReadFile(filepath.Join(dir, ".sunshine", ".developer")); err == nil {
+		if name := strings.TrimSpace(string(data)); name != "" {
+			return name
+		}
 	}
 	if out, err := exec.Command("git", "config", "user.name").Output(); err == nil {
 		if name := strings.TrimSpace(string(out)); name != "" {

@@ -3678,3 +3678,45 @@ hook 19 条、CLI 与任务系统 7 条、平台与 registry 11 条、serve/chan
 - 已维护进文档（用户指示）：README.cn.md / README.md 快速上手各加「GitHub 下载不了时：镜像一键安装」一节（命令 + 原理 + 换备用镜像 + 第三方代理提示）；教程中英文 §1 各加一段（中文版附命令与回指 README，英文版以引用块附命令）。
 - 边界：镜像站为第三方公共代理、状态多变，只作直连失败时的备选；包仍按 checksums.txt 校验。产品化方向（upgrade / install.sh 内置候选镜像名单、直连失败自动逐个试）已向用户提出，未点选，未立项。
 - 另记体积实测（同日用户问）：v0.5.37 二进制 35.5MB（goreleaser 已带 -s -w；不剥为 51.5MB），tar.gz 下载包 12.7–13.7MB；大头是 Go 静态运行时与重依赖（modernc.org/sqlite、go-git 加密栈），全部平台模板仅 1.7MB；UPX 不采用（误报与启动解压代价），维持现状。
+
+
+## 重跑 init 沿用已有开发者名（2026-11-20，用户点选，已实现待发版）
+
+- 问题：init 定开发者名的顺序原为「-u > git user.name > developer」，不读项目里已记的 `.sunshine/.developer`，且每次 init 都按本次解析结果重写该文件——git 配置与首次名字不一致时，重跑 init（例如为存量项目补 CodeGraph）会把开发者名悄悄改掉。
+- 修复：resolveUser 改为「-u > 已有 .sunshine/.developer > git user.name > developer」；-u 显式指定仍最高。-f 路径在 scaffold 备份/重建之前解析，同样能读到旧名字。增量重跑路径本来就不碰 .developer，无变化。-u 的帮助文案已同步。
+- 验证：新增 TestResolveUserPrefersExistingDeveloper（沿用、-u 覆盖、无文件不误读三态）；全量 22 包测试全过。
+- 备查：目前没有独立的 `sunshine codegraph` 命令，CodeGraph 供给只挂在 init 上；手动触发即重跑 init，或直接用 codegraph 自己的 install/init 命令。是否加独立命令待用户定。
+
+
+## sunshine codegraph 命令（2026-11-20，用户点选，已实现待发版）
+
+- 新增 `sunshine codegraph install` / `sunshine codegraph status` 两个子命令，给 CodeGraph 供给一个随时手动触发的入口（此前只挂在 init 上，无独立命令）。install 复用 codegraph.Provision：手动执行不受存量判定限制、每次重新接线（codegraph.Options 新增 Force 字段），平台取当前目录已装平台（installedPlatformIDs，口径与 init 的 filterUninstalled 一致）；非 Sunshine 项目目录也能用（只建图不接线）。status 只读：工具路径、.codegraph/ 是否已建、存量检测、可接线平台与 target。SUNSHINE_NO_CODEGRAPH=1 时 install 同样停用并明示。
+- 验证：新增 TestProvisionForceWires（全就绪 + Force 只接线一次）、TestInstalledPlatformIDs（注册顺序）；全量 22 包全过；沙箱夹具实测全通（status 报告未装/未建 → install 经官方脚本装工具、接线 claude、建图 → status 全绿）。
+- 文档同步：教程中英文 §12.2 各加「手动触发」一段、附录手动干预速查各加一行；附录 -u 优先级行同步为新顺序（-u > 已有 .developer > git user.name > developer，中英文）。
+- 与上一节的 .developer 修复（3bd0c3c）同批进下一版，均未推送。
+
+
+## 开始纪律：规划阶段只读本项目（2026-11-20，用户点选，已实现待发版）
+
+- 起因：用户贴出 DSH 在 demo16 的开局记录——流程没走偏，但 agent 开工前把兄弟目录 demo14 的设计产物（需求列表、导航 prd、原型、共用 CSS、概要设计）整套读了一遍才问第一个问题。定性：共性问题（agent 即兴「找参考」，与平台机制无关），DSH 放大（无 hook 注入、pull 式开局靠满盘摸索，容易滑向漫游）。
+- 改动（纯模板措辞）：①三份 workflow 模板（native / tdd / channel-driven）在第 1 阶段 1.0 之前各加「开始纪律（第 1 阶段全程适用）」小节：只读本项目（任务文件、spec、doc、用户点名文件），不读其它项目/历史 demo 的设计产物作本项目依据（除非用户点名）；开局按 start 清单加载、workflow 按节读、第一个问题前不做项目外检索。②start 入口源文件 templates/platforms/common/commands/start.md 加「开局纪律」节（全平台同一源，DSH 镜像 skill 同步生效）：步骤 1–3 之外不漫游、不读他项目产物、workflow 按节读、完成分流前不做额外探索性阅读。
+- 未动：marketplace/workflows 镜像（同步与否仍待用户定，与既有两处旧漂移一并搁置）；sunshine-meta 的 local-architecture/workflow.md 是架构参考文档、非 workflow 本体，不在同步范围。
+- 验证：全量 22 包测试全过；grep 核对含「1.0 创建任务」的 workflow 模板共 3 份、均已加节，start.md 已加节。
+- 边界（已向用户说明）：措辞是降概率、不是硬拦截，Sunshine 无硬门禁；与自检封顶、派发节食同类修法。
+
+## 长期记忆索引注入（2026-11-20，用户点选，已实现待发版）
+
+- 起因：`.sunshine/memory/` 写有入口（3.3 可选沉淀）、读无机制——hook 零引用，靠 agent 想起来才翻，写了没人看。
+- 改动：SessionStart 注入「长期记忆索引」节（规范地图之后）：只注入 index.md 数据行，上限 4000 字节按行截断并注明去向，无条目不注入；`task context --mode packages` 同步装配（hook.MemoryIndexText 共用）。注入文案写明故事档案定位、冲突以规范为准。
+- 验证：新增 5 个测试（解析/空索引/无文件/截断/端到端），全量 22 包过；临时项目真跑 session-start 与 task context 两面均对。本地提交 577a06e。
+
+## EARS 深度逼问：audit 新模式（2026-11-20，用户点选，已实现待发版）
+
+- 起因：用户贴《AI 编程实践第 17 节》EARS 实例截图（多表处理工具的必须确认清单），问能否只对当前 PRD 跑一次 EARS。评估结论：打散部分不回撤（写侧句式节管出生质量、audit 粗扫管每次评审、证据化对账管事后验），新增的是第四层「按需深挖」；单开阶段已否（第二事实源漂移、逼全需求硬套句式、成本方向与节食相反）。
+- 形态：不新建代理、不新建阶段——给 sunshine-audit 加「深度逼问」模式，派发注明才启用，替代当轮普通扫描（覆盖不叠加）。逐条需求把正文规则（判定/算法/配置/阈值/状态流转）与验收标准套 EARS 句式逼问未定点，每条标跨需求影响；只出必须确认/可延后清单，不产出改写全文；已定过的不重问。
+- 触发（条件自动，非纯点名）：①设计先行父任务 1.5 评审且需求含规则型内容（金额判定/登录权限/状态流转/删除覆盖/对外契约沾一条）；②开发先行任务或子任务 1.5 激活前属标准档（未标 risk=light）。轻量档不触发；用户可点名补跑、可豁免（记进 prd）。任务级深挖另读相关 spec：已沉淀全局规则视为已定，新定下的全局规则当场回写 spec。
+- 改动（纯模板措辞，21 文件）：audit 代理 18 份（channel 源 + 17 平台副本，含 codex toml / kiro json）各加「深度逼问模式」节；三份 workflow 的 1.5 缺失项扫描段后各加「深度逼问（条件触发，替代当轮扫描）」段。
+- 未动：marketplace/workflows 镜像（待用户定，与既有漂移一并搁置）；brainstorm 写侧与 check 对账不回撤、不改动。
+- 验证：全量 22 包测试全过；grep 核对 18 份 audit 均含新节、三份 workflow 均含触发段，kiro json 解析正常。真实 PRD 试跑未做（用户手头 prd 不便发来），产出质量待真实项目验证。
+
+- 排版微调（同日晚，用户点选）：audit 汇报格式对齐 EARS 实例截图——「必须确认」标题加注（影响核心功能验收），每条加可选「附带问题」行（主问题带出的次级确认，没有就不写）。同轮已定：prd 本体不改 EARS 问卷格式——契约与问卷不缝合，未决选项不进实现上下文，全量 EARS 化即已否的硬套。

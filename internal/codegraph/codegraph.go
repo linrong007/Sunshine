@@ -149,6 +149,7 @@ type Options struct {
 	Disabled           bool     // --no-codegraph 或 SUNSHINE_NO_CODEGRAPH
 	Platforms          []string // 本次 init 选中的 Sunshine 平台 ID
 	PlatformsInstalled int      // 本次 init 实际新装的平台数
+	Force              bool     // 手动触发（sunshine codegraph install）：无条件接线
 }
 
 // Result 是 Provision 的结果：Lines 给用户看，Acted 表示是否动过外部状态。
@@ -183,7 +184,7 @@ func Provision(ctx context.Context, opts Options, r Runner) Result {
 		}
 	}
 
-	needWire := installedCLI || !graphOK || opts.PlatformsInstalled > 0
+	needWire := opts.Force || installedCLI || !graphOK || opts.PlatformsInstalled > 0
 	if targets := TargetsFor(opts.Platforms); len(targets) > 0 && needWire {
 		wctx, cancel := context.WithTimeout(ctx, 2*time.Minute)
 		_, err := r.Run(wctx, opts.Dir, bin, "install", "--target="+strings.Join(targets, ","), "--yes")

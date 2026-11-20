@@ -587,6 +587,9 @@ func (r *Runner) contextPackagesText() string {
 	} else {
 		lines = append(lines, "（没有规范文件）")
 	}
+	if memIdx := hook.MemoryIndexText(r.Root); memIdx != "" {
+		lines = append(lines, "", "## 长期记忆索引（故事档案，按需读正文；与规范冲突时以规范为准）", memIdx)
+	}
 	pkgs := r.packagesInfo()
 	if len(pkgs) == 0 {
 		return strings.Join(lines, "\n")

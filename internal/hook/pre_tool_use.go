@@ -90,12 +90,12 @@ func runPreToolUseBash(input HookInput, opts Options) error {
 // grep_max_results）：只补缺失键，永不覆盖调用方显式值，
 // 不设上限（传 5000 也原样放过）；Glob 不注入。
 const (
-	readDefaultLimit     = 300
+	readDefaultLimit     = 800
 	grepDefaultHeadLimit = 100
 )
 
 // runPreToolUseLimit 给 Read/Grep 补默认限流：Read 缺 limit 时
-// 注入 300，Grep 缺 head_limit 时注入 100。键已存在（任何值，
+// 注入 800，Grep 缺 head_limit 时注入 100。键已存在（任何值，
 // 含显式 0）时不动；解析失败原样放过。返回全量 updatedInput +
 // permissionDecision "allow"，口径与 Bash 改写一致。
 func runPreToolUseLimit(input HookInput, opts Options) error {
@@ -110,7 +110,7 @@ func runPreToolUseLimit(input HookInput, opts Options) error {
 	switch toolName {
 	case "Read":
 		key, value = "limit", readDefaultLimit
-		note = "Sunshine 已补默认限流：Read 缺 limit，已注入 limit=300（只补缺失键，不改显式值）。"
+		note = "Sunshine 已补默认限流：Read 缺 limit，已注入 limit=800（只补缺失键，不改显式值）。"
 	case "Grep":
 		key, value = "head_limit", grepDefaultHeadLimit
 		note = "Sunshine 已补默认限流：Grep 缺 head_limit，已注入 head_limit=100（只补缺失键，不改显式值）。"

@@ -40,14 +40,14 @@ func TestPreToolUseLimit_ReadInject(t *testing.T) {
 	if specific["permissionDecision"] != "allow" {
 		t.Fatalf("permissionDecision = %v, want allow", specific["permissionDecision"])
 	}
-	if updated["limit"] != float64(300) {
-		t.Fatalf("limit = %v, want 300", updated["limit"])
+	if updated["limit"] != float64(800) {
+		t.Fatalf("limit = %v, want 800", updated["limit"])
 	}
 	if updated["file_path"] != "/tmp/x.go" || updated["offset"] != float64(10) {
 		t.Fatalf("原字段应原样保留，实际：%v", updated)
 	}
-	if ctx, _ := specific["additionalContext"].(string); !strings.Contains(ctx, "limit=300") {
-		t.Fatalf("additionalContext 应说明注入了 limit=300，实际：%q", ctx)
+	if ctx, _ := specific["additionalContext"].(string); !strings.Contains(ctx, "limit=800") {
+		t.Fatalf("additionalContext 应说明注入了 limit=800，实际：%q", ctx)
 	}
 }
 
@@ -74,8 +74,8 @@ func TestPreToolUseLimit_ReadNullLimitInject(t *testing.T) {
 	if parts == nil {
 		t.Fatal("limit 为 null 应视为缺失并注入，但无输出")
 	}
-	if parts["updated"].(map[string]any)["limit"] != float64(300) {
-		t.Fatalf("limit 应注入 300，实际：%v", parts["updated"])
+	if parts["updated"].(map[string]any)["limit"] != float64(800) {
+		t.Fatalf("limit 应注入 800，实际：%v", parts["updated"])
 	}
 }
 

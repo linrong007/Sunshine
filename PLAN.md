@@ -3395,7 +3395,7 @@ gofmt / build / vet 全过；全量测试 21 包全过；新单测：两条 flag
 
 #### 3. Read/Grep 限流注入（PreToolUse）
 
-- Read 缺 limit 时注入 `limit: 300`；Grep 缺 head_limit 时注入 `head_limit: 100`（read_max_lines=300、grep_max_results=100）；只补不存在的键，永不覆盖调用方显式值，不设上限（传 5000 也原样放过）；Glob 不注入（squeez 名义上有、实际返回 None）。
+- Read 缺 limit 时注入 `limit: 800`；Grep 缺 head_limit 时注入 `head_limit: 100`（read_max_lines=800、grep_max_results=100）；只补不存在的键，永不覆盖调用方显式值，不设上限（传 5000 也原样放过）；Glob 不注入（squeez 名义上有、实际返回 None）。（2026-11-20 变更：Read 默认值由 300 改为 800——用户担心 300 行读漏长文件后文，改大到 800 折中；v0.5.32 发布时仍是 300，本变更待下一版。）
 - 方式：改 tool_input 字段、返回全量 updatedInput + permissionDecision "allow"，口径与 RTK 一致；任何解析失败原样放过。
 - 注册：Claude settings.json 的 PreToolUse matcher 由 `Bash` 改为 `Bash|Read|Grep`；RunPreToolUse 按 tool_name 分发（Bash 走现有改写，Read/Grep 走限流注入）。
 

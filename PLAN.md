@@ -3504,10 +3504,19 @@ hook 19 条、CLI 与任务系统 7 条、平台与 registry 11 条、serve/chan
 - Release：id 452121201，非草稿，6 个资产在位（checksums.txt + sunshine_0.5.33_darwin_amd64/arm64.tar.gz、linux_amd64/arm64.tar.gz、windows_amd64.zip）。
 - 实测：一键装（无参）装上 v0.5.33（linux/amd64），`sunshine version` 报 0.5.33；darwin_arm64 包 checksum 25d1721bfe0c5c0114a04ecea92156e77fe6725139dd64f11055a3d81ba6655a、linux_amd64 包 checksum af11b41c744da4b1c7ec969aba0772328756d67cb3a4ab88fdadac507d40821a，均与 checksums.txt 一致；`upgrade --dry-run` 通过（“已是最新版本（当前 0.5.33，最新 0.5.33），无需升级。”）；发布包二进制 grep 确认 “limit=800” 1 处在位；发版前 pre-tool-use 端到端实测注入 limit=800、全量测试 21 包全过。
 
-## 原型代理自检封顶（2026-11-20，已实现，待发版）
+## 原型代理自检封顶（2026-11-20，已随 v0.5.34 发布）
 
 - 起因：用户在 Mac 上用 dsh-context 插件抓到一个 DSH 原型子代理会话的真实分项（R-001 导航页，deepseek-v4.1-flash）：31 步、42 次工具调用、总流量 858.4k（累计口径，缓存命中 95.97%），其中大量步数花在自写 node 截图像素分析脚本（sx-verify 1–4 等）。核查确认原型代理模板里没有任何自检/截图要求——该行为是模型即兴发挥，模板既不要求也不禁止，全凭模型。
 - 决定（用户 2026-11-20 批准）：给自检同时定下限与上限，写进原型代理定义，全平台统一。
 - 改动：`templates/sunshine/agents/prototype.md`（channel 源）+ 17 份平台副本（claude/codebuddy/codex/copilot/cursor/gemini/grok/kimi/kiro/omp/opencode/pi/qoder/snow/trae/zcode/droid）共 18 个文件，在「原型要求」的“单页 500 行上限”条后各加一条：「渲染自检最多一轮：交付前可以截一张图看一眼渲染结果，只看图、不量像素，不许自写像素测量或分析脚本；看到大错（白屏、布局塌陷、明显溢出）改一次就停，改完仍有问题就带着问题交付、在汇报里写明，不再循环检查；没有截图条件时直接跳过，不为自检装工具或写脚本」。kiro 的 JSON 与 codex 的 TOML 按各自格式同文插入（JSON 除插入外零变化，已逐字核对）。纯模板措辞，不动代码。
 - 验证：18 个文件各恰好 1 处新条；`go build` 过、全量测试 21 包全过；新二进制在临时项目 `init -y --claude --codex --kiro`，装出的三份原型代理文件均含新条。
-- 发版：待用户点选。
+- 发版：已随 v0.5.34 发布，见文末 v0.5.34 发布记录。
+
+## v0.5.34 发布记录（2026-11-20，已发布）
+
+- 内容：原型代理渲染自检封顶（「原型要求」加一条：最多一轮、只看图不量像素、不许自写像素测量/分析脚本、大错改一次就停、无截图条件跳过），源模板 + 17 份平台副本共 18 个模板文件；起因与决定见上「原型代理自检封顶」节。纯模板措辞，不动代码。
+- 主提交：本地 222e49bc79f8550c3c67f196ed23c7e6792393a5 → 远端 5c8242d341d19d00d18f0259a9be6aa49d241a0a，tree ee93b25ff70498051e3e85d6540d020a248af015，父提交 74a1f5b863565e59403be1e3650aa55ec041fd89，19 个文件 +26/-1（含 PLAN.md 本节）。
+- tag：v0.5.34，annotated tag，tag 对象 e87d7558812279feb42bf9710f1e308ce887cc8c → 5c8242d。
+- CI 与发布：发布 workflow run 44661082024、CI（tag）run 44661081886、CI（main）run 44661049994 均 completed success。
+- Release：id 452197015，非草稿，6 个资产在位（checksums.txt + sunshine_0.5.34_darwin_amd64/arm64.tar.gz、linux_amd64/arm64.tar.gz、windows_amd64.zip）。
+- 实测：一键装（无参）装上 v0.5.34（linux/amd64），`sunshine version` 报 0.5.34；darwin_arm64 包 checksum 75288be8ef50fe2cca86999c9099186f35eef701b781affe8825a1ba1db18715、linux_amd64 包 checksum 70f94803a3b0041856b7fecd2e217fee5b4cca046084d768221d3197e78828bc，均与 checksums.txt 一致；`upgrade --dry-run` 通过（“已是最新版本（当前 0.5.34，最新 0.5.34），无需升级。”）；发布包二进制 grep 确认 “渲染自检最多一轮” 在位；发版前全量测试 21 包全过、临时项目 init 实测 claude/codex/kiro 装出文件含新条。

@@ -3437,11 +3437,11 @@ gofmt / build / vet 全过；全量测试 21 包全过；新单测：模糊命�
 - 另 8 条小问题（重复计算、折叠顺序交互、Read 限流截断是否标明等）暂不修；全量测试 21 包全过，hook 包 128 单测全过。
 
 
-发版：本批不发版，等用户点选。
+发版：已随 v0.5.32 发布（见文末 v0.5.32 发布记录）。
 
 ### 发版前 bug 检查（全仓，2026-11-20）
 
-用户 2026-11-20 要求发版前再扫 bug：squeez 专查 + 全仓四队（hook / CLI 与任务系统 / 平台与 registry / serve 与 channel 与 mem）。squeez 三件结果见上一节；全仓结论：发版前必须修 12 条，建议修 33 条，可忽略的小问题约 46 条。只做检查，未改文件；squeez 的 2 处修复已另行提交推送（c581170）。修哪档待用户定夺。
+用户 2026-11-20 要求发版前再扫 bug：squeez 专查 + 全仓四队（hook / CLI 与任务系统 / 平台与 registry / serve 与 channel 与 mem）。squeez 三件结果见上一节；全仓结论：发版前必须修 12 条，建议修 33 条，可忽略的小问题约 46 条。只做检查，未改文件；squeez 的 2 处修复已另行提交推送（c581170）。用户 2026-11-20 定 12 条全修，已修完并随 v0.5.32 发布（修复记录见本节末）。
 
 #### 发版前必须修（12 条）
 
@@ -3484,3 +3484,13 @@ hook 19 条、CLI 与任务系统 7 条、平台与 registry 11 条、serve/chan
 - D3：dshSessionMeta 只在读不到 session 头（打不开/解压失败/无头）时返回 nil，坏行只带 warnings 返回会话；dshSessions 只按 info==nil 跳过，并把 warnings 汇总上抛（此前恒返回 nil warnings）；与 claude/codex/pi 的列表逻辑对齐。改 internal/mem/adapters/dsh.go；测试 TestDSHSessions_BadLineKeepsSession；既有 TestDshCorruptFile（坏 zstd 仍跳过）、TestDshNoSessionHeader（无头仍跳过）仍过。
 
 全量验证（协调人统一跑）：gofmt -l 全仓为空；go build ./...、go vet ./... 通过；TMPDIR=/var/tmp go test ./... -count=1 全量 21 个有测试的包全过；上列回归测试 20 个点名复跑全过，D1 并发测试连跑 3 遍不 flaky；协调人另用实编译二进制独立复核 B1（成环/自环 exit 1）、B2（归档 start/set-branch exit 1）、B3（备份目录存在且含全部 task.json、新 .sunshine 已重建）。
+
+## v0.5.32 发布记录（2026-11-20，已发布）
+
+- 内容：squeez 增量机制（模糊去重、Read/Grep 限流注入、compact 后状态重注）+ 发版前 bug 检查修复三批：squeez 专查 2 处（验收标准小数行错切、模糊去重次优候选）、全仓 12 条必须修（spec 同步原子化、坏文件跳过、任务指针收容、子任务成环、归档守卫、init -f 先备份、init 回退保手写规范、GitLab 解析两处、activity 并发锁、spawn glob 透传、DSH 坏行不丢会话）。
+- 主提交：squeez 本地 fee09cc129b6901a97bc70455293d7ea4a8411c5 → 远端 ab23f3d1786b766b695f1a5018d7e9c8d7bba42e，tree ce9bdaf537965e9d286f8a207653241b61e2ccaf，15 个文件 +1542/-25；squeez 修复本地 7e05dab6cc90c77177bb6d053b8400a58d1b88a0 → 远端 c581170a5e27ea0fc3a7c729a82fc63c0c3c4ed9，tree 8cfc13a568a8280f0ecb675d0081de608b9eabd5，5 个文件 +99/-33；全仓修复本地 865926e3f693f2b7128d88df3e3082a141bf7a13 → 远端 f90251f84cf2faf70ffd323053bece002b570884，tree 21d3a149aad1711d8a5968ed53313b5c71a83d8c，27 个文件 +1638/-55（tag 指向此提交）。
+- tag：v0.5.32，annotated tag，tag 对象 37f3f4c9a24163ac4fba01f12fea482f9a256b94 → f90251f。
+- CI 与发布：发布 workflow run 44642749412、CI（tag）run 44642749359、CI（main）run 44642710675 均 completed success。
+- Release：id 452091364，非草稿，6 个资产在位（checksums.txt + sunshine_0.5.32_darwin_amd64/arm64.tar.gz、linux_amd64/arm64.tar.gz、windows_amd64.zip）。
+- 实测：一键装（无参）装上 v0.5.32（linux/amd64），`sunshine version` 报 0.5.32；darwin_arm64 包 checksum 992b3c36b22c93fa753dbd7e8f40999be763d35777af4e2af8e5edac713e1f3f、linux_amd64 包 checksum a65c189a144b68d086545feb2f8b9cb013f8bb09b2ecb1a022004541ff412a74，均与 checksums.txt 一致；`upgrade --dry-run` 通过（“已是最新版本（当前 0.5.32，最新 0.5.32），无需升级。”）；发布包二进制含模糊去重引用文案（“已在上下文中，不再重复”2 处）。
+- 已知遗留：C2 的 SSH 与 giget 前缀形式 GitLab 子群组仍按两段式解析（被既有单测的 subdir 语义钉住，HTTPS 形式已全修）；②建议修 33 条、③小问题约 46 条未修（清单见上节）；本地验证时 TestChannelWaitAll 在连跑两遍全量下抖过一次（单独连跑 10 次与整包复跑均过，负载时序抖动，与 v0.5.6 的 CI 抖动同类）。

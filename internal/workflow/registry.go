@@ -48,8 +48,8 @@ var (
 	scpSSHRe      = regexp.MustCompile(`^git@([^:]+):(.+?)(?:\.git)?/?$`)
 	protocolSSHRe = regexp.MustCompile(`^ssh://git@([^/:]+)(?::(\d+))?/(.+?)(?:\.git)?/?$`)
 	httpsRe       = regexp.MustCompile(`^https?://([^/]+)/(.+?)(?:\.git)?/?$`)
-	gitlabTreeRe  = regexp.MustCompile(`^([^/]+/[^/]+)(?:/-)?/tree/([^/]+)(?:/(.+?))?$`)
-	githubTreeRe  = regexp.MustCompile(`^([^/]+/[^/]+)/tree/([^/]+)(?:/(.+?))?$`)
+	gitlabTreeRe  = regexp.MustCompile(`^(.+?)(?:/-)?/tree/([^/]+)(?:/(.+?))?$`)
+	githubTreeRe  = regexp.MustCompile(`^(.+?)(?:/-)?/tree/([^/]+)(?:/(.+?))?$`)
 )
 
 var knownPublicDomains = map[string]bool{
@@ -153,6 +153,13 @@ func ParseRegistrySource(source string) (RegistrySource, error) {
 	var normalizedInput string
 	kind := "prefixed"
 	var sshHost, sshPort, sshStyle string
+	// GitLab 多段仓库（子群组）切分提示（C2，与 internal/registry 同
+	// 规则）：repoSegs>0 时仓库取前 repoSegs 段（tree 形式按 /tree/
+	// 或 /-/tree/ 之前的段数定）；fullRepo 为真时整个路径都是仓库
+	// （GitLab 裸 HTTPS 路径无子目录分隔符）。giget 前缀与 SSH 形式
+	// 仍按两段式走（既有单测钉住）。
+	var repoSegs int
+	var fullRepo bool
 
 	// SSH：git@host:org/repo[.git] 或 ssh://git@host[:port]/org/repo[.git]
 	if m := scpSSHRe.FindStringSubmatch(source); m != nil {
@@ -189,6 +196,7 @@ func ParseRegistrySource(source string) (RegistrySource, error) {
 				host = domain
 				pathPart := m[2]
 				if tm := gitlabTreeRe.FindStringSubmatch(pathPart); tm != nil {
+					repoSegs = len(strings.Split(tm[1], "/"))
 					normalizedInput = "gitlab:" + tm[1]
 					if tm[3] != "" {
 						normalizedInput += "/" + tm[3]
@@ -196,8 +204,36 @@ func ParseRegistrySource(source string) (RegistrySource, error) {
 					normalizedInput += "#" + tm[2]
 				} else {
 					normalizedInput = "gitlab:" + pathPart
+					fullRepo = true
 				}
 			}
+		}
+	}
+
+	// 公开 HTTPS（走 normalizeRegistrySource 兜底）时同样定切分：
+	// tree 形式按 /tree/（或 GitLab 的 /-/tree/）之前的段数定仓库；
+	// gitlab.com 裸路径全段是仓库（子群组）。
+	if normalizedInput == "" {
+		for _, rule := range []struct {
+			re     *regexp.Regexp
+			prefix string
+		}{
+			{regexp.MustCompile(`^https?://github\.com/`), "gh:"},
+			{regexp.MustCompile(`^https?://gitlab\.com/`), "gitlab:"},
+			{regexp.MustCompile(`^https?://bitbucket\.org/`), "bitbucket:"},
+		} {
+			if !rule.re.MatchString(source) {
+				continue
+			}
+			rest := rule.re.ReplaceAllString(source, "")
+			rest = strings.TrimSuffix(rest, ".git")
+			rest = strings.TrimSuffix(rest, "/")
+			if m := githubTreeRe.FindStringSubmatch(rest); m != nil {
+				repoSegs = len(strings.Split(m[1], "/"))
+			} else if rule.prefix == "gitlab:" {
+				fullRepo = true
+			}
+			break
 		}
 	}
 
@@ -242,6 +278,14 @@ func ParseRegistrySource(source string) (RegistrySource, error) {
 	if dotGit && host != "" {
 		repo = strings.TrimSuffix(strings.Join(segments, "/"), ".git")
 		subdir = ""
+	} else if fullRepo {
+		// GitLab 裸 HTTPS 路径：全段是仓库（子群组），无子目录。
+		repo = strings.Join(segments, "/")
+		subdir = ""
+	} else if repoSegs >= 2 && repoSegs <= len(segments) {
+		// tree 形式：/tree/ 之前的全段是仓库，其后是子目录。
+		repo = strings.Join(segments[:repoSegs], "/")
+		subdir = strings.Join(segments[repoSegs:], "/")
 	}
 
 	rawBaseURL := strings.ReplaceAll(pattern, "{repo}", repo)

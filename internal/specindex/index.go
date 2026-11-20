@@ -6,6 +6,8 @@
 package specindex
 
 import (
+	"bytes"
+	"fmt"
 	"os"
 	"path/filepath"
 	"sort"
@@ -173,20 +175,66 @@ func SyncContentFor(content, filename string) (string, bool) {
 	return newContent, changed || newContent != content
 }
 
-// SyncFile 同步单个 spec 文件的索引节与适用标签，返回是否改动。
-func SyncFile(path string) (bool, error) {
-	raw, err := os.ReadFile(path)
+// writeFileAtomic 原子替换文件内容：先在同目录写临时文件，再 rename
+// 覆盖目标。同目录保证 rename 在同一文件系统内、是原子操作，读者不会
+// 读到写了一半的内容。perm 为目标文件应有的权限（保留原权限）。
+func writeFileAtomic(path string, data []byte, perm os.FileMode) error {
+	dir := filepath.Dir(path)
+	tmp, err := os.CreateTemp(dir, ".specindex-*.tmp")
 	if err != nil {
-		return false, err
+		return err
 	}
-	updated, changed := SyncContentFor(string(raw), filepath.Base(path))
-	if !changed {
-		return false, nil
+	tmpName := tmp.Name()
+	defer os.Remove(tmpName) // rename 成功后该路径已不存在，Remove 无害
+	if _, err := tmp.Write(data); err != nil {
+		tmp.Close()
+		return err
 	}
-	if err := os.WriteFile(path, []byte(updated), 0o644); err != nil {
-		return false, err
+	if err := tmp.Chmod(perm); err != nil {
+		tmp.Close()
+		return err
 	}
-	return true, nil
+	if err := tmp.Sync(); err != nil {
+		tmp.Close()
+		return err
+	}
+	if err := tmp.Close(); err != nil {
+		return err
+	}
+	return os.Rename(tmpName, path)
+}
+
+// SyncFile 同步单个 spec 文件的索引节与适用标签，返回是否改动。
+// 写盘走同目录临时文件 + rename 原子替换，并保留原文件权限；
+// 写前再比对一次内容：读盘后文件被别人改过（两次 Edit 快速连续、
+// SessionStart 全量同步与 Edit 并发）时重读重算，不拿旧内容覆盖新改动。
+func SyncFile(path string) (bool, error) {
+	for attempt := 0; attempt < 5; attempt++ {
+		info, err := os.Stat(path)
+		if err != nil {
+			return false, err
+		}
+		raw, err := os.ReadFile(path)
+		if err != nil {
+			return false, err
+		}
+		updated, changed := SyncContentFor(string(raw), filepath.Base(path))
+		if !changed {
+			return false, nil
+		}
+		cur, err := os.ReadFile(path)
+		if err != nil {
+			return false, err
+		}
+		if !bytes.Equal(cur, raw) {
+			continue // 期间被改过：重读重算，别覆盖新改动
+		}
+		if err := writeFileAtomic(path, []byte(updated), info.Mode().Perm()); err != nil {
+			return false, err
+		}
+		return true, nil
+	}
+	return false, fmt.Errorf("spec 文件在同步期间持续变化，已放弃写入：%s", path)
 }
 
 // CheckFile 只检查单个 spec 文件的索引与适用标签是否同步，不写盘。
@@ -204,7 +252,16 @@ func SpecFiles(specDir string) ([]string, error) {
 	var out []string
 	err := filepath.WalkDir(specDir, func(path string, d os.DirEntry, err error) error {
 		if err != nil {
-			return err
+			// 单个坏条目（悬空软链接、无权限目录等）跳过继续，
+			// 不让一个坏文件 abort 整个目录的同步；根目录本身
+			// 读不了才是真错误。
+			if path == specDir {
+				return err
+			}
+			if d != nil && d.IsDir() {
+				return filepath.SkipDir
+			}
+			return nil
 		}
 		if d.IsDir() {
 			if d.Name() == "guides" {
@@ -225,20 +282,27 @@ func SpecFiles(specDir string) ([]string, error) {
 }
 
 // SyncDir 同步 specDir 下全部 spec 文件的索引，返回改动的文件列表。
+// 单个文件失败（悬空软链接、不可读等）跳过继续同步其余文件，
+// 最后汇总返回一个带跳过文件清单的错误，不中断全量同步。
 func SyncDir(specDir string) ([]string, error) {
 	files, err := SpecFiles(specDir)
 	if err != nil {
 		return nil, err
 	}
 	var changed []string
+	var skipped []string
 	for _, f := range files {
 		ok, err := SyncFile(f)
 		if err != nil {
-			return changed, err
+			skipped = append(skipped, fmt.Sprintf("%s: %v", f, err))
+			continue
 		}
 		if ok {
 			changed = append(changed, f)
 		}
+	}
+	if len(skipped) > 0 {
+		return changed, fmt.Errorf("同步 spec 索引跳过 %d 个文件：%s", len(skipped), strings.Join(skipped, "; "))
 	}
 	return changed, nil
 }

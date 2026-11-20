@@ -3438,3 +3438,49 @@ gofmt / build / vet 全过；全量测试 21 包全过；新单测：模糊命�
 
 
 发版：本批不发版，等用户点选。
+
+### 发版前 bug 检查（全仓，2026-11-20）
+
+用户 2026-11-20 要求发版前再扫 bug：squeez 专查 + 全仓四队（hook / CLI 与任务系统 / 平台与 registry / serve 与 channel 与 mem）。squeez 三件结果见上一节；全仓结论：发版前必须修 12 条，建议修 33 条，可忽略的小问题约 46 条。只做检查，未改文件；squeez 的 2 处修复已另行提交推送（c581170）。修哪档待用户定夺。
+
+#### 发版前必须修（12 条）
+
+- A1 spec 索引同步非原子 read-modify-write（specindex/index.go:177,228）：两次快速 Edit 或 SessionStart SyncDir 并发，hook 基于旧内容写回，覆盖 agent 改动，spec 内容静默丢失。修：临时文件 + rename 原子替换，或写盘前比对 mtime/内容重算，或同文件加锁。
+- A2 单个坏 spec 文件 abort 整个规范地图/全量同步（specindex/applicability.go:127-170，index.go:228-237）：spec/ 下任一 .md 是悬空软链接或权限 000，SessionStart 规范地图整个为空，SyncDir 中断。修：单文件读失败跳过继续，最后汇总。
+- A3 任务指针 `..` 逃出 tasks 目录仍被当成当前任务（hook/hook.go:356-391，active_task.go:284）：会话指针 current_task 写 `../spec`，session-start 输出 `Current task: .sunshine/spec` 未判 STALE，提示注入可利用。修：收容收紧到 `.sunshine/tasks/`。
+- B1 add-subtask 可建父子环与自环（task/lifecycle.go:1012,795，context.go:272）：环内任务文本 list/context 报“没有任务”；环挂根下后 list/context 无限递归，20 秒写 396MB 输出直至栈溢出。修：建链前拒绝 parent==child 与成环；printTask/printTree 加 visited 集合。
+- B2 归档任务仍可被 start/add-subtask/create --parent/set-* 操作（task/lifecycle.go:505,1012,123,909）：按归档路径传参时成功，归档任务复活为当前任务、归档文件被改写、父子图悬空。修：所有写任务命令统一加 IsWithinTasksDir 守卫（与 Archive/Rename 一致）；Start 另加状态校验。
+- B3 init -f 无确认、无备份直接 RemoveAll(.sunshine/)（scaffold/scaffold.go:101）：已初始化项目一次误操作丢全部任务、journal、memory，且中途失败旧数据已丢。修：交互确认并明示，或先备份到 .sunshine/.backup-<时间戳>/，或 -f 只重建骨架保留 tasks/workspace/memory。
+- C1 增量 init 的 registry 安装失败回退清空手写规范（cli/registry.go:60-70，scaffold/registry.go:24-56）：安装探测成功后失败时，内置空白模板无条件覆盖手写 system.md/frontend.md/backend.md，内容永久丢失，还记了空白模板哈希。修：WriteDefaultSpec 只写不存在的文件，或回退前备份 spec/。
+- C2 GitLab 子群组仓库解析错误（registry/parse.go:303-316，workflow/registry.go:293-306）：三段以上路径（group/sub/repo）被切成 repo="group/sub"，拼出错误 GitURL。修：两处解析器共用“仓库路径可多段”逻辑。
+- C3 公开 GitLab 浏览 URL（/-/tree/）解析错误（registry/parse.go:48-66，workflow/registry.go:118-140）：`/-/tree/main/marketplace` 被当成 subdir，RawBaseURL 走偏。修：tree 正则加 (?:/-)?，两处同步。
+- D1 activity.jsonl 并发截断丢事件（hook/activity.go:49-97）：文件超 1000 行后并发 subagent-stop，truncate 读全文件→写 .tmp→Rename，窗口期内追加丢失；实测 200 并发丢 100 条。修：append+truncate 临界区加锁文件，或取消原地截断（只追加，读侧取尾部）。
+- D2 CLI spawn 的 --file "**" glob 静默丢深层文件（cli/channel_spawn.go:305-380，channel/supervisor/context.go:39-130）：CLI 用 filepath.Glob 预展开（不支持 **），supervisor 永远看不到原始 pattern；另 CLI 预组装读盘失败即致 spawn 整体失败（supervisor 本是 warn+跳过），且 CLI 组装的 SystemPrompt 在生产路径被丢弃。修：CLI 不预展开、不预读，原始 pattern 原样传 supervisor。
+- D3 DSH 会话列表任一坏行导致整个会话被跳过（mem/adapters/dsh.go:56-64,120-145）：session.v4.jsonl.zstd 解压后一行无法解析，整个会话从 mem list/search 消失。修：只有打不开/解压失败才跳过，坏行只记警告。
+
+#### 建议修（33 条，简列）
+
+hook（A5–A15）：A5 spec 索引同步沿软链接写到 spec 外（post_tool_use.go:78，index.go:177）；A6 PostToolUse Bash 分支每次全量 SyncDir（post_tool_use.go:87）；A7 shell-session 身份判定只查顶层字段（shell_session.go:66）；A8 ResolveProjectRootMulti 不查环境变量（hook.go:273）；A9 statusline 只用进程 cwd 找根（statusline.go:29）；A10 isLoneLineTag 只验标签后半行（workflow_state.go:194）；A11 materializeDirectory 超 20 文件静默丢弃（subagent.go:564）；A12 compress 输出无界缓冲、超时不彻底（compress.go:74-76）；A13 handleCodexSubagentStart 找根不查环境变量（subagent.go:170）；A14 spec_scope 写单个包名时静默全量扫描（session_start.go:194）；A15 ReadActivityEvents 单行超限丢弃其后全部事件（activity.go:102-116）。
+CLI 与任务系统（B4–B13）：B4 .current-task 与会话文件写操作全程无锁（task/active.go）；B5 create --force 换父后旧父 children 残留（lifecycle.go:123）；B6 Archive 先置 completed 再解子女链接（lifecycle.go:1771）；B7 Archive 缺少 create 文案承诺的空标题/空描述门禁（lifecycle.go:1771）；B8 ParseRecord 要求 24 字段全必填（record.go:247）；B9 开发者名未净化拼进工作区路径（hook/hook.go:403）；B10 task list --status 按原始 status 过滤与 displayStatus 不一致（lifecycle.go:746,800）；B11 spec index <文件> 不校验须在项目内（cli/spec.go）；B12 upgrade verifyNewVersion 无超时、回滚非原子（upgrade.go:668）；B13 Start 不校验任务状态（lifecycle.go:505）。
+平台与 registry（C4–C10）：C4 来源带 .git 又带 #ref 拼出双重 .git 后缀（registry/parse.go:166-180）；C5 spec 模板 path 指向单个文件时 .sunshine/spec 被写成普通文件（registry/download.go:357-372）；C6 append 策略同名文件静默跳过却照常计数记哈希（registry/download.go:74-93）；C7 --overwrite“先备后换”不是原子（download.go:111-141）；C8 适用标签按文件名推断不认中文名（specindex/applicability.go:36-46）；C9 registry:/spec: 行带行尾注释时读不到、写出重复节（config/registry.go:60-68,150-222）；C10 外部市场模板内容不经处理成为 agent 指令上下文（设计级缺口，registry/download.go）。
+serve/channel/mem（D4–D9）：D4 Claude 适配器只认 string 的 user 内容、只认数组的 assistant 内容（mem/adapters/claude.go:143-190）；D5 serve 每轮询全量扫描 mem 会话（serve/handlers_misc.go，app.js:619,627）；D6 serve 三处每轮全量读 channel 事件且一处重复读（handlers_channels.go，handlers_misc.go）；D7 channel 锁陈旧窃取无年龄兜底、supervisor done/error 丢失无重试（channel/store/lock.go:124-151，supervisor/run.go:368-390）；D8 BuildChildIndex 的 parent_id 成环死循环耗尽内存（mem/context.go:79-100）；D9 serve /api/health 在配了 registry.spec 时触发出站拉取（serve/handlers_misc.go）。
+
+#### 可忽略的小问题（约 46 条）
+hook 19 条、CLI 与任务系统 7 条、平台与 registry 11 条、serve/channel/mem 9 条，详见本次检查汇报（会话记录）。另核查通过两点：hook fail-open 铁律未发现违反；serve 只读口径属实（无写文件调用、路由全 GET、只绑 127.0.0.1）。
+
+#### 修复记录（2026-11-20，四队并行修，改动留工作树待发版）
+
+- A1：SyncFile 写盘改「同目录临时文件（os.CreateTemp）+ Sync + rename」原子替换并保留原文件权限；另加写前内容比对（读盘后文件已被改则重读重算，最多 5 次，仍在变报错放弃）。未用 mtime 退路（同目录 rename 无跨设备约束）。改 internal/specindex/index.go；测试 TestSyncFile_AtomicNoOverwrite。
+- A2：CollectSpecMap 的 WalkDir 回调与单文件 ReadFile 失败改为跳过继续（仅 specDir 根目录读不了才返回真错误）；SyncDir 单文件失败记下继续、最后汇总返回带跳过清单的错误；连带 SpecFiles 的 walk 回调同样跳过坏条目（否则悬空链接会在列文件阶段先中断 SyncDir）。改 internal/specindex/applicability.go、index.go；测试 TestCollectSpecMap_SkipsBadFile、TestSyncDir_SkipsBadFile（用悬空软链接触发，沙箱 root 下权限 000 仍可读）。
+- A3：ResolveTaskRef 收容从「仓库内」收紧到「.sunshine/tasks/ 内（含 archive/）」；.sunshine 为符号链接时按其实址的 tasks/ 判定并映射回词法路径（#567 例外保留，真实符号链接项目实测通过）。active_task.go 未改：activeFromRef 本就以 ResolveTaskRef=="" 判 Stale，收紧后自动生效。改 internal/hook/hook.go；测试 TestResolveTaskRef_EscapeTasksRejected、TestSessionStart_EscapeTaskPointerIsStale。复核：指针 ../spec 时修复前输出 Current task: .sunshine/spec 并把 spec 的假 task.json/prd.md 当任务注入，修复后判 STALE POINTER。
+- B1：linkSubtask 建链前拒绝自环、沿新父的父链上溯拒绝成环（报错写明祖先关系）；List 的 printTask 与 Context 的 printTree 各加 visited 集合（回边打印「已访问，跳过」警告），并加兜底遍：无根可达的环内任务逐个补打，不再被藏掉。改 internal/task/lifecycle.go、context.go；测试 TestLinkSubtask_SelfCycleRejected、TestLinkSubtask_CycleRejected、TestListContext_HandmadeCycle_B1。复核：add-subtask B A 与 A A 均 exit 1；手改自环后 list/context 立即返回（241 字节，修复前 20 秒写 396MB）。
+- B2：新增统一守卫 requireActiveTaskDir（基于既有 IsWithinTasksDir，与 Archive/Rename 同口径），覆盖 Start、linkSubtask（父子两侧）、Create --parent、setField、SetMeta、AddContext；Start 另加状态校验，非 planning/in_progress 拒绝并报错说明当前状态。口径落实：Validate 全程只读不写盘，按「只给写路径加」未加守卫；Start 状态校验仅在 task.json 可读时生效，缺失/损坏仍走原有告警路径。改 internal/task/lifecycle.go；测试 TestStart_ArchivedTaskRejected、TestStart_CompletedStatusRejected、TestWriteOps_ArchivedTaskRejected。复核：按归档路径 start/set-branch 均 exit 1，.current-task 未被写入。
+- B3：Force 分支删前先把旧 .sunshine/ 整体 os.Rename 备份到同级 .sunshine.backup-YYYYMMDD-HHMMSS（同秒冲突加 -1、-2 后缀）并打印备份路径，备份失败则中止且旧数据不动；保持非交互，无确认提问；-f 帮助文案改写明会先备份。改 internal/scaffold/scaffold.go、internal/cli/init.go；测试 TestInitForce_BackupsExisting、TestInitForceHelpMentionsBackup_B3。复核：init -f 后备份目录含原任务与归档任务的 task.json，新 .sunshine/ 正常重建。
+- C1：WriteDefaultSpec 改成只补缺失——已存在文件原样保留、不覆盖、且不进返回清单（调用方据返回值记哈希，手写内容不再被记成模板哈希的问题随之消失）；全新 init 照常全写。internal/cli/registry.go 未改（其回退分支原本就拿返回值记哈希）；回退不写 registry.spec 的既有行为保持。改 internal/scaffold/registry.go；测试 TestWriteDefaultSpec_KeepsExisting、TestRegistryInstallFailureFallback_C1_KeepsExisting（端到端：假市场模板 path 不存在触发回退，三份 MUST-STAY 手写 spec 逐字保留）。
+- C2：GitLab 裸 HTTPS 路径（公开 gitlab.com 与自建 host）全段视为仓库路径；tree 形式按 /tree/ 或 /-/tree/ 之前的段定仓库、其后为 subdir；两包同构实现，未抽共用函数（两包结构体/错误类型不同，且 workflow 不能反向依赖 registry，按既有惯例各实现一份）。**与任务书的出入**：子群组「全段为仓库」只施于 GitLab 裸 HTTPS 与 tree 形式；giget 前缀（gitlab:...）与 SSH 形式仍保持两段式——这两类自带显式 subdir 语义且被既有单测钉住（如 ssh://git@localhost:2222/git/registry/marketplace → repo=git/registry、subdir=marketplace），全改会挂单测且 subdir 无从表达；任务书实测的两个出错例子都是 HTTPS 形式，已全部修复。改 internal/registry/parse.go、internal/workflow/registry.go；测试两包各一份 TestParseGitLabSubgroup。复核：git.corp.com/group/sub/repo 修复前 GitURL=.../group/sub.git，修复后 Repo=group/sub/repo、GitURL=.../group/sub/repo.git。
+- C3：两处 tree 正则（registry 的 httpsTreeRe、workflow 的 githubTreeRe）都加 (?:/-)?，与 gitlabTreeRe 一致；附带 GitHub 的 /-/tree/ 也随同一正则一并修好（已加断言）。改同 C2 两文件；测试两包各一份 TestNormalizeGitLabDashTree。复核：gitlab.com/org/repo/-/tree/main/marketplace 修复后 Repo=org/repo、Subdir=marketplace、Ref=main，与自建 GitLab 行为一致。
+- D1：AppendActivityEvent 的 append+truncate 整个临界区加锁（进程内 sync.Mutex + 跨进程 O_EXCL 锁文件、内写 pid、只删自己 pid 的锁、陈旧锁窃取），拿不到锁时 fail-open 只追加不截断；截断 tmp 名加 pid 后缀。**与任务书的出入**：锁等待上限取 2 秒（重试间隔 10ms）而非几十毫秒——几十毫秒装不下 200 并发的排队（每临界区含一次读/重写 1000 行），会大量走 fail-open 反而可能丢；2 秒仍属短超时且超时即 fail-open。陈旧判定用锁文件年龄 >5s（不可解析内容 >1s）而非 pid 存活探测（hook 包无现成 pidAlive，加平台文件会扩范围）。改 internal/hook/activity.go；测试 TestAppendActivityEvent_ConcurrentNoLoss。复核：进程内 200 并发 200/200 不丢；实编译二进制跨进程实测（预置 999 行、xargs -P 20 并发 200 次 subagent-stop）200/200、丢 0 条（修复前丢 100 条），.runtime/ 下无残留锁/tmp。
+- D2：parseSpawnFlags 按后端真实分流条件 channelWorkerRuntime==nil 区分路径——生产路径不预展开、不预读，原始 --file/--jsonl pattern 原样写入 opts.Files/JSONLManifests 透传 supervisor；仅注入 runtime 的 API/测试路径仍走 assembleSpawnContext，其报错只作用于该路径。**与任务书的出入**：internal/channel/supervisor/context.go 与 internal/cli/channel_real_backend.go 未改代码——核查后 supervisor 的 expandGlob 本已支持 **、spawnViaSupervisor 本已转发 opts.Files/JSONLManifests，病根只在 CLI 预展开覆盖了原始值。改 internal/cli/channel_spawn.go；测试 TestSpawnFileGlob_DeepPreserved（src/**/*.go 展开含 src/a/b/deep.go；--file "src2/*" 命中目录时生产路径不报错、supervisor 跳过目录）。
+- D3：dshSessionMeta 只在读不到 session 头（打不开/解压失败/无头）时返回 nil，坏行只带 warnings 返回会话；dshSessions 只按 info==nil 跳过，并把 warnings 汇总上抛（此前恒返回 nil warnings）；与 claude/codex/pi 的列表逻辑对齐。改 internal/mem/adapters/dsh.go；测试 TestDSHSessions_BadLineKeepsSession；既有 TestDshCorruptFile（坏 zstd 仍跳过）、TestDshNoSessionHeader（无头仍跳过）仍过。
+
+全量验证（协调人统一跑）：gofmt -l 全仓为空；go build ./...、go vet ./... 通过；TMPDIR=/var/tmp go test ./... -count=1 全量 21 个有测试的包全过；上列回归测试 20 个点名复跑全过，D1 并发测试连跑 3 遍不 flaky；协调人另用实编译二进制独立复核 B1（成环/自环 exit 1）、B2（归档 start/set-branch exit 1）、B3（备份目录存在且含全部 task.json、新 .sunshine 已重建）。

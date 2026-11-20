@@ -11,9 +11,13 @@ package hook
 import (
 	"bufio"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -46,8 +50,74 @@ func ActivityFilePath(root string) string {
 	return filepath.Join(root, ".sunshine", ".runtime", "activity.jsonl")
 }
 
+// activityMu 串行化同一进程内的并发追加（测试与同进程多 goroutine）。
+var activityMu sync.Mutex
+
+// activityLockTimeout 是跨进程锁的最长等待：短超时、fail-open。
+// 正常临界区只有一次追加 + 至多一次读/重写 1000 行，应在毫秒级完成；
+// 等待上限设为 2 秒是给高并发排队留余量，超过则只追加不截断。
+const activityLockTimeout = 2 * time.Second
+
+const activityLockRetryInterval = 10 * time.Millisecond
+
+// activityLockStaleAge 是锁文件视为陈旧的年龄：持有者正常会在
+// 毫秒级释放，超过该年龄基本可判定持有者已崩溃/被杀，可窃取。
+const activityLockStaleAge = 5 * time.Second
+
+// tryAcquireActivityLock 用 O_EXCL 创建锁文件（内写 pid），
+// 参考 channel/store 的锁模式但更轻量：短超时、陈旧窃取。
+// 成功返回 (release, true)；超时返回 (nil, false)，调用方 fail-open。
+func tryAcquireActivityLock(path string) (func(), bool) {
+	lockPath := path + ".lock"
+	deadline := time.Now().Add(activityLockTimeout)
+	for {
+		f, err := os.OpenFile(lockPath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o644)
+		if err == nil {
+			_, _ = f.WriteString(strconv.Itoa(os.Getpid()))
+			_ = f.Close()
+			release := func() {
+				data, rerr := os.ReadFile(lockPath)
+				if rerr != nil {
+					return
+				}
+				if strings.TrimSpace(string(data)) == strconv.Itoa(os.Getpid()) {
+					_ = os.Remove(lockPath)
+				}
+			}
+			return release, true
+		}
+		if !errors.Is(err, os.ErrExist) {
+			return nil, false
+		}
+		// 陈旧锁窃取：锁文件存在过久（持有者已死）则删除后重试。
+		if info, serr := os.Stat(lockPath); serr == nil && time.Since(info.ModTime()) > activityLockStaleAge {
+			_ = os.Remove(lockPath)
+			continue
+		}
+		// 内容不可解析且已存在超过 1 秒（创建瞬间未写 pid 的窗口之外）
+		// 也视为陈旧，避免空锁文件永久堵住。
+		if data, rerr := os.ReadFile(lockPath); rerr == nil {
+			if _, perr := strconv.Atoi(strings.TrimSpace(string(data))); perr != nil {
+				if info, serr := os.Stat(lockPath); serr == nil && time.Since(info.ModTime()) > time.Second {
+					_ = os.Remove(lockPath)
+					continue
+				}
+			}
+		}
+		if time.Now().After(deadline) {
+			return nil, false
+		}
+		time.Sleep(activityLockRetryInterval)
+	}
+}
+
 // AppendActivityEvent 追加一行事件；失败静默丢弃。写盘后若行数
 // 超过 MaxActivityLines，截断只留最近 MaxActivityLines 行。
+//
+// 并发安全（D1）：append+truncate 整个临界区持锁（进程内 mutex +
+// 跨进程锁文件），避免截断的 rename 覆盖窗口期内其他进程的追加。
+// 拿不到跨进程锁时 fail-open：只追加、不截断，宁可文件暂时超限
+// 也不能阻塞会话、不能丢事件。
 func AppendActivityEvent(root string, ev ActivityEvent) {
 	if root == "" {
 		return
@@ -66,6 +136,12 @@ func AppendActivityEvent(root string, ev ActivityEvent) {
 	if err != nil {
 		return
 	}
+	activityMu.Lock()
+	defer activityMu.Unlock()
+	release, locked := tryAcquireActivityLock(path)
+	if locked {
+		defer release()
+	}
 	f, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
 	if err != nil {
 		return
@@ -75,7 +151,9 @@ func AppendActivityEvent(root string, ev ActivityEvent) {
 	if err != nil {
 		return
 	}
-	truncateActivityFile(path)
+	if locked {
+		truncateActivityFile(path)
+	}
 }
 
 // truncateActivityFile 在行数超限时重写文件只留最近 MaxActivityLines 行；
@@ -90,7 +168,8 @@ func truncateActivityFile(path string) {
 		return
 	}
 	keep := lines[len(lines)-MaxActivityLines:]
-	tmp := path + ".tmp"
+	// tmp 名带 pid 后缀，防并发截断互踩同一 tmp 文件。
+	tmp := fmt.Sprintf("%s.tmp.%d", path, os.Getpid())
 	if err := os.WriteFile(tmp, []byte(strings.Join(keep, "\n")+"\n"), 0o644); err != nil {
 		return
 	}

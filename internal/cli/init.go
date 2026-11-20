@@ -284,7 +284,7 @@ GitHub Copilot、Factory Droid）。
 func init() {
 	initCmd.Flags().StringVarP(&initUser, "user", "u", "", "开发者名称（默认读取 git 配置，未配置时为 developer）")
 	initCmd.Flags().BoolVarP(&initYes, "yes", "y", false, "跳过全部提问，使用默认配置")
-	initCmd.Flags().BoolVarP(&initForce, "force", "f", false, "已初始化时仍覆盖重建")
+	initCmd.Flags().BoolVarP(&initForce, "force", "f", false, "已初始化时仍覆盖重建（会先把旧 .sunshine/ 备份到 .sunshine.backup-<时间戳> 再重建）")
 	initCmd.Flags().BoolVar(&initClaude, "claude", false, "安装 Claude Code 平台配置")
 	initCmd.Flags().BoolVar(&initCursor, "cursor", false, "安装 Cursor 平台配置")
 	initCmd.Flags().BoolVar(&initCodex, "codex", false, "安装 Codex 平台配置")

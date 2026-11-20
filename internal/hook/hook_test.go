@@ -382,6 +382,73 @@ func TestPromptHasSkipKeyword(t *testing.T) {
 	}
 }
 
+func TestResolveTaskRef_EscapeTasksRejected(t *testing.T) {
+	// A3 回归：逃出 .sunshine/tasks/ 的引用必须被拒（返回 ""），
+	// 正常任务与归档任务引用仍可用。
+	root, taskRef := makeProject(t)
+	// spec 目录里放一份假 task.json/prd.md：修复前 ../spec 会被
+	// 当成当前任务把它们注入，修复后必须拒绝。
+	mustWrite(t, filepath.Join(root, ".sunshine", "spec", "task.json"), `{"id":"spec","title":"假任务","status":"planning"}`+"\n")
+	for _, ref := range []string{
+		"../spec",
+		".sunshine/tasks/../../spec",
+		".sunshine/spec",
+		filepath.Join(root, ".sunshine", "spec"),
+		"../../etc",
+	} {
+		if got := ResolveTaskRef(ref, root); got != "" {
+			t.Errorf("ResolveTaskRef(%q) = %q，逃出 tasks 的引用应被拒", ref, got)
+		}
+	}
+	// 正常任务：各种既有写法都应解析到同一目录。
+	want, err := filepath.EvalSymlinks(filepath.Join(root, ".sunshine", "tasks", "11-09-demo"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, ref := range []string{taskRef, "11-09-demo", "tasks/11-09-demo", filepath.Join(root, ".sunshine", "tasks", "11-09-demo")} {
+		if got := ResolveTaskRef(ref, root); got != want {
+			t.Errorf("ResolveTaskRef(%q) = %q，想得到 %q", ref, got, want)
+		}
+	}
+	// 归档任务（tasks/archive/ 下）仍可用，不要误杀。
+	archDir := filepath.Join(root, ".sunshine", "tasks", "archive", "11-08-old")
+	mustWrite(t, filepath.Join(archDir, "task.json"), `{"id":"11-08-old","title":"旧任务","status":"completed"}`+"\n")
+	wantArch, err := filepath.EvalSymlinks(archDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := ResolveTaskRef(".sunshine/tasks/archive/11-08-old", root); got != wantArch {
+		t.Errorf("归档任务引用 = %q，想得到 %q", got, wantArch)
+	}
+	// 会话指针写成 ../spec 时，活动任务应判 Stale。
+	mustWrite(t, filepath.Join(root, ".sunshine", ".runtime", "sessions", "claude_esc.json"),
+		`{"current_task": "../spec", "platform": "claude"}`+"\n")
+	active := ResolveActiveTask(root, HookInput{"session_id": "esc"}, "claude", ResolveOptions{AllowEnvironmentContext: true})
+	if active.TaskPath != "../spec" || !active.Stale {
+		t.Errorf("逃逸指针应判 Stale，实际 %+v", active)
+	}
+}
+
+func TestSessionStart_EscapeTaskPointerIsStale(t *testing.T) {
+	// A3 端到端回归：指针 ../spec 时 session-start 应输出
+	// STALE POINTER，而不是把 spec 目录当任务（修复前输出
+	// “Current task: .sunshine/spec; status=planning” 并注入其 prd.md）。
+	root, _ := makeProject(t)
+	mustWrite(t, filepath.Join(root, ".sunshine", "spec", "task.json"), `{"id":"spec","title":"假任务-来自spec目录","status":"planning"}`+"\n")
+	mustWrite(t, filepath.Join(root, ".sunshine", "spec", "prd.md"), "# 需求\n不该被当任务需求注入。\n")
+	mustWrite(t, filepath.Join(root, ".sunshine", ".runtime", "sessions", "claude_esc2.json"),
+		`{"current_task": "../spec", "platform": "claude"}`+"\n")
+	out, _ := runWithInput(t, func(in *strings.Reader, o Options) error { return RunSessionStart(in, o) },
+		`{"session_id":"esc2","cwd":`+strconv_quot(root)+`}`)
+	ctx := additionalContext(t, out)
+	if !strings.Contains(ctx, "Status: STALE POINTER") {
+		t.Errorf("逃逸指针应输出 STALE POINTER，实际：\n%s", ctx)
+	}
+	if strings.Contains(ctx, "Current task: .sunshine/spec; status=planning") || strings.Contains(ctx, "假任务-来自spec目录") {
+		t.Errorf("spec 目录不应被当成当前任务，实际：\n%s", ctx)
+	}
+}
+
 // --- subagent-context ---
 
 func TestSubagentContext_Implement(t *testing.T) {

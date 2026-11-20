@@ -128,11 +128,20 @@ func CollectSpecMap(specDir string) ([]SpecEntry, error) {
 	var out []SpecEntry
 	err := filepath.WalkDir(specDir, func(path string, d os.DirEntry, err error) error {
 		if err != nil {
-			return err
+			// 单个坏条目（悬空软链接、无权限目录等）跳过继续，
+			// 不能让一个坏文件把整个规范地图清空；根目录本身
+			// 读不了才是真错误。
+			if path == specDir {
+				return err
+			}
+			if d != nil && d.IsDir() {
+				return filepath.SkipDir
+			}
+			return nil
 		}
 		rel, err := filepath.Rel(specDir, path)
 		if err != nil {
-			return err
+			return nil // 单个条目相对路径算不出：跳过该条目继续
 		}
 		if d.IsDir() {
 			if strings.HasPrefix(d.Name(), ".") && rel != "." {
@@ -152,7 +161,7 @@ func CollectSpecMap(specDir string) ([]SpecEntry, error) {
 		}
 		data, err := os.ReadFile(path)
 		if err != nil {
-			return err
+			return nil // 单文件读失败（悬空软链接/不可读）：跳过该文件继续
 		}
 		content := string(data)
 		scope := ParseApplicability(content)

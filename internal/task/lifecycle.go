@@ -73,6 +73,32 @@ func (r *Runner) warnf(format string, args ...any) {
 	fmt.Fprintf(r.errOut(), "警告："+format+"\n", args...)
 }
 
+// requireActiveTaskDir 校验任务目录是活动任务（直接位于 tasks/ 下）。
+// ResolveTaskDir 按设计接受归档路径，写命令必须自己设防：归档任务只读，
+// 任何写操作一律拒绝（与 Archive / Rename 的既有守卫一致）。
+func (r *Runner) requireActiveTaskDir(dir string) bool {
+	tasksDir := TasksDir(r.Root)
+	if !IsWithinTasksDir(dir, tasksDir) {
+		r.errf("拒绝操作归档任务：%s 不是 %s 下的活动任务（归档任务只读）", dir, tasksDir)
+		return false
+	}
+	return true
+}
+
+// parentNameOf 按任务目录名读其 parent 字段；读不到（不存在/损坏）返回 ""。
+func (r *Runner) parentNameOf(name string) string {
+	dir, err := FindTaskByName(name, TasksDir(r.Root))
+	if err != nil || dir == "" {
+		return ""
+	}
+	obj, _, err := readRawObject(filepath.Join(dir, FileTaskJSON))
+	if err != nil {
+		return ""
+	}
+	parent, _ := obj.getStringOrNull("parent")
+	return parent
+}
+
 // resolveOrError 解析任务目录参数，失败时打印原因并返回 ""。
 func (r *Runner) resolveOrError(target string) string {
 	dir, err := ResolveTaskDir(target, r.Root)
@@ -219,6 +245,10 @@ func (r *Runner) Create(opts CreateOptions) int {
 		if parentDir == "" {
 			r.errf("父任务无法解析：%s", opts.Parent)
 			fmt.Fprintln(r.errOut(), "未创建任务。请传入已存在的任务目录。")
+			return 1
+		}
+		if !r.requireActiveTaskDir(parentDir) {
+			fmt.Fprintln(r.errOut(), "未创建任务。--parent 不能指向归档任务。")
 			return 1
 		}
 		if _, err := os.Stat(filepath.Join(parentDir, FileTaskJSON)); err != nil {
@@ -514,6 +544,18 @@ func (r *Runner) Start(dir string, allowEmptyContext bool) int {
 	if fullPath == "" {
 		return 1
 	}
+	if !r.requireActiveTaskDir(fullPath) {
+		return 1
+	}
+	// 状态校验：只有 planning / in_progress 的任务能 start；
+	// completed/review 等状态直接拒绝，不再只写指针不改状态地“成功”。
+	// task.json 缺失或损坏时不在这里拦，沿用下方 recordStartState 的告警路径。
+	if obj, _, err := readRawObject(filepath.Join(fullPath, FileTaskJSON)); err == nil {
+		if status, _ := obj.getString("status"); status != "planning" && status != "in_progress" {
+			r.errf("拒绝启动任务：当前状态为 %q，只能启动 planning 或 in_progress 的任务", status)
+			return 1
+		}
+	}
 	// 上下文清单门禁（#573）：已建的 implement/check.jsonl 为空时拒绝，
 	// 除非 --allow-empty-context；文件不存在不设防。
 	if !allowEmptyContext {
@@ -791,15 +833,32 @@ func (r *Runner) List(mine bool, status string, asJSON bool) int {
 		fmt.Fprintln(r.out())
 	}
 	count := 0
+	visited := map[string]bool{}
+	passesFilter := func(t *TaskInfo) bool {
+		if mine && orDash(t.Assignee) != developer {
+			return false
+		}
+		if status != "" && t.Status != status {
+			return false
+		}
+		return true
+	}
 	var printTask func(name string, indent int)
 	printTask = func(name string, indent int) {
 		t := byName[name]
-		if mine && orDash(t.Assignee) != developer {
+		if t == nil {
 			return
 		}
-		if status != "" && t.Status != status {
+		// visited 防护：手改 task.json 造出的父子环（自环/互环）不再无限递归；
+		// 已访问节点打印一行警告后跳过。
+		if visited[name] {
+			fmt.Fprintf(r.out(), "%s  - ⚠ %s/（已访问，跳过以防父子环无限递归）\n", strings.Repeat("  ", indent), name)
 			return
 		}
+		if !passesFilter(t) {
+			return
+		}
+		visited[name] = true
 		rel := DirSunshine + "/" + DirTasks + "/" + name
 		marker := ""
 		if rel == current.TaskPath {
@@ -836,6 +895,14 @@ func (r *Runner) List(mine bool, status string, asJSON bool) int {
 			continue
 		}
 		if _, ok := byName[parent]; !ok {
+			printTask(name, 0)
+		}
+	}
+	// 兜底：父子成环时所有节点都有父任务、无根可达，第一遍一个都打不出
+	// （曾报“没有活动任务，总计：0 个”把任务藏掉）；未访问的逐个补打，
+	// visited 保证环内每个节点只打一次、回边只出警告行。
+	for _, name := range names {
+		if !visited[name] && passesFilter(byName[name]) {
 			printTask(name, 0)
 		}
 	}
@@ -914,6 +981,9 @@ func (r *Runner) setField(dir, field, value string, okMsg string) int {
 	if fullPath == "" {
 		return 1
 	}
+	if !r.requireActiveTaskDir(fullPath) {
+		return 1
+	}
 	taskJSONPath := filepath.Join(fullPath, FileTaskJSON)
 	if _, err := os.Stat(taskJSONPath); err != nil {
 		r.errf("task.json 不存在：%s", fullPath)
@@ -981,6 +1051,9 @@ func (r *Runner) SetMeta(dir, key, value string) int {
 	if fullPath == "" {
 		return 1
 	}
+	if !r.requireActiveTaskDir(fullPath) {
+		return 1
+	}
 	taskJSONPath := filepath.Join(fullPath, FileTaskJSON)
 	if _, err := os.Stat(taskJSONPath); err != nil {
 		r.errf("task.json 不存在：%s", fullPath)
@@ -1021,6 +1094,13 @@ func (r *Runner) linkSubtask(parentArg, childArg string, link bool) int {
 	if childDir == "" {
 		return 1
 	}
+	// 归档任务只读：链接与解除链接都会写双方 task.json，一律拒绝。
+	if !r.requireActiveTaskDir(parentDir) {
+		return 1
+	}
+	if !r.requireActiveTaskDir(childDir) {
+		return 1
+	}
 	parentJSON := filepath.Join(parentDir, FileTaskJSON)
 	childJSON := filepath.Join(childDir, FileTaskJSON)
 	if _, err := os.Stat(parentJSON); err != nil {
@@ -1046,6 +1126,27 @@ func (r *Runner) linkSubtask(parentArg, childArg string, link bool) int {
 	parentName := filepath.Base(parentDir)
 	childName := filepath.Base(childDir)
 	if link {
+		// 自环：任务不能做自己的子任务。
+		if parentName == childName {
+			r.errf("拒绝链接：不能把任务 %s 设为自己的子任务（自环）", childName)
+			return 1
+		}
+		// 成环：沿新父的父链上溯，若子任务出现在链上，说明新父是子的
+		// 后代（子是新父的祖先），链接后父子关系成环，list/context 会
+		// 藏任务或无限递归，必须拒绝。链上已有环（手改数据）时 visited
+		// 截断上溯，不在这里死循环。
+		seen := map[string]bool{}
+		for cur := parentName; cur != ""; {
+			if cur == childName {
+				r.errf("拒绝链接：把 %s 设为 %s 的子任务会形成父子环（%s 已是 %s 的祖先）", childName, parentName, childName, parentName)
+				return 1
+			}
+			if seen[cur] {
+				break
+			}
+			seen[cur] = true
+			cur = r.parentNameOf(cur)
+		}
 		if existing, _ := childObj.getStringOrNull("parent"); existing != "" {
 			r.errf("子任务已有父任务：%s", existing)
 			return 1
@@ -1117,6 +1218,9 @@ func (r *Runner) AddContext(dir, file, path, reason, lines string) int {
 	}
 	fullPath := r.resolveOrError(dir)
 	if fullPath == "" {
+		return 1
+	}
+	if !r.requireActiveTaskDir(fullPath) {
 		return 1
 	}
 	if reason == "" {

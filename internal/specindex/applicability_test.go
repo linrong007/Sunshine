@@ -152,6 +152,39 @@ func TestCollectSpecMap(t *testing.T) {
 	}
 }
 
+func TestCollectSpecMap_SkipsBadFile(t *testing.T) {
+	// A2 回归：spec/ 下有悬空软链接时，规范地图不能整体为空，
+	// 其余文件仍应进地图，且不返回错误。
+	dir := t.TempDir()
+	specDir := filepath.Join(dir, ".sunshine", "spec")
+	if err := os.MkdirAll(specDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(specDir, "backend.md"), []byte("# 后端规范\n\n## 接口\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(specDir, "frontend.md"), []byte("# 前端规范\n\n## 技术栈\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(filepath.Join(specDir, "不存在的目标.md"), filepath.Join(specDir, "bad.md")); err != nil {
+		t.Fatal(err)
+	}
+	entries, err := CollectSpecMap(specDir)
+	if err != nil {
+		t.Fatalf("单个坏文件不应让 CollectSpecMap 报错：%v", err)
+	}
+	if len(entries) != 2 {
+		t.Fatalf("坏文件应被跳过、其余 2 个文件仍进地图，实际 entries = %v", entries)
+	}
+	got := FormatSpecMap(entries)
+	if !strings.Contains(got, ".sunshine/spec/backend.md") || !strings.Contains(got, ".sunshine/spec/frontend.md") {
+		t.Fatalf("地图应含好文件：\n%s", got)
+	}
+	if strings.Contains(got, "bad.md") {
+		t.Fatalf("坏文件不应进地图：\n%s", got)
+	}
+}
+
 func TestCheckDuplicates(t *testing.T) {
 	dir := t.TempDir()
 	specDir := filepath.Join(dir, ".sunshine", "spec")

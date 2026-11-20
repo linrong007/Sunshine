@@ -20,9 +20,13 @@ func InstallRegistry(cwd string, opts registry.InstallOptions) (*registry.Instal
 }
 
 // WriteDefaultSpec 把内置默认 spec 模板写进 .sunshine/spec，
-// 返回写入的文件（相对项目根的 POSIX 路径，供调用方记入哈希清单）。
+// 返回实际写入的文件（相对项目根的 POSIX 路径，供调用方记入哈希清单）。
 // 用于 --registry 安装失败时回退到空白模板（对应上游 init 的
 // "Falling back to blank templates..."）。
+// 只补缺失（与 writeDesignTemplates 同规矩）：目标文件已存在时原样
+// 保留、不覆盖，也不在返回清单里——增量 init 的回退不能清空用户
+// 手写的规范，更不能把手写内容记成模板哈希。全新 init 时文件都
+// 不存在，照常全写。
 func WriteDefaultSpec(cwd string) ([]string, error) {
 	target := filepath.Join(cwd, ".sunshine", "spec")
 	var files []string
@@ -34,11 +38,16 @@ func WriteDefaultSpec(cwd string) ([]string, error) {
 			return nil
 		}
 		rel := strings.TrimPrefix(path, "sunshine/spec/")
+		dest := filepath.Join(target, filepath.FromSlash(rel))
+		if _, err := os.Stat(dest); err == nil {
+			return nil
+		} else if !os.IsNotExist(err) {
+			return fmt.Errorf("检查 %s 失败：%w", dest, err)
+		}
 		data, err := templates.Sunshine.ReadFile(path)
 		if err != nil {
 			return err
 		}
-		dest := filepath.Join(target, filepath.FromSlash(rel))
 		if err := os.MkdirAll(filepath.Dir(dest), 0o755); err != nil {
 			return err
 		}

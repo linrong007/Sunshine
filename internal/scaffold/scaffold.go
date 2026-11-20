@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/linrong007/Sunshine/internal/projecttype"
 	"github.com/linrong007/Sunshine/templates"
@@ -66,7 +67,8 @@ var hashExcluded = map[string]bool{
 
 // InitOptions 是 InitWithOptions 的参数。
 type InitOptions struct {
-	// Force 为真时覆盖已有的骨架。
+	// Force 为真时覆盖已有的骨架：删除前先把旧 .sunshine/ 改名备份到
+	// 同级 .sunshine.backup-<时间戳> 目录，并打印备份路径。
 	Force bool
 	// SkipSpec 为真时不写默认 spec 模板（--registry 将从模板市场装 spec，
 	// 装完再由调用方记入哈希清单；对应上游 init 的 skipSpecTemplates）。
@@ -98,9 +100,25 @@ func InitWithOptions(cwd, user string, opts InitOptions) error {
 		if !opts.Force {
 			return errors.New("当前目录已经初始化过（.sunshine/ 已存在），如需重新初始化请使用 --force")
 		}
-		if err := os.RemoveAll(target); err != nil {
-			return fmt.Errorf("清理旧的 .sunshine/ 失败：%w", err)
+		// Force 重建前先把旧 .sunshine/ 整体改名备份到同级带时间戳目录，
+		// 不再直接 RemoveAll：任务/journal/memory 等用户数据不可逆丢失，
+		// 且重建中途失败时旧数据无处可寻。备份失败则中止，旧目录不动。
+		// 命名与 internal/update 的备份先例同风格（时间戳目录）：
+		// .sunshine.backup-YYYYMMDD-HHMMSS，同秒冲突时加 -1、-2 后缀。
+		stamp := time.Now().Format("20060102-150405")
+		backupPath := filepath.Join(cwd, ".sunshine.backup-"+stamp)
+		for suffix := 1; ; suffix++ {
+			if _, err := os.Stat(backupPath); os.IsNotExist(err) {
+				break
+			} else if err != nil {
+				return fmt.Errorf("检查备份目录 %s 失败：%w", backupPath, err)
+			}
+			backupPath = filepath.Join(cwd, fmt.Sprintf(".sunshine.backup-%s-%d", stamp, suffix))
 		}
+		if err := os.Rename(target, backupPath); err != nil {
+			return fmt.Errorf("备份旧的 .sunshine/ 到 %s 失败（旧数据未动）：%w", backupPath, err)
+		}
+		fmt.Printf("已备份旧 .sunshine/ 到：%s\n", backupPath)
 	}
 	hashes := make(map[string]string)
 	err = fs.WalkDir(templates.Sunshine, "sunshine", func(path string, d fs.DirEntry, err error) error {

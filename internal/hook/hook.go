@@ -351,8 +351,14 @@ func NormalizeTaskRef(ref string) string {
 }
 
 // ResolveTaskRef 把任务引用解析为任务目录绝对路径，并做收容检查：
-// 引用必须落在仓库内（或经由符号链接的 .sunshine 自身实址内，见
-// active_task.py #567），否则返回 ""。对应 resolve_task_ref。
+// 解析后的任务目录必须落在 .sunshine/tasks/ 之内（归档子目录 archive/
+// 也在 tasks/ 内，合法），否则返回 ""。会话指针可被 agent 写入，
+// 只验“落在仓库内”会让 ../spec、.sunshine/tasks/../../spec 这类
+// 逃出 tasks 的引用把任意仓内目录当成当前任务（其 task.json/prd.md
+// 会被当需求注入），故收容收紧到 tasks/。
+// .sunshine 本身是符号链接时按其实址判定（active_task.py #567 的
+// 例外）：实址落在 .sunshine 实址的 tasks/ 下也算合法，返回时映射
+// 回词法 .sunshine 路径。对应 resolve_task_ref。
 func ResolveTaskRef(ref, repoRoot string) string {
 	n := NormalizeTaskRef(ref)
 	if n == "" {
@@ -371,18 +377,46 @@ func ResolveTaskRef(ref, repoRoot string) string {
 	if err != nil {
 		// 目录尚不存在时 EvalSymlinks 失败，退回词法路径做收容检查。
 		resolved = filepath.Clean(candidate)
+		lexTasks := filepath.Clean(filepath.Join(repoRoot, ".sunshine", "tasks"))
+		if contained(lexTasks, resolved) {
+			return resolved
+		}
+		// 词法不在 tasks 下，但可能经 .sunshine 符号链接指向实址
+		// tasks（candidate 含未解析的链接段）：再按实址 tasks 判一次。
+		if tasksReal := tasksRealDir(repoRoot); tasksReal != "" && contained(tasksReal, resolved) {
+			return resolved
+		}
+		return ""
 	}
 	rootReal, err := filepath.EvalSymlinks(repoRoot)
 	if err != nil {
 		rootReal = filepath.Clean(repoRoot)
 	}
-	if contained(rootReal, resolved) {
+	// 常规情形：实址落在 <仓库实址>/.sunshine/tasks/ 下。
+	if tasksReal := filepath.Join(rootReal, ".sunshine", "tasks"); contained(tasksReal, resolved) {
 		return resolved
 	}
-	if wfReal, err := filepath.EvalSymlinks(filepath.Join(repoRoot, ".sunshine")); err == nil {
-		if rel, err := filepath.Rel(wfReal, resolved); err == nil && !strings.HasPrefix(rel, "..") {
-			return filepath.Join(repoRoot, ".sunshine", rel)
+	// .sunshine 是符号链接：其实址的 tasks/ 下也合法，
+	// 返回映射回词法 .sunshine/tasks/ 的路径。
+	if tasksReal := tasksRealDir(repoRoot); tasksReal != "" {
+		if rel, err := filepath.Rel(tasksReal, resolved); err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+			if rel == "." {
+				return filepath.Join(repoRoot, ".sunshine", "tasks")
+			}
+			return filepath.Join(repoRoot, ".sunshine", "tasks", rel)
 		}
+	}
+	return ""
+}
+
+// tasksRealDir 返回 .sunshine/tasks 的实址（解析 .sunshine 与 tasks
+// 自身的符号链接）；.sunshine 不存在时返回 ""。
+func tasksRealDir(repoRoot string) string {
+	if real, err := filepath.EvalSymlinks(filepath.Join(repoRoot, ".sunshine", "tasks")); err == nil {
+		return real
+	}
+	if wfReal, err := filepath.EvalSymlinks(filepath.Join(repoRoot, ".sunshine")); err == nil {
+		return filepath.Join(wfReal, "tasks")
 	}
 	return ""
 }

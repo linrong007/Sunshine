@@ -87,6 +87,86 @@ func TestSyncContentNoSections(t *testing.T) {
 	}
 }
 
+func TestSyncFile_AtomicNoOverwrite(t *testing.T) {
+	// A1 回归：写盘走同目录临时文件 + rename 原子替换，
+	// 保留原文件权限（旧实现写死 0644），且不留临时文件残骸。
+	dir := t.TempDir()
+	path := filepath.Join(dir, "backend.md")
+	if err := os.WriteFile(path, []byte("# 后端规范\n\n## 接口\n\n正文。\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	changed, err := SyncFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !changed {
+		t.Fatal("应改动")
+	}
+	got, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(got), "## 索引") || !strings.Contains(string(got), "适用：后端") {
+		t.Fatalf("同步后内容不对：\n%s", got)
+	}
+	info, err := os.Stat(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if info.Mode().Perm() != 0o600 {
+		t.Fatalf("原文件权限应保留为 0600，实际 %v", info.Mode().Perm())
+	}
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 1 || entries[0].Name() != "backend.md" {
+		var names []string
+		for _, e := range entries {
+			names = append(names, e.Name())
+		}
+		t.Fatalf("目录里不应留临时文件，实际：%v", names)
+	}
+	// 幂等：再同步一次无改动。
+	if changed, err := SyncFile(path); err != nil || changed {
+		t.Fatalf("第二次同步应无改动，changed=%v err=%v", changed, err)
+	}
+}
+
+func TestSyncDir_SkipsBadFile(t *testing.T) {
+	// A2 回归（SyncDir 侧）：悬空软链接在场时其余文件仍同步，
+	// 错误汇总返回且带上跳过的文件名，而不是首错即中断。
+	dir := t.TempDir()
+	specDir := filepath.Join(dir, ".sunshine", "spec")
+	if err := os.MkdirAll(specDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(specDir, "backend.md"), []byte("# 后端规范\n\n## 接口\n\n正文。\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	bad := filepath.Join(specDir, "bad.md")
+	if err := os.Symlink(filepath.Join(specDir, "不存在的目标.md"), bad); err != nil {
+		t.Fatal(err)
+	}
+	changed, err := SyncDir(specDir)
+	if err == nil {
+		t.Fatal("有坏文件时 SyncDir 应汇总返回错误")
+	}
+	if !strings.Contains(err.Error(), "bad.md") {
+		t.Fatalf("错误信息应带跳过文件清单，实际：%v", err)
+	}
+	if len(changed) != 1 || filepath.Base(changed[0]) != "backend.md" {
+		t.Fatalf("好文件仍应同步，changed = %v", changed)
+	}
+	got, err := os.ReadFile(filepath.Join(specDir, "backend.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(got), "## 索引") {
+		t.Fatalf("好文件应已同步索引：\n%s", got)
+	}
+}
+
 func TestSyncDirSkipsGuides(t *testing.T) {
 	dir := t.TempDir()
 	specDir := filepath.Join(dir, ".sunshine", "spec")

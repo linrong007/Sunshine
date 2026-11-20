@@ -172,15 +172,27 @@ func parseSpawnFlags(cmd *cobra.Command, channelName string) (SpawnWorkerOptions
 
 	files, _ := cmd.Flags().GetStringArray("file")
 	jsonls, _ := cmd.Flags().GetStringArray("jsonl")
-	assembled, err := assembleSpawnContext(cwd, files, jsonls)
-	if err != nil {
-		return opts, err
+	// D2：生产路径（channelWorkerRuntime == nil → supervisor）不在 CLI 层
+	// 预展开 glob、不预读内容：原始 pattern 原样透传，由 supervisor 的
+	// AssembleContext 展开（支持 **）并对缺失/目录/过大文件 warn+跳过。
+	// CLI 的 filepath.Glob 不支持 **，预展开会静默丢深层文件；预读失败
+	// 还会误杀本应 warn+跳过的 spawn，大文件也会被白读一遍又丢弃。
+	opts.Files = append([]string(nil), files...)
+	opts.JSONLManifests = append([]string(nil), jsonls...)
+	opts.ContextFiles = append([]string(nil), files...)
+	opts.ContextManifests = append([]string(nil), jsonls...)
+	opts.SystemPrompt = buildWorkerSystemPrompt(channelName, as, agentBody, "")
+	if channelWorkerRuntime != nil {
+		// API/测试路径（注入了 runtime → channel.SpawnWorker 真用
+		// SystemPrompt）：仍走 CLI 预组装，其报错只作用于这条路径。
+		assembled, err := assembleSpawnContext(cwd, files, jsonls)
+		if err != nil {
+			return opts, err
+		}
+		opts.ContextFiles = assembled.Paths
+		opts.ContextManifests = assembled.Manifests
+		opts.SystemPrompt = buildWorkerSystemPrompt(channelName, as, agentBody, assembled.Prompt)
 	}
-	opts.Files = assembled.Paths
-	opts.JSONLManifests = assembled.Manifests
-	opts.ContextFiles = assembled.Paths
-	opts.ContextManifests = assembled.Manifests
-	opts.SystemPrompt = buildWorkerSystemPrompt(channelName, as, agentBody, assembled.Prompt)
 
 	by, _ := cmd.Flags().GetString("by")
 	if by == "" {

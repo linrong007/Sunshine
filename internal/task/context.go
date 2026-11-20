@@ -268,9 +268,20 @@ func (r *Runner) contextText() string {
 	}
 	allStatuses := AllStatuses(all)
 	taskCount := 0
+	visited := map[string]bool{}
 	var printTree func(name string, indent int)
 	printTree = func(name string, indent int) {
 		t := byName[name]
+		if t == nil {
+			return
+		}
+		// visited 防护：手改 task.json 造出的父子环不再无限递归；
+		// 已访问节点留一行警告后跳过。
+		if visited[name] {
+			lines = append(lines, fmt.Sprintf("%s- ⚠ %s/（已访问，跳过以防父子环无限递归）", strings.Repeat("  ", indent), name))
+			return
+		}
+		visited[name] = true
 		progress := ChildrenProgress(t.Children, allStatuses)
 		lines = append(lines, fmt.Sprintf("%s- %s/ (%s)%s @%s", strings.Repeat("  ", indent), name, t.Status, progress, orDash(t.Assignee)))
 		taskCount++
@@ -287,6 +298,14 @@ func (r *Runner) contextText() string {
 	sort.Strings(names)
 	for _, name := range names {
 		if byName[name].Parent == "" {
+			printTree(name, 0)
+		}
+	}
+	// 兜底：成环时无根可达，未访问的任务逐个补打（visited 保证不重复、
+	// 不死循环），避免 context 把环内任务藏掉；父任务不在活动集里的
+	// 孤儿任务同理补打。
+	for _, name := range names {
+		if !visited[name] {
 			printTree(name, 0)
 		}
 	}

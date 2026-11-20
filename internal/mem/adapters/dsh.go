@@ -39,21 +39,21 @@ func dshSessions(ctx context.Context, home string) ([]mem.MemSessionInfo, []stri
 		return nil, []string{fmt.Sprintf("未找到 DSH 会话存储（%s），已跳过", DshSessionsDir(home))}, nil
 	}
 	var out []mem.MemSessionInfo
+	var allWarnings []string
 	for _, filePath := range files {
 		if ctx.Err() != nil {
-			return out, nil, ctx.Err()
+			return out, allWarnings, ctx.Err()
 		}
 		info, warnings := dshSessionMeta(filePath)
-		if len(warnings) > 0 {
-			// 解不开的文件只警告、跳过，不让一个坏文件挡住整批。
-			continue
-		}
+		allWarnings = append(allWarnings, warnings...)
 		if info == nil {
+			// 只有打不开/解压失败/无 session 头才跳过该文件；
+			// 坏行只记警告、不丢会话（与 claude/codex/pi 列表逻辑一致）。
 			continue
 		}
 		out = append(out, *info)
 	}
-	return out, nil, nil
+	return out, allWarnings, nil
 }
 
 // dshSessionFiles 列出 DSH 会话根下的全部 session.v4.jsonl.zstd（排序）。
@@ -73,7 +73,8 @@ func dshSessionFiles(home string) []string {
 
 // dshSessionMeta 一次流式遍历取会话元数据：头里的 id/cwd/createdAt、
 // 最后一条 session/title、最大 time、首条真人消息（标题 fallback）。
-// 解压或解析失败时返回警告（调用方跳过该文件）。
+// 只有打不开/解压失败/无 session 头时返回 nil（调用方跳过该文件）；
+// 坏行（撕裂尾行等）只记警告，仍返回已读到的会话元数据。
 func dshSessionMeta(filePath string) (*mem.MemSessionInfo, []string) {
 	var header map[string]any
 	var title string
@@ -101,11 +102,13 @@ func dshSessionMeta(filePath string) (*mem.MemSessionInfo, []string) {
 		}
 		return true
 	})
-	if len(warnings) > 0 {
-		return nil, warnings
-	}
 	if header == nil {
-		return nil, []string{fmt.Sprintf("文件 %s：无 session 头，已跳过", filePath)}
+		// 打不开/解压失败时 warnings 已说明原因且 header 读不到；
+		// 能解压但无 session 头时补一条说明。两种都跳过该文件。
+		if len(warnings) == 0 {
+			warnings = []string{fmt.Sprintf("文件 %s：无 session 头，已跳过", filePath)}
+		}
+		return nil, warnings
 	}
 	id := objStr(header, "id")
 	if id == "" {
@@ -132,7 +135,7 @@ func dshSessionMeta(filePath string) (*mem.MemSessionInfo, []string) {
 		Created:  created,
 		Updated:  updated,
 		FilePath: filePath,
-	}, nil
+	}, warnings
 }
 
 func dshDialogue(ctx context.Context, s mem.MemSessionInfo) ([]mem.DialogueTurn, []string, error) {

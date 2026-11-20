@@ -3503,3 +3503,11 @@ hook 19 条、CLI 与任务系统 7 条、平台与 registry 11 条、serve/chan
 - CI 与发布：发布 workflow run 44647404957、CI（tag）run 44647404894、CI（main）run 44646343060 均 completed success。
 - Release：id 452121201，非草稿，6 个资产在位（checksums.txt + sunshine_0.5.33_darwin_amd64/arm64.tar.gz、linux_amd64/arm64.tar.gz、windows_amd64.zip）。
 - 实测：一键装（无参）装上 v0.5.33（linux/amd64），`sunshine version` 报 0.5.33；darwin_arm64 包 checksum 25d1721bfe0c5c0114a04ecea92156e77fe6725139dd64f11055a3d81ba6655a、linux_amd64 包 checksum af11b41c744da4b1c7ec969aba0772328756d67cb3a4ab88fdadac507d40821a，均与 checksums.txt 一致；`upgrade --dry-run` 通过（“已是最新版本（当前 0.5.33，最新 0.5.33），无需升级。”）；发布包二进制 grep 确认 “limit=800” 1 处在位；发版前 pre-tool-use 端到端实测注入 limit=800、全量测试 21 包全过。
+
+## 原型代理自检封顶（2026-11-20，已实现，待发版）
+
+- 起因：用户在 Mac 上用 dsh-context 插件抓到一个 DSH 原型子代理会话的真实分项（R-001 导航页，deepseek-v4.1-flash）：31 步、42 次工具调用、总流量 858.4k（累计口径，缓存命中 95.97%），其中大量步数花在自写 node 截图像素分析脚本（sx-verify 1–4 等）。核查确认原型代理模板里没有任何自检/截图要求——该行为是模型即兴发挥，模板既不要求也不禁止，全凭模型。
+- 决定（用户 2026-11-20 批准）：给自检同时定下限与上限，写进原型代理定义，全平台统一。
+- 改动：`templates/sunshine/agents/prototype.md`（channel 源）+ 17 份平台副本（claude/codebuddy/codex/copilot/cursor/gemini/grok/kimi/kiro/omp/opencode/pi/qoder/snow/trae/zcode/droid）共 18 个文件，在「原型要求」的“单页 500 行上限”条后各加一条：「渲染自检最多一轮：交付前可以截一张图看一眼渲染结果，只看图、不量像素，不许自写像素测量或分析脚本；看到大错（白屏、布局塌陷、明显溢出）改一次就停，改完仍有问题就带着问题交付、在汇报里写明，不再循环检查；没有截图条件时直接跳过，不为自检装工具或写脚本」。kiro 的 JSON 与 codex 的 TOML 按各自格式同文插入（JSON 除插入外零变化，已逐字核对）。纯模板措辞，不动代码。
+- 验证：18 个文件各恰好 1 处新条；`go build` 过、全量测试 21 包全过；新二进制在临时项目 `init -y --claude --codex --kiro`，装出的三份原型代理文件均含新条。
+- 发版：待用户点选。

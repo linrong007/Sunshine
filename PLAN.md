@@ -3720,3 +3720,12 @@ hook 19 条、CLI 与任务系统 7 条、平台与 registry 11 条、serve/chan
 - 验证：全量 22 包测试全过；grep 核对 18 份 audit 均含新节、三份 workflow 均含触发段，kiro json 解析正常。真实 PRD 试跑未做（用户手头 prd 不便发来），产出质量待真实项目验证。
 
 - 排版微调（同日晚，用户点选）：audit 汇报格式对齐 EARS 实例截图——「必须确认」标题加注（影响核心功能验收），每条加可选「附带问题」行（主问题带出的次级确认，没有就不写）。同轮已定：prd 本体不改 EARS 问卷格式——契约与问卷不缝合，未决选项不进实现上下文，全量 EARS 化即已否的硬套。
+
+## v0.5.38 发布记录（2026-11-21，已发布）
+
+- 内容：六批打包。①重跑 init 沿用已有 .developer：开发者名解析改为 -u > 已有 .sunshine/.developer > git user.name > developer，重跑 init 不再被不一致的 git 配置顶掉名字（3bd0c3c）。②新增 `sunshine codegraph install / status` 命令：手动装工具、接线、建图与只读查状态，非 Sunshine 目录也能建图（b80bdb9）。③开始纪律：三份 workflow 在 1.0 前加小节、start 入口加开局纪律——规划阶段只读本项目、开局不全盘扫描（b852329）。④长期记忆索引注入：SessionStart 与 task context --mode packages 装配 .sunshine/memory/index.md（仅索引、上限 4000 字节按行截断、无条目不注入）（577a06e）。⑤EARS 深度逼问：audit 新增模式（派发注明启用、替代当轮粗扫），条件自动触发（设计先行父任务 1.5 评审含规则型内容、开发先行标准档任务激活前），任务级深挖读 spec 且新全局规则当场回写（f6da893）。⑥audit 清单排版对齐 EARS 实例：必须确认标题加注（影响核心功能验收）、每条加可选附带问题行（1eff59a）。共 35 个文件 +631/-26。
+- 主提交：本地 1eff59a79775d5649acb9b04a2cc9dc6af12b9a2 → 远端 662907833681079af0e9b974a7d332866cb97aa3，tree 064336f3f6ecee6579c98a53780de9681e517821，父提交 7b3c0c8a77061f405fb83ab3e1e86634da9c364b。
+- tag：v0.5.38，annotated tag，tag 对象 2677190bc163bbede5f98ea89f5ed4967ad3bb53 → 6629078。
+- CI 与发布：发布 workflow run 44769332920、CI（tag）run 44769333208、CI（main）run 44769254925 均 completed success。
+- Release：id 452902282，非草稿，6 个资产在位（checksums.txt + sunshine_0.5.38_darwin_amd64/arm64.tar.gz、linux_amd64/arm64.tar.gz、windows_amd64.zip）。
+- 实测：一键装装上 v0.5.38（`sunshine version` 报 0.5.38）；linux_amd64 包 checksum 9fa48beb9813e9596ad27996133497b69335e1f82ef89d0faf0b796be4cbd03f 与 checksums.txt 一致；`upgrade --dry-run` 报已是最新；`codegraph --help` 正常；发布包 init 装出的 audit 代理含「深度逼问模式」、workflow 含「深度逼问（条件触发」段；发版前全量 22 包测试全过。遗留：EARS 深度逼问的真实 PRD 试跑未做，产出质量待真实项目验证。

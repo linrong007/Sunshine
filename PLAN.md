@@ -3395,7 +3395,7 @@ gofmt / build / vet 全过；全量测试 21 包全过；新单测：两条 flag
 
 #### 3. Read/Grep 限流注入（PreToolUse）
 
-- Read 缺 limit 时注入 `limit: 800`；Grep 缺 head_limit 时注入 `head_limit: 100`（read_max_lines=800、grep_max_results=100）；只补不存在的键，永不覆盖调用方显式值，不设上限（传 5000 也原样放过）；Glob 不注入（squeez 名义上有、实际返回 None）。（2026-11-20 变更：Read 默认值由 300 改为 800——用户担心 300 行读漏长文件后文，改大到 800 折中；v0.5.32 发布时仍是 300，本变更待下一版。）
+- Read 缺 limit 时注入 `limit: 800`；Grep 缺 head_limit 时注入 `head_limit: 100`（read_max_lines=800、grep_max_results=100）；只补不存在的键，永不覆盖调用方显式值，不设上限（传 5000 也原样放过）；Glob 不注入（squeez 名义上有、实际返回 None）。（2026-11-20 变更：Read 默认值由 300 改为 800——用户担心 300 行读漏长文件后文，改大到 800 折中；已随 v0.5.33 发布，见文末 v0.5.33 发布记录。）
 - 方式：改 tool_input 字段、返回全量 updatedInput + permissionDecision "allow"，口径与 RTK 一致；任何解析失败原样放过。
 - 注册：Claude settings.json 的 PreToolUse matcher 由 `Bash` 改为 `Bash|Read|Grep`；RunPreToolUse 按 tool_name 分发（Bash 走现有改写，Read/Grep 走限流注入）。
 
@@ -3494,3 +3494,12 @@ hook 19 条、CLI 与任务系统 7 条、平台与 registry 11 条、serve/chan
 - Release：id 452091364，非草稿，6 个资产在位（checksums.txt + sunshine_0.5.32_darwin_amd64/arm64.tar.gz、linux_amd64/arm64.tar.gz、windows_amd64.zip）。
 - 实测：一键装（无参）装上 v0.5.32（linux/amd64），`sunshine version` 报 0.5.32；darwin_arm64 包 checksum 992b3c36b22c93fa753dbd7e8f40999be763d35777af4e2af8e5edac713e1f3f、linux_amd64 包 checksum a65c189a144b68d086545feb2f8b9cb013f8bb09b2ecb1a022004541ff412a74，均与 checksums.txt 一致；`upgrade --dry-run` 通过（“已是最新版本（当前 0.5.32，最新 0.5.32），无需升级。”）；发布包二进制含模糊去重引用文案（“已在上下文中，不再重复”2 处）。
 - 已知遗留：C2 的 SSH 与 giget 前缀形式 GitLab 子群组仍按两段式解析（被既有单测的 subdir 语义钉住，HTTPS 形式已全修）；②建议修 33 条、③小问题约 46 条未修（清单见上节）；本地验证时 TestChannelWaitAll 在连跑两遍全量下抖过一次（单独连跑 10 次与整包复跑均过，负载时序抖动，与 v0.5.6 的 CI 抖动同类）。
+
+## v0.5.33 发布记录（2026-11-20，已发布）
+
+- 内容：Read 默认限流 300 改 800（用户担心 300 行读漏长文件后文；只改默认值常量与提示文案，Grep head_limit 100 不变，只补缺失、永不覆盖显式值的口径不变）。
+- 主提交：本地 89fea433bd2b467f08b033fe1aa1e6699fbf58e7 → 远端 d85795f197c12decb9b9a7c47d5afa722ce37cfc，tree 41d5ee3d2e4a3a665a0d555e9a303d34eeed3899，父提交 392b2b5656772a493688fc0bf77ba0a7df98767a，3 个文件 +10/-10。
+- tag：v0.5.33，annotated tag，tag 对象 65fd08b7f70c32e30b1e0d07e0673b94add8552f → d85795f。
+- CI 与发布：发布 workflow run 44647404957、CI（tag）run 44647404894、CI（main）run 44646343060 均 completed success。
+- Release：id 452121201，非草稿，6 个资产在位（checksums.txt + sunshine_0.5.33_darwin_amd64/arm64.tar.gz、linux_amd64/arm64.tar.gz、windows_amd64.zip）。
+- 实测：一键装（无参）装上 v0.5.33（linux/amd64），`sunshine version` 报 0.5.33；darwin_arm64 包 checksum 25d1721bfe0c5c0114a04ecea92156e77fe6725139dd64f11055a3d81ba6655a、linux_amd64 包 checksum af11b41c744da4b1c7ec969aba0772328756d67cb3a4ab88fdadac507d40821a，均与 checksums.txt 一致；`upgrade --dry-run` 通过（“已是最新版本（当前 0.5.33，最新 0.5.33），无需升级。”）；发布包二进制 grep 确认 “limit=800” 1 处在位；发版前 pre-tool-use 端到端实测注入 limit=800、全量测试 21 包全过。

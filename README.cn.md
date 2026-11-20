@@ -65,6 +65,14 @@ go install github.com/linrong007/Sunshine/cmd/sunshine@latest
 sunshine upgrade
 ```
 
+**GitHub 下载不了时：镜像一键安装。** 有些网络访问不了 github.com，或下载发布包时超时——一键安装和 `sunshine upgrade` 都会卡在这一步。用下面的命令，经公共镜像代理把脚本和安装包都绕过去：
+
+```sh
+curl -fsSL "https://ghfast.top/https://raw.githubusercontent.com/linrong007/Sunshine/main/install.sh" | sed 's#https://github.com/#https://ghfast.top/https://github.com/#g' | sh
+```
+
+它先经镜像拿到安装脚本，再把脚本里的下载地址临时改走同一镜像，其余流程（查版本、下载、按 checksums.txt 校验、落盘）与原一键安装完全一致；升级时重跑这条命令即可装上最新版。镜像站不可用时，把命令里两处 `ghfast.top` 换成 `gh-proxy.com`。镜像站是第三方公共代理，只在 GitHub 直连不了时使用。
+
 完整故事见[完整教程](docs/tutorial.md)。
 
 ## 怎么用

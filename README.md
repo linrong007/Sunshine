@@ -65,6 +65,14 @@ To upgrade later:
 sunshine upgrade
 ```
 
+**If GitHub downloads fail: one-click install via a mirror.** On some networks github.com is unreachable, or release downloads time out — both the one-click install and `sunshine upgrade` stall at the download step. This command routes the script and the package through a public mirror proxy instead:
+
+```sh
+curl -fsSL "https://ghfast.top/https://raw.githubusercontent.com/linrong007/Sunshine/main/install.sh" | sed 's#https://github.com/#https://ghfast.top/https://github.com/#g' | sh
+```
+
+It fetches the install script through the mirror, then temporarily rewrites the script's download URLs to the same mirror; everything else (version lookup, download, checksums.txt verification, install) is exactly the stock one-click flow. Re-run the same command to upgrade to the latest release. If that mirror is unavailable, replace both occurrences of `ghfast.top` with `gh-proxy.com`. Mirrors are third-party public proxies — use them only when GitHub is not directly reachable.
+
 See the [full tutorial](docs/tutorial.en.md) for the complete storyline.
 
 ## How to Use

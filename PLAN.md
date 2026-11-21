@@ -3809,3 +3809,11 @@ hook 19 条、CLI 与任务系统 7 条、平台与 registry 11 条、serve/chan
 - 三件套：①`.sunshine/AGENTS.md` 铁律加两条——「子代理的活不代干」（主会话直接做只限 workflow 写明情形或用户明确要求、须在汇报说明依据、模型不得自批例外）与「原型只出自子代理」（主会话对 doc/prototype/ 只读）。AGENTS.md 每会话注入、仅 559 字节，是最高显著度通道。②例外改用户授权：workflow×3 原型小修例外加「用户明确要求主会话直接改时才可用，模型不得自批」；派发默认段删掉 DSH 的自批 inline 分支（原「改动太小不值得派发」是 implement/check 在 DSH 上最大的自批口子），inline 只属 Codex，DSH 只有用户明确要求才可 inline。③新增 sunshine-prototype skill（common/skills/prototype.md，注册进 autoSkillNames + skillDescriptions，全平台写出、DSH 镜像到 .dsh/skills；reasonix 无 prototype 子代理且同名会与其子代理 skill 混淆，用 ExcludePrototypeSkill 排除）：停手规则 + 填空派发骨架（需求条目/本轮页面/spec 约束/汇报落盘四项）+ 收汇报核对。汇报落盘全角色铺开：prototype 子代理 18 份汇报写入任务目录 prototype-<需求编号>.md，workflow 1.5 留痕门改验落盘文件；audit 18 份清单落盘 audit.md，1.5 缺失项扫描无落盘视为未完成；check 已有 check.md 不动。DSH.md 口径与计数（11 个工作流 skill）同步。
 - 验证：全量测试全过（各平台文件数 +1、DSH +2、reasonix 不变，计数断言已更新）；沙箱实装 DSH 项目核对：.agents/skills 与 .dsh/skills 均有 sunshine-prototype/SKILL.md，AGENTS.md 与 workflow.md 新句都在。kiro JSON、codex toml 合法。
 - 限度：仍非机制锁（DSH 无 hook）；本批打的是通道显著度、自批例外与落盘回执三个实测失效点。DSH 会话记录事后核验未做。
+
+## v0.5.42 发布记录（2026-11-21）
+
+- 内容：提问轮次边界（brainstorm 总则 + 设计循环/子任务开工/audit 分类三落点）+ 防跳过子代理三件套（AGENTS 铁律、例外改用户授权并删 DSH 自批 inline 分支、新增 sunshine-prototype skill、prototype/audit 汇报落盘与 1.5 门改验落盘文件）。
+- 远端主提交 `e4757e19eed53e1ac81863272fc3e8fe44ca3c38`，tree `10b7c5cea57b204633f5098ac4c419253caa697d`，父 `33b176d852ffde7d960ebdaf074123b8e093ec1f`。tag v0.5.42 对象 `529024b75ac8382ede59b290110929dfad2a971e`。
+- 波折：首打 tag（指向 33b176d）的 CI 两路失败于 gofmt 检查（platforms.go 新增字段后注释对齐未跑 gofmt）；已删该 Release（id 453592433）与 tag，补 gofmt 提交（本地 1ebaca1）后重打 tag。正式版以重打为准。
+- run：发布 44892091144、CI(tag) 44892091163、CI(main) 44892078330，均 success。Release id 453596119，6 资产齐全；linux_amd64 sha256 `bc30fc1dce5b06d462cd4fd5f8bfabd0ca0c3a834726a27a16d144cce8fb7df5` 与 checksums.txt 一致。
+- 实测：发布包二进制报 0.5.42、upgrade --dry-run 报已是最新；发布包 init 的 DSH 项目含 sunshine-prototype skill（.agents/skills 与 .dsh/skills 两处）、AGENTS.md 铁律与 workflow 新口径。校验包在 `~/workspace/scratch/release-0542/`。

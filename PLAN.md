@@ -3740,3 +3740,10 @@ hook 19 条、CLI 与任务系统 7 条、平台与 registry 11 条、serve/chan
 - 验证：mirror/upgrade/registry 新单测（假传输层直连失败走镜像、404 短路、retryable 判定）；全量 22 包过；install.sh 用 curl 垫片封直连实测——指定版本与 latest 两条路都经 ghfast 装上 v0.5.38、校验通过、提示文案正确。
 - 文档：README 中英文 + 教程中英文的镜像节改为「已内置回退」，手动命令简化为只经镜像取脚本（sed 改址不再需要）。
 - 同批前置：市场 workflow 镜像全量同步已单独提交 23b2811（本地，未推送）。
+
+## v0.5.39 发布记录（2026-11-21）
+
+- 内容：下载镜像回退产品化（internal/mirror + upgrade/update/install.sh 三入口，本地 7a132ef）+ 市场 workflow 三份镜像全量同步（本地 23b2811）。push-initial 按全树推送，两笔本地提交合成为一笔远端提交。
+- 远端主提交 7c7ab54a65eb33326a4592069691a6c6b3a08bf4，tree a75eacee3c9a7a08bc68085865dddc174cb79b49，父 8f1cc732a181bfcfb15a8c8c414958e1301fc28b。tag v0.5.39 对象 9dfe46f426b815f7e8e8e1487d2bbc17843f3fe7。
+- run：发布 44852636910、CI(tag) 44852636908、CI(main) 44852604516，均 success。Release id 453367542，6 资产齐全；linux_amd64 sha256 750d2beb80955342d571b00d323c6838dd261c03e95d4afa563946658b05a432 与 checksums.txt 一致。
+- 实测：线上 install.sh 直连装上 0.5.39；封直连（curl 垫片）后版本查询与下载均经 ghfast 回退装上 0.5.39、提示文案正确（中途 /tmp 垫片被清、一度假象直连成功，已复测澄清）；upgrade --dry-run 报已是最新；发布包 init 装出的 audit 含深度逼问节、workflow 含同步内容。校验包在 ~/workspace/scratch/release-0539/。

@@ -3761,3 +3761,10 @@ hook 19 条、CLI 与任务系统 7 条、平台与 registry 11 条、serve/chan
 - 用户问七份为何分两个文件夹；原因为实现便利（概要设计老路径、serve 写死引用），非产品逻辑。用户定统一：七份全进 doc/delivery/，doc/design/ 只留需求列表。
 - 已改：scaffold 映射、serve 活动流与设计文档面板的概要设计路径、init 完成提示、templates.go 与 scaffold 注释、workflow×3 交付文档节、brainstorm 路径、两处测试断言、教程中英文各 3 处路径；市场镜像再同步。老路径 doc/design/概要设计.md 全仓残留 0（PLAN 历史记录除外）。老项目已生成的旧路径文件不动（init 只补缺失）。
 - 验证：全量 22 包过；init 实测 doc/delivery/ 七份齐、doc/design/ 只剩需求列表。
+
+## v0.5.40 发布记录（2026-11-21）
+
+- 内容：交付文档七份占位（本地 2a5a10d）+ 统一到 doc/delivery/（本地 53ac2d2）。push-initial 全树推送，两笔本地提交合成为一笔远端提交。
+- 远端主提交 8c32e611e356b5676ee4e88e40cbfb6b099b21a7，tree 7c0e87fca0ac717de18d64160078648c0a5f5e22，父 3b783c375d45d49fef56073771081243fd44baa8。tag v0.5.40 对象 85b412cd1f03483122d114149fc972bc16a1e7d9。
+- run：发布 44865089128、CI(tag) 44865089065、CI(main) 44865071383，均 success。Release id 453432927，6 资产齐全；linux_amd64 sha256 9d354782cd506d0bff8fc4041b2d63675c8487026fabe10b2d798c89f9a6b7a5 与 checksums.txt 一致。
+- 实测：线上 install.sh 装上 0.5.40、upgrade --dry-run 报已是最新；发布包 init --type 产品设计生成 doc/delivery/ 七份齐、doc/design/ 只剩需求列表。校验包在 ~/workspace/scratch/release-0540/。

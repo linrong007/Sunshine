@@ -3823,3 +3823,10 @@ hook 19 条、CLI 与任务系统 7 条、平台与 registry 11 条、serve/chan
 - 真因修正：运动鞋项目「不按工作流」的真因是新项目没先跑 git init——DSH 按最近 .git 祖先定项目根、项目 skill 未被发现，agent 只能读文件即兴发挥（与 demo11/12 同根；init 已有针对性警告与修复步骤，属漏看）。与 v0.5.41/0.5.42 的模板改动无关。
 - 逐件复核 v0.5.42 三件套后，用户定：只还原一件——派发默认段恢复 DSH 的 inline 分支（「改动太小不值得派发，或用户要求 inline」），DSH.md 两句口径同步恢复；这是原有设计取舍（DSH 派发拼自包含 prompt 成本高），当初删除它依据的是误诊。其余保留：AGENTS 铁律、sunshine-prototype skill、汇报落盘、原型小修用户授权（书籍商城 skill 正常加载时仍有自批实证）、提问轮次边界。
 - 验证：全量测试全过，市场镜像已同步。
+
+## v0.5.43 发布记录（2026-11-21）
+
+- 内容：只还原 DSH 的 inline 分支（派发默认段与 DSH.md 口径恢复到 v0.5.41 的写法）；v0.5.42 其余内容（提问轮次边界、AGENTS 铁律、sunshine-prototype skill、汇报落盘、原型小修用户授权）全部保留。缘由见上一节（真因是新项目未 git init 致 skill 未发现）。
+- 远端主提交 `f3c322d2ea355b3fdf241615cdff2da99ca5aec2`，tree `c60c902ec40f7565c58f867afb01a3b22dc0826e`，父 `b1f9036e61f61d529fb2bbeb45541cd356d2eb78`。tag v0.5.43 对象 `bb7fd74093aaaf728afda8a8f83850e136a5aef9`。
+- run：发布 44894021773、CI(tag) 44894021810、CI(main) 44894003465，均 success。Release id 453608621，6 资产齐全；linux_amd64 sha256 `f4349f15ef02823e410f656b6301139fc143d1cba97675a1fcb6a75a7e0e3381` 与 checksums.txt 一致。
+- 实测：发布包二进制报 0.5.43、upgrade --dry-run 报已是最新；发布包 init 的 DSH 项目 workflow.md 含还原后的 DSH inline 分支、DSH.md 口径已恢复，sunshine-prototype skill 与 AGENTS 铁律仍在。校验包在 `~/workspace/scratch/release-0543/`。

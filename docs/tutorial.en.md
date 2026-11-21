@@ -1851,7 +1851,7 @@ The outline design was written after the loop ended — the opening prompt asked
 
 ```text
 doc/design/需求列表.md        # 49 lines: R-001–R-005 (lines 23–27), open items (lines 39–44, empty), change log (lines 45–49)
-doc/design/概要设计.md        # 78 lines: goals and scope, module split, key flows, interfaces (lines 38–40), data, tech selection (lines 55–64, [待定] on lines 60–63), acceptance criteria, risks
+doc/delivery/概要设计.md        # 78 lines: goals and scope, module split, key flows, interfaces (lines 38–40), data, tech selection (lines 55–64, [待定] on lines 60–63), acceptance criteria, risks
 doc/prototype/index.html       # 41 lines: navigation entry listing the 4 pages and their requirements
 doc/prototype/mock.js          # 17 lines: shared mock, 3 products and 3 coupons
 doc/prototype/商品列表页.html  # 72 lines: R-001
@@ -2118,8 +2118,8 @@ The designer revisits six places:
 | --- | --- | --- | --- |
 | 1 | `doc/design/需求列表.md` | 26 (the R-004 line) | "满 100 元减 10 元" → "满 200 元减 10 元"; the acceptance "2 件无线鼠标用 MAN100JIAN10 实付 16800 分" → "返回 400 COUPON_THRESHOLD" |
 | 2 | `doc/design/需求列表.md` | 49 (change log line) | New line: `2026-11-13 ｜ MAN100JIAN10 门槛从 10000 分改为 20000 分（满 100 元减 10 元改为满 200 元减 10 元）；券名“满100减10”未改 ｜ 门槛调整` |
-| 3 | `doc/design/概要设计.md` | 70 (acceptance criteria, R-004 line) | Same as #1 (acceptance updated in step) |
-| 4 | `doc/design/概要设计.md` | 78 (risk line) | Now reads "券名‘满100减10’与门槛 20000 分（200 元）不一致，名不副实（2026-11-13 由 10000 改为 20000，未改名）" |
+| 3 | `doc/delivery/概要设计.md` | 70 (acceptance criteria, R-004 line) | Same as #1 (acceptance updated in step) |
+| 4 | `doc/delivery/概要设计.md` | 78 (risk line) | Now reads "券名‘满100减10’与门槛 20000 分（200 元）不一致，名不副实（2026-11-13 由 10000 改为 20000，未改名）" |
 | 5 | `doc/prototype/结算页.html` | 50 (threshold hint line) | "满 100 元减 10 元" → "满 200 元减 10 元（券码 MAN100JIAN10，满 20000 分减 1000 分）" |
 | 6 | `doc/prototype/mock.js` | 14 | MAN100JIAN10 `threshold: 10000` → `threshold: 20000` (the shared prototype mock updates; the coupon page renders from the mock, so it follows automatically) |
 

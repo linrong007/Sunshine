@@ -175,7 +175,7 @@ func TestSpecNextStepLine(t *testing.T) {
 			t.Errorf("specNextStepLine(%v) 前缀不对：%q", c.specType, got)
 		}
 	}
-	if got := specNextStepLine(projecttype.Design); !strings.Contains(got, "doc/（需求列表、概要设计、原型）") {
+	if got := specNextStepLine(projecttype.Design); !strings.Contains(got, "doc/（需求列表与原型，另有七份交付文档占位") {
 		t.Errorf("specNextStepLine(Design) 应提 doc/ 设计文档模板，实际：%q", got)
 	}
 }
@@ -384,7 +384,7 @@ func TestInitEndToEndProjectType(t *testing.T) {
 		}
 	})
 
-	// --type 产品设计：spec 三份全写（与全栈相同），doc/ 下写四份设计文档模板。
+	// --type 产品设计：spec 三份全写（与全栈相同），doc/ 下写设计文档模板与交付占位。
 	t.Run("--type 产品设计", func(t *testing.T) {
 		dir := t.TempDir()
 		out, code := runInitBinary(t, dir, "-y", "-u", "测试", "--claude", "--type", "产品设计")
@@ -396,7 +396,7 @@ func TestInitEndToEndProjectType(t *testing.T) {
 		if !strings.Contains(out, "项目类型：产品设计（--type 指定）") {
 			t.Errorf("输出应含“项目类型：产品设计（--type 指定）”，实际：\n%s", out)
 		}
-		if !strings.Contains(out, "doc/（需求列表、概要设计、原型）") {
+		if !strings.Contains(out, "doc/（需求列表与原型，另有七份交付文档占位") {
 			t.Errorf("“下一步”第 2 行应提 doc/ 设计文档模板，实际：\n%s", out)
 		}
 	})
@@ -410,9 +410,15 @@ func assertDesignTemplates(t *testing.T, dir string) {
 		marker string
 	}{
 		{"doc/design/需求列表.md", "# 需求列表"},
-		{"doc/design/概要设计.md", "# 概要设计"},
+		{"doc/delivery/概要设计.md", "# 概要设计"},
 		{"doc/prototype/index.html", "（请填写产品名称）原型"},
 		{"doc/prototype/示例页.html", "（请填写产品名称）原型 · 示例页"},
+		{"doc/delivery/详细设计.md", "# 详细设计"},
+		{"doc/delivery/数据库设计.md", "# 数据库设计"},
+		{"doc/delivery/接口文档.md", "# 接口文档"},
+		{"doc/delivery/测试报告.md", "# 测试报告"},
+		{"doc/delivery/用户手册.md", "# 用户手册"},
+		{"doc/delivery/部署说明.md", "# 部署说明"},
 	} {
 		data, err := os.ReadFile(filepath.Join(dir, filepath.FromSlash(tc.rel)))
 		if err != nil {

@@ -42,7 +42,7 @@ func TestInitSpecTypeSkipsMismatchedSpec(t *testing.T) {
 }
 
 // TestInitDesignWritesDocTemplates 校验 SpecType=Design：spec 三份全写
-// （与全栈相同），doc/ 下写四份设计文档模板；
+// （与全栈相同），doc/ 下写设计文档模板与交付占位；
 // 模板不进哈希清单；已填过的文件 -f 重建也不覆盖。
 func TestInitDesignWritesDocTemplates(t *testing.T) {
 	dir := t.TempDir()
@@ -58,7 +58,7 @@ func TestInitDesignWritesDocTemplates(t *testing.T) {
 	if err != nil {
 		t.Fatalf("读取哈希清单失败：%v", err)
 	}
-	for _, key := range []string{"doc/design/需求列表.md", "doc/design/概要设计.md", "doc/prototype/index.html", "doc/prototype/示例页.html"} {
+	for _, key := range []string{"doc/design/需求列表.md", "doc/delivery/概要设计.md", "doc/prototype/index.html", "doc/prototype/示例页.html", "doc/delivery/详细设计.md", "doc/delivery/数据库设计.md", "doc/delivery/接口文档.md", "doc/delivery/测试报告.md", "doc/delivery/用户手册.md", "doc/delivery/部署说明.md"} {
 		if strings.Contains(string(data), key) {
 			t.Errorf("哈希清单不应含 %s", key)
 		}
@@ -100,7 +100,7 @@ func TestInitDesignWritesDocTemplates(t *testing.T) {
 	}
 }
 
-// assertDesignTemplates 校验 doc/ 下四份设计文档模板存在且内容是模板。
+// assertDesignTemplates 校验 doc/ 下设计文档模板与交付占位存在且内容是模板。
 func assertDesignTemplates(t *testing.T, dir string) {
 	t.Helper()
 	for _, tc := range []struct {
@@ -108,9 +108,15 @@ func assertDesignTemplates(t *testing.T, dir string) {
 		marker string
 	}{
 		{"doc/design/需求列表.md", "# 需求列表"},
-		{"doc/design/概要设计.md", "# 概要设计"},
+		{"doc/delivery/概要设计.md", "# 概要设计"},
 		{"doc/prototype/index.html", "（请填写产品名称）原型"},
 		{"doc/prototype/示例页.html", "（请填写产品名称）原型 · 示例页"},
+		{"doc/delivery/详细设计.md", "# 详细设计"},
+		{"doc/delivery/数据库设计.md", "# 数据库设计"},
+		{"doc/delivery/接口文档.md", "# 接口文档"},
+		{"doc/delivery/测试报告.md", "# 测试报告"},
+		{"doc/delivery/用户手册.md", "# 用户手册"},
+		{"doc/delivery/部署说明.md", "# 部署说明"},
 	} {
 		data, err := os.ReadFile(filepath.Join(dir, filepath.FromSlash(tc.rel)))
 		if err != nil {

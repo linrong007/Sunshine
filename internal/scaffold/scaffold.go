@@ -235,15 +235,24 @@ func writeRootGitignore(cwd string) error {
 }
 
 // designTemplates 是产品设计文档模板：内嵌源路径 → 项目内目标路径。
+// 需求列表与原型是设计阶段的活文档；其余七份是交付文档占位
+// （七份都在 doc/delivery/），只有标题与
+// 章节骨架，项目收尾时经用户确认才生成内容。
 // 原型按页分文件：index.html 是导航入口，每页一个文件。
 var designTemplates = []struct{ src, dst string }{
 	{"design/requirements.md", "doc/design/需求列表.md"},
-	{"design/outline.md", "doc/design/概要设计.md"},
+	{"design/outline.md", "doc/delivery/概要设计.md"},
 	{"design/prototype/index.html", "doc/prototype/index.html"},
 	{"design/prototype/示例页.html", "doc/prototype/示例页.html"},
+	{"design/detailed.md", "doc/delivery/详细设计.md"},
+	{"design/database.md", "doc/delivery/数据库设计.md"},
+	{"design/api.md", "doc/delivery/接口文档.md"},
+	{"design/test-report.md", "doc/delivery/测试报告.md"},
+	{"design/manual.md", "doc/delivery/用户手册.md"},
+	{"design/deployment.md", "doc/delivery/部署说明.md"},
 }
 
-// writeDesignTemplates 把三份产品设计文档模板写进项目 doc/。
+// writeDesignTemplates 把产品设计文档模板写进项目 doc/。
 // 只在目标文件不存在时写：设计人员已填的内容绝不覆盖。
 func writeDesignTemplates(cwd string) error {
 	for _, t := range designTemplates {

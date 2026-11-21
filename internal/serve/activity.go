@@ -26,7 +26,7 @@ type activityEntry struct {
 // 原型按页分文件：doc/prototype/ 下各页 .html 在 watchedFiles() 里展开盯梢。
 var watchedDesignFiles = []string{
 	"doc/design/需求列表.md",
-	"doc/design/概要设计.md",
+	"doc/delivery/概要设计.md",
 }
 
 // activityTracker 维护关键文件 mtime 快照：启动时记基线，每次

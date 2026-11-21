@@ -3747,3 +3747,17 @@ hook 19 条、CLI 与任务系统 7 条、平台与 registry 11 条、serve/chan
 - 远端主提交 7c7ab54a65eb33326a4592069691a6c6b3a08bf4，tree a75eacee3c9a7a08bc68085865dddc174cb79b49，父 8f1cc732a181bfcfb15a8c8c414958e1301fc28b。tag v0.5.39 对象 9dfe46f426b815f7e8e8e1487d2bbc17843f3fe7。
 - run：发布 44852636910、CI(tag) 44852636908、CI(main) 44852604516，均 success。Release id 453367542，6 资产齐全；linux_amd64 sha256 750d2beb80955342d571b00d323c6838dd261c03e95d4afa563946658b05a432 与 checksums.txt 一致。
 - 实测：线上 install.sh 直连装上 0.5.39；封直连（curl 垫片）后版本查询与下载均经 ghfast 回退装上 0.5.39、提示文案正确（中途 /tmp 垫片被清、一度假象直连成功，已复测澄清）；upgrade --dry-run 报已是最新；发布包 init 装出的 audit 含深度逼问节、workflow 含同步内容。校验包在 ~/workspace/scratch/release-0539/。
+
+## 2026-11-21 交付文档七份占位（用户点选，未发版）
+
+- 起因：用户指出概要设计口径上「按需」但默认在生成（init 铺文件 + workflow/brainstorm「三件套」措辞）；讨论后用户定：常规交付全套七份都占位——概要设计、详细设计、数据库设计、接口文档、测试报告、用户手册、部署说明。
+- init：产品设计类型新增六份占位模板（templates/design/{detailed,database,api,test-report,manual,deployment}.md → doc/delivery/），概要设计保留 doc/design/ 原路径并改为占位头（点名时可提前填）；占位只有标题、章节骨架与「交付时经用户确认后生成、交付前不读不填」声明。init 帮助与完成提示文案同步。
+- workflow×3 + brainstorm：删「三件套」与「循环结束后按需生成交付客户的文档」，改为「交付文档（只占位，项目收尾时经确认生成）」节——全部子任务归档、父任务集成复核通过后列清单请用户确认，点头哪份生成哪份（依据 prd/需求列表/spec/check 对账/代码事实），点名提前生成不受限；拆解依据改为「概要设计已有实质内容（非占位）才参考」；集成复核行加收尾处理占位一步。市场镜像三份已再同步（diff 空）。
+- 验证：全量 22 包过；新二进制 init --type 产品设计实测 doc/ 共 10 份文件、占位头在位、装出的 workflow 三件套 0 处、新交付文档节在位。
+- 教程 §12 的概要设计示例是「开场点名要这份文档」的场景，与点名提前生成口径一致，未动。
+
+## 2026-11-21 补记：交付占位统一到 doc/delivery/（用户点选，未发版）
+
+- 用户问七份为何分两个文件夹；原因为实现便利（概要设计老路径、serve 写死引用），非产品逻辑。用户定统一：七份全进 doc/delivery/，doc/design/ 只留需求列表。
+- 已改：scaffold 映射、serve 活动流与设计文档面板的概要设计路径、init 完成提示、templates.go 与 scaffold 注释、workflow×3 交付文档节、brainstorm 路径、两处测试断言、教程中英文各 3 处路径；市场镜像再同步。老路径 doc/design/概要设计.md 全仓残留 0（PLAN 历史记录除外）。老项目已生成的旧路径文件不动（init 只补缺失）。
+- 验证：全量 22 包过；init 实测 doc/delivery/ 七份齐、doc/design/ 只剩需求列表。

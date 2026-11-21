@@ -213,7 +213,7 @@ func designDocInfo(root, rel string) map[string]any {
 
 func (s *Server) handleDesign(c *gin.Context) {
 	requirements := designDocInfo(s.root, "doc/design/需求列表.md")
-	outline := designDocInfo(s.root, "doc/design/概要设计.md")
+	outline := designDocInfo(s.root, "doc/delivery/概要设计.md")
 	prototype := prototypeDocInfo(s.root)
 	c.JSON(http.StatusOK, map[string]any{
 		"requirements": requirements,

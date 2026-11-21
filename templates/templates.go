@@ -23,9 +23,11 @@ var Platforms embed.FS
 //go:embed all:workflows
 var Workflows embed.FS
 
-// Design 是产品设计文档模板（需求列表、概要设计、原型），
-// 只在 init 选“产品设计”时由 internal/scaffold 写进项目 doc/，
-// 不在 .sunshine/ 里，也不在模板哈希清单里。
+// Design 是产品设计文档模板（需求列表、原型，与七份交付文档
+// 占位：七份，都在 doc/delivery/），只在 init 选“产品
+// 设计”时由 internal/scaffold 写进项目 doc/，不在 .sunshine/
+// 里，也不在模板哈希清单里。交付文档只是占位，项目收尾时经
+// 用户确认才生成内容。
 //
 //go:embed all:design
 var Design embed.FS

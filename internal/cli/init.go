@@ -135,7 +135,7 @@ GitHub Copilot、Factory Droid）。
 配置文件），只生成对应的 spec 模板；检测不到时交互问一句；--type 可显式
 指定（合法值：前端、后端、全栈、产品设计）；-y 或非交互终端时检测不到默认全栈；
 --registry 写 spec 时不检测、不提问。产品设计不参与检测，只能手动选：
-选它只生成通用规范（system.md）与 doc/ 设计文档模板（需求列表、概要设计、原型），
+选它只生成通用规范（system.md）与 doc/ 文档（需求列表、原型，及七份交付文档占位），
 不生成前后端规范（技术栈待定，以后定了再 init -f 补）。`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		printInitBanner()
@@ -562,7 +562,7 @@ func specNextStepLine(specType projecttype.Type) string {
 	case projecttype.Backend:
 		generated = "system.md、backend.md"
 	case projecttype.Design:
-		return "  2. 规范已按默认模板生成在 .sunshine/spec/（已生成 system.md、frontend.md、backend.md；有团队规范时再补充），产品设计文档模板已生成在 doc/（需求列表、概要设计、原型），工作流按 .sunshine/workflow.md 自动推进，一般不用改。"
+		return "  2. 规范已按默认模板生成在 .sunshine/spec/（已生成 system.md、frontend.md、backend.md；有团队规范时再补充），产品设计文档已生成在 doc/（需求列表与原型，另有七份交付文档占位在 doc/delivery/，交付时经确认再生成内容），工作流按 .sunshine/workflow.md 自动推进，一般不用改。"
 	default:
 		generated = "system.md、frontend.md、backend.md"
 	}

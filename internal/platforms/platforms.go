@@ -75,6 +75,7 @@ type Platform struct {
 	AgentSkillCopies     []PlatformFile
 	ExtraFiles           []PlatformFile
 	ExcludeCheckSkill    bool // 为真时不写 common 的 check 自动触发 skill（仅 reasonix：check 被子代理版顶替）
+	ExcludePrototypeSkill bool // 为真时不写 common 的 prototype 派发 skill（仅 reasonix：无 prototype 子代理，skill 名会与子代理 skill 混淆）
 
 	// 以下两项是 Trellis templateContext 的其余字段，模板内目前
 	// 没有占位符引用它们，但占位符解析器按 shared.ts 实现它们，
@@ -333,7 +334,7 @@ var registry = []Platform{
 		ID: "reasonix", Name: "Reasonix", Flag: "reasonix", ConfigDir: ".reasonix",
 		CmdRefPrefix: "/skill sunshine-",
 		AgentCapable: true, HasHooks: false, SupportsAgentSkills: false,
-		SkillsDir: ".reasonix/skills", ExcludeCheckSkill: true,
+		SkillsDir: ".reasonix/skills", ExcludeCheckSkill: true, ExcludePrototypeSkill: true,
 		CmdForm: CmdFormSkill, CmdDir: ".reasonix/skills", CmdAll: true,
 		AgentFiles: []PlatformFile{
 			{Src: "platforms/reasonix/agents/sunshine-implement.md", Dst: ".reasonix/skills/sunshine-implement/SKILL.md"},
@@ -616,7 +617,7 @@ type InstallOptions struct {
 }
 
 // skill 模板的源文件名（不含 sunshine- 前缀）。
-var autoSkillNames = []string{"before-dev", "brainstorm", "break-loop", "check", "update-spec", "spec-import"}
+var autoSkillNames = []string{"before-dev", "brainstorm", "break-loop", "check", "update-spec", "spec-import", "prototype"}
 
 // command 模板的源文件名。
 var commandNames = []string{"continue", "finish-work", "start"}
@@ -849,13 +850,16 @@ func buildFiles(cwd string, p Platform, opts InstallOptions) (map[string]string,
 	files := make(map[string]string)
 	root := skillsRoot(p)
 
-	// 5 个自动触发 skill：写共享目录的平台（codex、gemini、dsh、
+	// 自动触发 skill：写共享目录的平台（codex、gemini、dsh、
 	// pi、kimi）用中性解析，保证多平台写同一目录时字节一致；
 	// 其余平台用平台解析。reasonix 不写 common 的 check
 	// （被子代理版顶替，见 ExcludeCheckSkill）。
 	if root != "" {
 		for _, name := range autoSkillNames {
 			if name == "check" && p.ExcludeCheckSkill {
+				continue
+			}
+			if name == "prototype" && p.ExcludePrototypeSkill {
 				continue
 			}
 			raw, err := templates.Platforms.ReadFile("platforms/common/skills/" + name + ".md")
@@ -1246,6 +1250,7 @@ var skillDescriptions = map[string]string{
 	"break-loop":  "深度 Bug 分析，打破“修了忘、忘了再修”的循环。分析根因类别、修复失败的原因、预防机制，并把知识沉淀进规范。适用于修完 Bug 后防止同类 Bug 再次出现。",
 	"update-spec": "把可执行的契约与编码约定沉淀进 .sunshine/spec/ 文档。适用于从调试、实现或讨论中学到值得保留的东西时。",
 	"spec-import": "把用户已有的文档（设计稿、接口文档、README、导出的 wiki）整理成 Sunshine 的规范文件，落到 .sunshine/spec/ 并配好文件头上的索引。适用于接手已有文档的项目、第一次跑 sunshine init 之后。",
+	"prototype":   "高保真原型派发协议：主会话不直接写原型文件，需要原型时加载本 skill，按填空骨架把本轮需求派给 sunshine-prototype 子代理，并收取落盘汇报。适用于设计先行流程里每条需求的原型轮次。",
 }
 
 // wrapSkillFrontmatter 给解析后的 skill 内容包上 YAML frontmatter

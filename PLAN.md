@@ -3796,3 +3796,16 @@ hook 19 条、CLI 与任务系统 7 条、平台与 registry 11 条、serve/chan
 - 远端主提交 262e113edd8c2d93a64c081b25c9ab76009f05c7，tree c19bd3a45b222b0d4011409d7937e1c6d9418897，父 7c92a5c4a00f7b990828a5c952fc61a60a7e9196。tag v0.5.41 对象 d1ae433d6ac5fc9041e7951764eaa1e7601147f7。
 - run：发布 44877667961、CI(tag) 44877667973、CI(main) 44877650617，均 success。Release id 453503651，6 资产齐全；linux_amd64 sha256 ea47326187ae96eee52257eebcc0114fd17b187dd2954151a7904476c91dfe92 与 checksums.txt 一致。
 - 实测：线上 install.sh 装上 0.5.41、upgrade --dry-run 报已是最新；发布包 init 装出的 prototype 含验证总量封顶与超限梯度、workflow 含原型产出留痕门、check 含 check.md 落盘。校验包在 ~/workspace/scratch/release-0541/。
+
+## 2026-11-21 提问轮次边界（共性修复，用户点选，未发版）
+
+- 实证：用户给运动鞋商城开场「只做第一个需求：导航菜单」，DSH 里的 agent 连问 15 题——导航壳在第 7 问已够动手，后 8 问（商品状态、出入库审核/作废/负库存、品牌分类维护等）是后续需求细节被提前一锅烩。用户问是否共性，定性为「轮次边界失守」一类 bug：完整性清单（功能型必问项、缺失项四类）没有范围反制原则，勤快模型会把检查表当整个产品的问卷。
+- 改法（总则 + 三落点）：①brainstorm 提问规则加「提问边界（总则）」：只问当前轮次/当前任务范围内的决策，范围外记 [待定] 挂到对应需求/子任务名下，清单是当前条目的检查表不是产品问卷；②workflow×3 设计循环：本轮只问清该条细节，列表先列全条目，其余条目未定项标 [待定] 不展开，共用项首次需要的那轮定；③workflow×3 技术待定分流：开工问答只处理本子任务 [待定]，不顺带澄清其它子任务，新发现的范围外问题挂账；④audit 18 份：必须确认加范围标准——只限挡住当前评审对象交付的，后续需求/其它子任务细节归可延后并注明挂账去向。需求变更处已有「只问 delta」同原则，未动。市场镜像已同步。
+- 验证：全量测试全过，kiro JSON 合法，各锚点计数无误。
+
+## 2026-11-21 防跳过子代理三件套 + 全角色扩展（用户点选，未发版）
+
+- 背景：v0.5.41 措辞在 DSH+DeepSeek 全新项目上仍未拦住主会话自写原型（「I'll do this inline (small)」）。复盘通道效力：该轮被遵守的规矩（提问格式、问答记 prd）都经 skill 渠道送达；被绕过的派发只躺在 60KB workflow.md 里。用户追加要求：DSH 上其它子代理（implement/check/research/audit）的活也不能跳过。
+- 三件套：①`.sunshine/AGENTS.md` 铁律加两条——「子代理的活不代干」（主会话直接做只限 workflow 写明情形或用户明确要求、须在汇报说明依据、模型不得自批例外）与「原型只出自子代理」（主会话对 doc/prototype/ 只读）。AGENTS.md 每会话注入、仅 559 字节，是最高显著度通道。②例外改用户授权：workflow×3 原型小修例外加「用户明确要求主会话直接改时才可用，模型不得自批」；派发默认段删掉 DSH 的自批 inline 分支（原「改动太小不值得派发」是 implement/check 在 DSH 上最大的自批口子），inline 只属 Codex，DSH 只有用户明确要求才可 inline。③新增 sunshine-prototype skill（common/skills/prototype.md，注册进 autoSkillNames + skillDescriptions，全平台写出、DSH 镜像到 .dsh/skills；reasonix 无 prototype 子代理且同名会与其子代理 skill 混淆，用 ExcludePrototypeSkill 排除）：停手规则 + 填空派发骨架（需求条目/本轮页面/spec 约束/汇报落盘四项）+ 收汇报核对。汇报落盘全角色铺开：prototype 子代理 18 份汇报写入任务目录 prototype-<需求编号>.md，workflow 1.5 留痕门改验落盘文件；audit 18 份清单落盘 audit.md，1.5 缺失项扫描无落盘视为未完成；check 已有 check.md 不动。DSH.md 口径与计数（11 个工作流 skill）同步。
+- 验证：全量测试全过（各平台文件数 +1、DSH +2、reasonix 不变，计数断言已更新）；沙箱实装 DSH 项目核对：.agents/skills 与 .dsh/skills 均有 sunshine-prototype/SKILL.md，AGENTS.md 与 workflow.md 新句都在。kiro JSON、codex toml 合法。
+- 限度：仍非机制锁（DSH 无 hook）；本批打的是通道显著度、自批例外与落盘回执三个实测失效点。DSH 会话记录事后核验未做。

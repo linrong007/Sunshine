@@ -13,7 +13,7 @@ import (
 // v0.3.11：prototype agent 各 +1（codebuddy/copilot/droid 各一文件）。
 // spec 索引层：spec-import skill 各 +1。
 func TestInstallEPlatforms(t *testing.T) {
-	wantCounts := map[string]int{"codebuddy": 52, "copilot": 54, "droid": 52}
+	wantCounts := map[string]int{"codebuddy": 53, "copilot": 55, "droid": 53}
 	for _, id := range []string{"codebuddy", "copilot", "droid"} {
 		t.Run(id, func(t *testing.T) {
 			dir := t.TempDir()

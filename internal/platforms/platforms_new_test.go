@@ -13,10 +13,10 @@ import (
 // 文件数来自各规格的最终生成文件完整清单（A1/B/A3/C 路）。
 func TestInstallNewPlatforms(t *testing.T) {
 	wantCounts := map[string]int{
-		"kiro": 53, "gemini": 52, "qoder": 52,
-		"pi": 54, "zcode": 52, "trae": 52, "omp": 52, "snow": 57,
-		"opencode": 59, "dsh": 92, "reasonix": 48, "grok": 52, "kimi": 57,
-		"kilo": 47, "antigravity": 47, "devin": 47,
+		"kiro": 54, "gemini": 53, "qoder": 53,
+		"pi": 55, "zcode": 53, "trae": 53, "omp": 53, "snow": 58,
+		"opencode": 60, "dsh": 94, "reasonix": 48, "grok": 53, "kimi": 58,
+		"kilo": 48, "antigravity": 48, "devin": 48,
 	}
 	for _, id := range []string{
 		"kiro", "gemini", "qoder", "pi", "zcode", "trae", "omp", "snow",

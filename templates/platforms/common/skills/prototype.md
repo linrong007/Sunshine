@@ -1,0 +1,24 @@
+# Sunshine 原型派发
+
+设计先行 1.1 的设计循环里，每条需求的原型由 `sunshine-prototype` 子代理产出。主会话不写原型文件，需要原型时先加载本 skill、按本协议派发。本 skill 只管派发，不管原型本身怎么做——做法在子代理定义里。
+
+## 停手规则
+
+- `doc/prototype/` 下的文件只能出自 `sunshine-prototype` 子代理之手。主会话对该目录只读：不新建、不改写、不顺手补。
+- 唯一例外：单处、单文件的文字、颜色、间距小修，且用户明确要求主会话直接改。模型不得自批例外——觉得活小、内容区是空的、只有一页，都不构成例外。
+
+## 派发（填空骨架）
+
+按当前平台的派发方式（见 `.sunshine/workflow.md` 的派发协议）派发 `sunshine-prototype` 子代理，prompt 填四项：
+
+1. **需求条目**：`doc/design/需求列表.md` 里本轮条目的编号与全文（prd 对应节一并给）。
+2. **本轮页面**：要新建或改版的页面文件（`doc/prototype/` 下路径），只做这一条需求的页；附共用文件（`assets/tokens.css`、`assets/components.css`、`assets/components-index.md`、`assets/mock-common.js`、本轮的 `assets/mock-Rxxx.js`，如已有），不给整个 `doc/prototype/` 目录。
+3. **规范约束**：`.sunshine/spec/` 里前端组的路径；有设计约束时把约束原文摘进 prompt。子代理只读 spec，不改 spec。
+4. **汇报落盘**：干完把汇报（页数、mock 记录数、文件路径）写进当前父任务目录的 `prototype-<需求编号>.md`，对话汇报给同一份内容。
+
+另在 prompt 里注明：该环境模型读不了图片时，截图自检直接跳过。
+
+## 收到汇报后
+
+- 先核对父任务目录里 `prototype-<需求编号>.md` 已落盘、内容与对话汇报一致；缺文件视为派发未完成，补派。
+- 把本轮结论记回 prd 与需求列表，再进入下一条需求的循环。

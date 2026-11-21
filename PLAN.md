@@ -3843,3 +3843,9 @@ hook 19 条、CLI 与任务系统 7 条、平台与 registry 11 条、serve/chan
 - 远端主提交 `df314f24f5ecc1511620a13b6cb2d0aac5d5864e`，tree `f736f3dbf92435327738ddaa5d6a07429c5396dc`，父 `df6975edf3a88d1ceb18a446c64ce50bba3113bb`。tag v0.5.44 对象 `bec1388619bc6a7760da08156764edf93cbc15c4`。
 - run：发布 44896648311、CI(tag) 44896648425、CI(main) 44896627336，均 success。Release id 453626383，6 资产齐全；linux_amd64 sha256 `4134a0edc5ffb34300436a132730e34ccad6c084f2dcdf303456cd33f9e31375` 与 checksums.txt 一致。
 - 实测：发布包二进制报 0.5.44、upgrade --dry-run 报已是最新；发布包 init 的 DSH 项目 workflow.md 含「交付验收封顶」（恰 1 处）。校验包在 `~/workspace/scratch/release-0544/`。
+
+## 2026-11-21 提问走结构化工具（用户点选，未发版）
+
+- 背景：mall-admin 新项目实跑，agent 把问题写成纯文本、用户只能打字回字母；用户指出此前在 DSH 都是弹窗点选。查证：DSH 有原生 `ask_user_question` 工具（官方工具目录在册），客户端渲染为提问弹窗，无弹窗的会话才退化成普通消息提问——是否弹窗取决于 agent 是否调用工具。此前助理把「DSH 勾选框渲染改不了」过度推广成「DSH 无可点选控件」，已向用户更正、MEMORY 已订正。根因：brainstorm 措辞只规定问题内容与格式，从未要求用结构化提问工具，弹窗与否全凭模型当轮自觉。
+- 改法（用户点选，全平台适用）：brainstorm「提问规则」加「提问走结构化工具」明文——平台提供结构化提问工具时必须用工具提问，不许纯文本让用户打字回（Claude Code 用 AskUserQuestion、DSH 用 ask_user_question、其它平台有等价工具同理；格式不变；确实没有工具的平台才用纯文本）。落点：common brainstorm + copilot prompt 变体；workflow×3 按需求循环段加一句指针（见 brainstorm 提问规则），市场镜像同步。
+- 验证：全量测试全过；本地构建 init 实测：DSH 项目 .agents/skills 与 .dsh/skills 两处 brainstorm 均含新段、workflow.md 含指针句，Claude 项目 brainstorm 含新段；市场镜像与模板逐字节一致。

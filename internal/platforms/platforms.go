@@ -62,19 +62,19 @@ type Platform struct {
 	SupportsAgentSkills bool
 	ExtraManagedPaths   []string
 
-	SkillsDir            string
-	AutoSkillsNeutral    bool
-	MirrorSkillsToCmdDir bool // 为真时把 SkillsDir 下的 skill 文件原样再写一份到 CmdDir（仅 dsh：网页版 Harness 只发现 .dsh/skills/，不扫共享 .agents/skills/，2026-11-17 demo11 实测）
-	CmdForm              string
-	CmdDir               string
-	CmdPrefix            string
-	CmdAll               bool
-	CmdNeutral           bool
-	CmdJSONDir           string
-	AgentFiles           []PlatformFile
-	AgentSkillCopies     []PlatformFile
-	ExtraFiles           []PlatformFile
-	ExcludeCheckSkill    bool // 为真时不写 common 的 check 自动触发 skill（仅 reasonix：check 被子代理版顶替）
+	SkillsDir             string
+	AutoSkillsNeutral     bool
+	MirrorSkillsToCmdDir  bool // 为真时把 SkillsDir 下的 skill 文件原样再写一份到 CmdDir（仅 dsh：网页版 Harness 只发现 .dsh/skills/，不扫共享 .agents/skills/，2026-11-17 demo11 实测）
+	CmdForm               string
+	CmdDir                string
+	CmdPrefix             string
+	CmdAll                bool
+	CmdNeutral            bool
+	CmdJSONDir            string
+	AgentFiles            []PlatformFile
+	AgentSkillCopies      []PlatformFile
+	ExtraFiles            []PlatformFile
+	ExcludeCheckSkill     bool // 为真时不写 common 的 check 自动触发 skill（仅 reasonix：check 被子代理版顶替）
 	ExcludePrototypeSkill bool // 为真时不写 common 的 prototype 派发 skill（仅 reasonix：无 prototype 子代理，skill 名会与子代理 skill 混淆）
 
 	// 以下两项是 Trellis templateContext 的其余字段，模板内目前

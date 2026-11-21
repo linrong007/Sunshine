@@ -3856,3 +3856,9 @@ hook 19 条、CLI 与任务系统 7 条、平台与 registry 11 条、serve/chan
 - 远端主提交 `645e393f0555a063446153d927653290c7241146`，tree `4e3f61422a42f7a0092eeb335f3b628471a13cba`，父 `778eb777dae84c0f385232c18f44dd39944f7236`。tag v0.5.45 对象 `e678804f7645ef9387159d675d2b5b66d05de15d`。
 - run：发布 44907655541、CI(tag) 44907655529、CI(main) 44907632878，均 success。Release id 453702178，6 资产齐全；linux_amd64 sha256 `597defc7fe4dca956f888446e1553e10215c414bc753365a73967d69a0fbe80a` 与 checksums.txt 一致。
 - 实测：发布包二进制报 0.5.45、upgrade --dry-run 报已是最新；发布包 init 的 DSH 项目 brainstorm（.agents/skills 与 .dsh/skills 两处）含「提问走结构化工具」、workflow.md 含指针句。校验包在 `~/workspace/scratch/release-0545/`。
+
+## 2026-11-21 1.5 提问口径补齐（用户点选，随 v0.5.46 发布）
+
+- 背景：v0.5.45 发布后用户在 mall-admin 实跑 1.5 评审：audit 出完清单，主会话呈报「必须确认」时仍是纯文本列选项、没弹 ask_user_question。查 workflow 1.5：缺失项扫描与深度逼问两段只写「当场逐条问完」，没写提问格式、也没指向 brainstorm——v0.5.45 的结构化工具明文只落在 brainstorm 与设计循环，1.5 呈报不在覆盖内（该项目当时也尚未 update 到 0.5.45 模板）。
+- 改法（用户点选）：workflow×3 的 1.5 缺失项扫描段在「当场逐条问完」后加全口径（向用户提问按 brainstorm 提问规则：一次只问一个问题、给 2–4 个选项加「自己填写」；平台提供结构化提问工具时必须用工具提问，不用纯文本列选项）；深度逼问段加指针句（提问口径同扫描）。市场镜像逐字节同步。
+- 验证：全量测试全过；本地构建 init 实测 DSH 项目 workflow.md 两处新口径在位；发布包复验见发布记录。

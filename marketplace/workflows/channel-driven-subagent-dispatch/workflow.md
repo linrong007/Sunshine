@@ -147,7 +147,7 @@ Channel 驱动的子代理派发是本工作流的默认执行模型。主会话
 流程：channel 驱动的 `implement` 工作线程 -> channel 驱动的 `check` 工作线程 -> `sunshine-update-spec` -> 提交（第 3.4 步）-> `/sunshine:finish-work`。
 
 **子任务顺序固定**：一个子任务的生命周期顺序是固定的，不随开场提示词的措辞而变：实现 → 检查 → 回写 spec → 提交 → 归档。检查验实现、回写 spec 在提交之前、归档在最后一步；提示词说“实现完直接归档/提交”也不跳过检查与回写。
-主会话默认：用 `sunshine channel spawn` 配合 `.sunshine/agents/implement.md` 与 `.sunshine/agents/check.md`；除非明确要求或宿主专属工具必需，否则不要用原生的 Claude Task / Codex sub_agent。
+主会话默认：用 `sunshine channel spawn` 配合 `.sunshine/agents/implement.md` 与 `.sunshine/agents/check.md`；除非明确要求或宿主专属工具必需，否则不要用原生的 Claude Task / Codex sub_agent。派发指实际执行 spawn，只在叙述里走过流程不算；发现没派发就动了手，立即停手补派。
 工作线程上下文顺序：jsonl 条目 -> `prd.md` -> `design.md（如有）` -> `implement.md（如有）`。jsonl 条目只读 reason 指明的部分；带 `lines` 的条目注入时只切该行范围（1-based 闭区间），无 `lines` 的大文件先 grep 定位。用 `implement`、`check`、`check-cx`、`check-cc` 这类稳定的工作线程代号；需要精确结果时用 `sunshine channel messages --raw` 读结果。
 [/workflow-state:in_progress]
 
@@ -249,7 +249,7 @@ sunshine task create "<任务标题>" --slug <名称>
 
 **交付文档（只占位，项目收尾时经确认生成）**：设计阶段只产出需求列表与原型。七份交付文档在 init 选产品设计时已生成占位（`doc/delivery/` 下的概要设计、详细设计、数据库设计、接口文档、测试报告、用户手册、部署说明），占位只有标题与章节骨架，设计与开发阶段不读不填、不当设计依据。全部子任务归档、父任务最终集成复核通过后，主会话把占位清单列给用户确认：点头哪份就生成哪份，依据 `prd.md`、需求列表、spec、各子任务的 check 对账与代码事实来写；没点名的保持占位，或按用户意思删除。用户在开场或设计阶段点名要某份文档的，该份按点名提前生成，不受本节限制。什么设计文档都没有就是纯代码任务，走直接开发。
 
-**高保真原型派发给子代理**：原型是代码（HTML/CSS/JS + mock 数据），不要由主会话顺手写。每轮按需求派发：用 `sunshine channel spawn --agent prototype` 派发（加载 `.sunshine/agents/prototype.md`），派发消息里给出需求列表 `doc/design/需求列表.md` 的路径、spec 里前端组的设计约束（如 `.sunshine/spec/frontend.md` 里的设计约束）、以及本轮只读的原型文件（`doc/prototype/index.html` 导航入口 + `doc/prototype/assets/tokens.css` + `doc/prototype/assets/components-index.md` + `doc/prototype/assets/mock-common.js` + 本轮要做/改的那一页 + 本轮的 `doc/prototype/assets/mock-Rxxx.js`，如已有；只点名这几个文件，不要给整个 `doc/prototype/` 目录，不要读其它已有页，不要读 `components.css` 全文和其它页的 mock 文件）；子代理按需求列表当前状态产出或更新该条需求对应的页（每页一个文件 + `index.html` 导航入口），共用页在已有页上加、不重建，完成后只汇报页数、mock 记录数与文件路径，主会话不直接写原型，只收汇报。初版生成与结构性大改走子代理；小修（改个按钮颜色、一行文案）在主会话里用 grep 定向改，不重新派发。
+**高保真原型派发给子代理**：原型是代码（HTML/CSS/JS + mock 数据），不要由主会话顺手写。每轮按需求派发：用 `sunshine channel spawn --agent prototype` 派发（加载 `.sunshine/agents/prototype.md`），派发消息里给出需求列表 `doc/design/需求列表.md` 的路径、spec 里前端组的设计约束（如 `.sunshine/spec/frontend.md` 里的设计约束）、以及本轮只读的原型文件（`doc/prototype/index.html` 导航入口 + `doc/prototype/assets/tokens.css` + `doc/prototype/assets/components-index.md` + `doc/prototype/assets/mock-common.js` + 本轮要做/改的那一页 + 本轮的 `doc/prototype/assets/mock-Rxxx.js`，如已有；只点名这几个文件，不要给整个 `doc/prototype/` 目录，不要读其它已有页，不要读 `components.css` 全文和其它页的 mock 文件）；子代理按需求列表当前状态产出或更新该条需求对应的页（每页一个文件 + `index.html` 导航入口），共用页在已有页上加、不重建，完成后只汇报页数、mock 记录数与文件路径，主会话不直接写原型，只收汇报。初版生成与结构性大改走子代理。小修例外只限单处、单文件的文字、颜色、间距级改动（在主会话里用 grep 定向改即可），不新增区块、不改结构、不抽共用件；动手写原型文件前先自检：超出这个范围的先派发再动手，拿不准算大改、派发。
 
 #### 1.2 任务拆解 `[optional · once]`
 
@@ -299,7 +299,7 @@ sunshine task create "<任务标题>" --slug <名称>
 
 #### 1.5 激活任务 `[required · once]`
 
-**需求评审**：激活前把整包规划产物列出来请用户确认——`prd.md`、设计文档清单（`doc/` 里与本任务相关的那几份）、拆解出的子任务（走了 1.2 时）。确认后才往下走。呈报前先逐条核对：父任务 `prd.md` 与 `doc/design/需求列表.md` 一致（每条需求的描述、验收标准、对应原型页；需求列表的变更记录与 `prd.md` 里的 `[变更]` 对得上）。不一致先补齐，不带矛盾进评审。
+**需求评审**：激活前把整包规划产物列出来请用户确认——`prd.md`、设计文档清单（`doc/` 里与本任务相关的那几份）、拆解出的子任务（走了 1.2 时）。确认后才往下走。呈报前先逐条核对：父任务 `prd.md` 与 `doc/design/需求列表.md` 一致（每条需求的描述、验收标准、对应原型页；需求列表的变更记录与 `prd.md` 里的 `[变更]` 对得上）。不一致先补齐，不带矛盾进评审。另核对原型产出留痕：需求列表里每条需求对应的原型页，都要有 `sunshine-prototype` 的产出汇报（页数、mock 记录数、路径）；主会话自写的页（超出小修范围的）视为该条需求未完成，补派 prototype 按现状复核或重做，有了汇报才算过评审。
 
 **缺失项扫描（评审前必做）**：派 `sunshine-audit` 子代理专扫——它只读 `prd.md` 与需求列表、只出清单不改文档，把两份文档当成待挑错的稿子逐条过一遍，专找四类缺失（平台不支持子代理派发或派发失败时，主会话按同一口径自己扫）：判定规则或术语没定义的；写了“可配置 / 灵活 / 适当”等词却没定口径的；文档内部自相矛盾的；引用了不存在的文档或数据的。每条缺失项写清：背景（原文哪里含糊）、要确认的问题、建议选项、不确认会影响哪条需求（R-xxx）或哪个模块，汇成待确认清单。影响核心功能验收的，当场逐条问完、记回 `prd.md`，才算评审材料齐；其余的转成 `[待定]`，拆解时按 1.2 的技术待定分流处理。被引用的基准文档缺失时，相关数值标“不冻结”，并写明暂按什么口径执行。
 
@@ -417,7 +417,7 @@ DeepSeek Harness 上每次 spawn 都加 `--provider dsh`（同 2.1 的说明）�
 
 检查工作线程应该直接修复明确的问题。主会话读原始事件，做最终判断。
 
-**对账把关**：收到 check 汇报先看「验收标准对账」段——有未实现或未验证条目就不算检查通过，退回 2.1 补实现或补证据后再查；汇报里缺对账段的，视为检查未完成。
+**对账把关**：收到 check 汇报先看「验收标准对账」段——有未实现或未验证条目就不算检查通过，退回 2.1 补实现或补证据后再查；汇报里缺对账段的，视为检查未完成。check 的对账结论还要落盘：由 check 子代理写入子任务目录的 `check.md`；汇报有对账段、盘上没有 `check.md` 的，同样视为检查未完成。归档前先验 `check.md` 存在，缺了补派 check 并落盘后再归档，不许跳过。
 
 [/Claude Code, Cursor, OpenCode, codex-sub-agent, Kiro, Gemini, Qoder, CodeBuddy, Copilot, Droid, Pi, DeepSeek Harness]
 

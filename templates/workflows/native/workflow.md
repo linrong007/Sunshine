@@ -244,7 +244,7 @@ Inline 模式：跳过 jsonl 整理；第 2 阶段通过 `sunshine-before-dev` �
 流程：`sunshine-implement` -> `sunshine-check` -> `sunshine-update-spec` -> 提交（第 3.4 步）-> `/sunshine:finish-work`。
 
 **子任务顺序固定**：一个子任务的生命周期顺序是固定的，不随开场提示词的措辞而变：实现 → 检查 → 回写 spec → 提交 → 归档。检查验实现、回写 spec 在提交之前、归档在最后一步；提示词说“实现完直接归档/提交”也不跳过检查与回写。
-主会话默认：派发 implement/check 子代理。不得以任务小、改动少为由改走 inline；inline 分支只属于 Codex（dispatch_mode=inline）与 DeepSeek Harness（改动太小不值得派发，或用户要求 inline），见 [workflow-state:in_progress-inline]。DSH 上派发用 subagent 工具，不用 Task 工具。子代理自豁免：如果自己已经是 `sunshine-implement`，不要再派生 `sunshine-implement` 或 `sunshine-check`；如果自己已经是 `sunshine-check`，不要再派生 `sunshine-check` 或 `sunshine-implement`。派发只由主会话做。
+主会话默认：派发 implement/check 子代理。不得以任务小、改动少为由改走 inline；inline 分支只属于 Codex（dispatch_mode=inline）与 DeepSeek Harness（改动太小不值得派发，或用户要求 inline），见 [workflow-state:in_progress-inline]。DSH 上派发用 subagent 工具，不用 Task 工具。子代理自豁免：如果自己已经是 `sunshine-implement`，不要再派生 `sunshine-implement` 或 `sunshine-check`；如果自己已经是 `sunshine-check`，不要再派生 `sunshine-check` 或 `sunshine-implement`。派发只由主会话做。派发指实际发出子代理调用，只在叙述里走过流程不算；发现没派发就动了手，立即停手补派。
 
 **风险档路由**：激活子任务前先看它的 task.json `meta.risk`。标了 `risk=light`（轻量档）的，主会话直接实现，不派 implement 子代理；check 照常派发，回写 spec → 提交 → 归档的顺序不变。没标的（标准档）走上面的派发流程。档位只在拆解时定：主会话在开发时不得临场改档，也不得以改动少为由对标准档任务跳过派发——上面“不得以任务小、改动少为由改走 inline”的唯一例外，就是拆解时已标轻量档的任务。轻量档实现中发现实际动了数据或判定逻辑，立即停手：改档为标准（`task set-meta`），已写部分按标准档流程补派 implement 复核后再继续。
 派发提示词以 `Active task: <task current 给出的任务路径>` 开头。读上下文的顺序：jsonl 条目 -> `prd.md` -> `design.md（如有）` -> `implement.md（如有）`。jsonl 条目只读 reason 指明的部分；带 `lines` 的条目注入时只切该行范围（1-based 闭区间），无 `lines` 的大文件先 grep 定位。
@@ -381,7 +381,7 @@ brainstorm skill 会引导你：
 
 **交付文档（只占位，项目收尾时经确认生成）**：设计阶段只产出需求列表与原型。七份交付文档在 init 选产品设计时已生成占位（`doc/delivery/` 下的概要设计、详细设计、数据库设计、接口文档、测试报告、用户手册、部署说明），占位只有标题与章节骨架，设计与开发阶段不读不填、不当设计依据。全部子任务归档、父任务最终集成复核通过后，主会话把占位清单列给用户确认：点头哪份就生成哪份，依据 `prd.md`、需求列表、spec、各子任务的 check 对账与代码事实来写；没点名的保持占位，或按用户意思删除。用户在开场或设计阶段点名要某份文档的，该份按点名提前生成，不受本节限制。什么设计文档都没有就是纯代码任务，走直接开发。
 
-**高保真原型派发给子代理**：原型是代码（HTML/CSS/JS + mock 数据），不要由主会话顺手写。每轮按需求派发：用 Task 工具派发 `sunshine-prototype` 子代理（`subagent_type` 为 `sunshine-prototype`），派发提示里给出需求列表 `doc/design/需求列表.md` 的路径、spec 里前端组的设计约束（如 `.sunshine/spec/frontend.md` 里的设计约束）、以及本轮只读的原型文件（`doc/prototype/index.html` 导航入口 + `doc/prototype/assets/tokens.css` + `doc/prototype/assets/components-index.md` + `doc/prototype/assets/mock-common.js` + 本轮要做/改的那一页 + 本轮的 `doc/prototype/assets/mock-Rxxx.js`，如已有；只点名这几个文件，不要给整个 `doc/prototype/` 目录，不要读其它已有页，不要读 `components.css` 全文和其它页的 mock 文件）；子代理按需求列表当前状态产出或更新该条需求对应的页（每页一个文件 + `index.html` 导航入口），共用页在已有页上加、不重建，完成后只汇报页数、mock 记录数与文件路径，主会话不直接写原型，只收汇报。初版生成与结构性大改走子代理；小修（改个按钮颜色、一行文案）在主会话里用 grep 定向改，不重新派发。DeepSeek Harness 上用 `subagent` 工具派发，prompt 自包含，同样附上需求列表路径、spec 前端样式约束与本轮只读的原型文件。
+**高保真原型派发给子代理**：原型是代码（HTML/CSS/JS + mock 数据），不要由主会话顺手写。每轮按需求派发：用 Task 工具派发 `sunshine-prototype` 子代理（`subagent_type` 为 `sunshine-prototype`），派发提示里给出需求列表 `doc/design/需求列表.md` 的路径、spec 里前端组的设计约束（如 `.sunshine/spec/frontend.md` 里的设计约束）、以及本轮只读的原型文件（`doc/prototype/index.html` 导航入口 + `doc/prototype/assets/tokens.css` + `doc/prototype/assets/components-index.md` + `doc/prototype/assets/mock-common.js` + 本轮要做/改的那一页 + 本轮的 `doc/prototype/assets/mock-Rxxx.js`，如已有；只点名这几个文件，不要给整个 `doc/prototype/` 目录，不要读其它已有页，不要读 `components.css` 全文和其它页的 mock 文件）；子代理按需求列表当前状态产出或更新该条需求对应的页（每页一个文件 + `index.html` 导航入口），共用页在已有页上加、不重建，完成后只汇报页数、mock 记录数与文件路径，主会话不直接写原型，只收汇报。初版生成与结构性大改走子代理。小修例外只限单处、单文件的文字、颜色、间距级改动（在主会话里用 grep 定向改即可），不新增区块、不改结构、不抽共用件；动手写原型文件前先自检：超出这个范围的先派发再动手，拿不准算大改、派发。DeepSeek Harness 上用 `subagent` 工具派发，prompt 自包含，同样附上需求列表路径、spec 前端样式约束与本轮只读的原型文件，并在 prompt 里注明：该环境模型读不了图片，截图自检直接跳过。
 
 需求变化时随时回到本步，修订相关产物。
 
@@ -507,7 +507,7 @@ sunshine task add-context "$TASK_DIR" implement ".sunshine/spec/backend.md" "后
 
 #### 1.5 激活任务 `[required · once]`
 
-**需求评审**：激活前把整包规划产物列出来请用户确认——`prd.md`、设计文档清单（`doc/` 里与本任务相关的那几份）、拆解出的子任务（走了 1.2 时）。确认后才往下走。呈报前先逐条核对：父任务 `prd.md` 与 `doc/design/需求列表.md` 一致（每条需求的描述、验收标准、对应原型页；需求列表的变更记录与 `prd.md` 里的 `[变更]` 对得上）。不一致先补齐，不带矛盾进评审。
+**需求评审**：激活前把整包规划产物列出来请用户确认——`prd.md`、设计文档清单（`doc/` 里与本任务相关的那几份）、拆解出的子任务（走了 1.2 时）。确认后才往下走。呈报前先逐条核对：父任务 `prd.md` 与 `doc/design/需求列表.md` 一致（每条需求的描述、验收标准、对应原型页；需求列表的变更记录与 `prd.md` 里的 `[变更]` 对得上）。不一致先补齐，不带矛盾进评审。另核对原型产出留痕：需求列表里每条需求对应的原型页，都要有 `sunshine-prototype` 的产出汇报（页数、mock 记录数、路径）；主会话自写的页（超出小修范围的）视为该条需求未完成，补派 prototype 按现状复核或重做，有了汇报才算过评审。
 
 **缺失项扫描（评审前必做）**：派 `sunshine-audit` 子代理专扫——它只读 `prd.md` 与需求列表、只出清单不改文档，把两份文档当成待挑错的稿子逐条过一遍，专找四类缺失（平台不支持子代理派发或派发失败时，主会话按同一口径自己扫）：判定规则或术语没定义的；写了“可配置 / 灵活 / 适当”等词却没定口径的；文档内部自相矛盾的；引用了不存在的文档或数据的。每条缺失项写清：背景（原文哪里含糊）、要确认的问题、建议选项、不确认会影响哪条需求（R-xxx）或哪个模块，汇成待确认清单。影响核心功能验收的，当场逐条问完、记回 `prd.md`，才算评审材料齐；其余的转成 `[待定]`，拆解时按 1.2 的技术待定分流处理。被引用的基准文档缺失时，相关数值标“不冻结”，并写明暂按什么口径执行。
 
@@ -639,7 +639,7 @@ check 子代理的工作：
 
 **最后一轮（第 3.4 步提交前）**：任务的最后一轮 2.2 必须跑全范围，不能只查最新一轮 implement 的改动。用 `sunshine task context --mode packages` 列出全部受影响的包，再加载每个包的规范索引 Quality Check 一节。这样能发现中途局部 2.2 发现不了的跨层/多包问题。
 
-**对账把关**：收到 check 汇报先看「验收标准对账」段——有未实现或未验证条目就不算检查通过，退回 2.1 补实现或补证据后再查；汇报里缺对账段的，视为检查未完成。
+**对账把关**：收到 check 汇报先看「验收标准对账」段——有未实现或未验证条目就不算检查通过，退回 2.1 补实现或补证据后再查；汇报里缺对账段的，视为检查未完成。check 的对账结论还要落盘：由 check 子代理写入子任务目录的 `check.md`；汇报有对账段、盘上没有 `check.md` 的，同样视为检查未完成。归档前先验 `check.md` 存在，缺了补派 check 并落盘后再归档，不许跳过。
 
 #### 2.3 回滚 `[on demand]`
 

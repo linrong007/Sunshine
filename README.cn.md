@@ -65,13 +65,13 @@ go install github.com/linrong007/Sunshine/cmd/sunshine@latest
 sunshine upgrade
 ```
 
-**GitHub 下载不了时：镜像一键安装。** 有些网络访问不了 github.com，或下载发布包时超时——一键安装和 `sunshine upgrade` 都会卡在这一步。用下面的命令，经公共镜像代理把脚本和安装包都绕过去：
+**GitHub 下载不了时：已内置镜像回退。** 有些网络访问不了 github.com，或下载发布包时超时。新版的一键安装、`sunshine upgrade`、以及 `sunshine update` 拉取市场模板时，直连失败都会自动改走公共镜像代理（ghfast.top、gh-proxy.com 逐个试），成功后明示走了哪个镜像，完整性仍按 checksums.txt 校验；也可以用环境变量 `SUNSHINE_DOWNLOAD_MIRROR` 指定自己的镜像。唯一还要手动的是「拿到安装脚本本身」这一步——脚本在 raw.githubusercontent.com 上，直连拿不到时经镜像取即可（脚本内部的下载已自动回退）：
 
 ```sh
-curl -fsSL "https://ghfast.top/https://raw.githubusercontent.com/linrong007/Sunshine/main/install.sh" | sed 's#https://github.com/#https://ghfast.top/https://github.com/#g' | sh
+curl -fsSL "https://ghfast.top/https://raw.githubusercontent.com/linrong007/Sunshine/main/install.sh" | sh
 ```
 
-它先经镜像拿到安装脚本，再把脚本里的下载地址临时改走同一镜像，其余流程（查版本、下载、按 checksums.txt 校验、落盘）与原一键安装完全一致；升级时重跑这条命令即可装上最新版。镜像站不可用时，把命令里两处 `ghfast.top` 换成 `gh-proxy.com`。镜像站是第三方公共代理，只在 GitHub 直连不了时使用。
+镜像站不可用时，把命令里的 `ghfast.top` 换成 `gh-proxy.com`。镜像站是第三方公共代理，只在 GitHub 直连不了时使用。
 
 完整故事见[完整教程](docs/tutorial.md)。
 

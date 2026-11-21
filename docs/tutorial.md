@@ -22,13 +22,13 @@ curl -fsSL https://raw.githubusercontent.com/linrong007/Sunshine/main/install.sh
 
 Windows 请到 [Releases](https://github.com/linrong007/Sunshine/releases) 页下载对应 zip，解压后把 `sunshine.exe` 放进 PATH；已有 Go 的机器也可以 `go install github.com/linrong007/Sunshine/cmd/sunshine@latest`。
 
-如果上面那条命令下载超时（网络访问不了 github.com），改用镜像一键安装——经公共镜像代理把脚本和安装包都绕过去，其余流程与原一键安装一致（升级时重跑这条命令即可）：
+如果上面那条命令下载超时（网络访问不了 github.com）：安装脚本、`sunshine upgrade` 与 `sunshine update` 都已内置镜像回退，直连失败会自动经公共镜像代理下载；只有取脚本本身这一步要手动经镜像：
 
 ```sh
-curl -fsSL "https://ghfast.top/https://raw.githubusercontent.com/linrong007/Sunshine/main/install.sh" | sed 's#https://github.com/#https://ghfast.top/https://github.com/#g' | sh
+curl -fsSL "https://ghfast.top/https://raw.githubusercontent.com/linrong007/Sunshine/main/install.sh" | sh
 ```
 
-镜像站不可用时把命令里两处 `ghfast.top` 换成 `gh-proxy.com`。原理与说明见 [README.cn.md](../README.cn.md) 的「GitHub 下载不了时：镜像一键安装」。
+镜像站不可用时把命令里的 `ghfast.top` 换成 `gh-proxy.com`。原理与说明见 [README.cn.md](../README.cn.md) 的「GitHub 下载不了时：已内置镜像回退」。
 
 确认版本，然后初始化你的项目——这是你在终端里唯一必须跑的一步：
 

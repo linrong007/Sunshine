@@ -18,10 +18,10 @@ Conventions:
 
 Install Sunshine first (see [README.md](../README.md#installation)), then confirm it:
 
-> If github.com is unreachable on your network and downloads time out, use the mirror one-click install from the README instead — it routes the script and the package through a public mirror proxy, with the rest of the flow unchanged:
+> If github.com is unreachable on your network and downloads time out: the install script, `sunshine upgrade` and `sunshine update` all fall back to public mirror proxies automatically — only fetching the script itself needs a manual mirror hop:
 
 > ```sh
-> curl -fsSL "https://ghfast.top/https://raw.githubusercontent.com/linrong007/Sunshine/main/install.sh" | sed 's#https://github.com/#https://ghfast.top/https://github.com/#g' | sh
+> curl -fsSL "https://ghfast.top/https://raw.githubusercontent.com/linrong007/Sunshine/main/install.sh" | sh
 > ```
 
 ```sh

@@ -14,6 +14,7 @@ import (
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/transport"
 	"github.com/go-git/go-git/v5/plumbing/transport/ssh"
+	"github.com/linrong007/Sunshine/internal/mirror"
 	"github.com/skeema/knownhosts"
 	cryptossh "golang.org/x/crypto/ssh"
 )
@@ -216,10 +217,47 @@ type cloneAttempt struct {
 	depth   int
 }
 
-// cloneRegistry 用 go-git 克隆 registry 到临时目录。
+// mirrorRetryable 判断克隆失败是否值得换镜像通道重试：
+// 仅 HTTPS 的 github.com 来源 + 网络类错误。SSH 来源、认证与
+// 仓库不存在都是确定性结论，不试镜像。
+func mirrorRetryable(src *Source, err error) bool {
+	if src == nil || src.Kind == SourceKindSSH {
+		return false
+	}
+	if !strings.HasPrefix(src.GitURL, "https://github.com/") {
+		return false
+	}
+	return AsRegistryError(err).Kind == ErrKindNetwork
+}
+
+// cloneRegistry 先按原地址克隆；网络不通且来源是 github.com 时，
+// 再逐个镜像前缀重试整轮克隆（镜像对 git smart-HTTP 的支持
+// 各家不一，失败就退回原始错误，不改变既有报错口径）。
+func cloneRegistry(ctx context.Context, src *Source) (*gitCheckout, error) {
+	checkout, err := cloneRegistryDirect(ctx, src)
+	if err == nil || !mirrorRetryable(src, err) {
+		return checkout, err
+	}
+	for _, base := range mirror.Bases() {
+		if base == "" {
+			continue
+		}
+		alt := *src
+		alt.GitURL = mirror.Rewrite(base, src.GitURL)
+		if alt.GitURL == src.GitURL {
+			continue
+		}
+		if co, err2 := cloneRegistryDirect(ctx, &alt); err2 == nil {
+			return co, nil
+		}
+	}
+	return nil, err
+}
+
+// cloneRegistryDirect 用 go-git 克隆 registry 到临时目录。
 // 策略：先浅克隆指定分支（depth 1、单分支）；失败则试标签；
 // 再失败则完整克隆后按 ref 解析提交检出。subdir 非空时做稀疏检出。
-func cloneRegistry(ctx context.Context, src *Source) (*gitCheckout, error) {
+func cloneRegistryDirect(ctx context.Context, src *Source) (*gitCheckout, error) {
 	ctx, cancel := context.WithTimeout(ctx, cloneTimeout)
 	defer cancel()
 

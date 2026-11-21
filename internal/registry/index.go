@@ -9,6 +9,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/linrong007/Sunshine/internal/mirror"
 )
 
 // indexFetchTimeout 是拉取 index.json 的超时，对应上游 TIMEOUTS.INDEX_FETCH_MS。
@@ -122,8 +124,31 @@ func (p *ProbeResult) Close() {
 	}
 }
 
-// probeIndexHTTP 用 net/http 拉取 index.json。
+// probeIndexHTTP 拉取 index.json；直连网络失败且 URL 是
+// GitHub 系地址时，逐个镜像前缀重试。404 与认证错误是
+// 确定性结论，不试镜像。
 func probeIndexHTTP(indexURL string) *ProbeResult {
+	r := probeIndexHTTPOnce(indexURL)
+	if r.Err == nil || r.Err.Kind != ErrKindNetwork {
+		return r
+	}
+	for _, base := range mirror.Bases() {
+		if base == "" {
+			continue
+		}
+		alt := mirror.Rewrite(base, indexURL)
+		if alt == indexURL {
+			continue
+		}
+		if r2 := probeIndexHTTPOnce(alt); r2.Err == nil || r2.Err.Kind != ErrKindNetwork {
+			return r2
+		}
+	}
+	return r
+}
+
+// probeIndexHTTPOnce 用 net/http 拉取一次 index.json。
+func probeIndexHTTPOnce(indexURL string) *ProbeResult {
 	ctx, cancel := context.WithTimeout(context.Background(), indexFetchTimeout)
 	defer cancel()
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, indexURL, nil)

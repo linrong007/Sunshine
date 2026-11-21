@@ -3729,3 +3729,14 @@ hook 19 条、CLI 与任务系统 7 条、平台与 registry 11 条、serve/chan
 - CI 与发布：发布 workflow run 44769332920、CI（tag）run 44769333208、CI（main）run 44769254925 均 completed success。
 - Release：id 452902282，非草稿，6 个资产在位（checksums.txt + sunshine_0.5.38_darwin_amd64/arm64.tar.gz、linux_amd64/arm64.tar.gz、windows_amd64.zip）。
 - 实测：一键装装上 v0.5.38（`sunshine version` 报 0.5.38）；linux_amd64 包 checksum 9fa48beb9813e9596ad27996133497b69335e1f82ef89d0faf0b796be4cbd03f 与 checksums.txt 一致；`upgrade --dry-run` 报已是最新；`codegraph --help` 正常；发布包 init 装出的 audit 代理含「深度逼问模式」、workflow 含「深度逼问（条件触发」段；发版前全量 22 包测试全过。遗留：EARS 深度逼问的真实 PRD 试跑未做，产出质量待真实项目验证。
+
+## 2026-11-21 下载镜像回退产品化（用户点选，未发版）
+
+- 背景：11-20 用户 upgrade 下载超时，实测公共镜像（ghfast.top、gh-proxy.com）可当搬运通道，当时只落了文档里的手动 sed 命令；用户问 upgrade/update 是否同样受影响并点选三入口全做。
+- 新增 internal/mirror：候选顺序 = 环境变量 SUNSHINE_DOWNLOAD_MIRROR → 直连 → 内置 ghfast.top / gh-proxy.com；Rewrite 只改写 github.com / api.github.com / raw.githubusercontent.com 三主机，其余（自建实例、本地、SSH 形态）原样。
+- upgrade：Client 加 Bases/UsedBase，getJSON 与 download 按候选逐个试；404（发布不存在）是确定性结论立即返回不试镜像；下载走镜像时 Run 打印明示。update 的版本检查经 LatestVersion 自动继承。
+- update/registry：cloneRegistry 在 github.com HTTPS + 网络类错误时逐镜像整轮重试（SSH/认证/不存在不重试）；probeIndexHTTP 同口径（404/认证不重试）。
+- install.sh：版本查询（latest 跳转 + API 两法）与包下载都按通道循环；包与 checksums 必须同通道；校验失败直接报错不换通道重试（防完整性降级）。
+- 验证：mirror/upgrade/registry 新单测（假传输层直连失败走镜像、404 短路、retryable 判定）；全量 22 包过；install.sh 用 curl 垫片封直连实测——指定版本与 latest 两条路都经 ghfast 装上 v0.5.38、校验通过、提示文案正确。
+- 文档：README 中英文 + 教程中英文的镜像节改为「已内置回退」，手动命令简化为只经镜像取脚本（sed 改址不再需要）。
+- 同批前置：市场 workflow 镜像全量同步已单独提交 23b2811（本地，未推送）。

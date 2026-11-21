@@ -206,6 +206,11 @@ Channel 驱动的子代理派发是本工作流的默认执行模型。主会话
 
 目标：澄清需求、征得创建任务的同意，并产出实现前必须复核的规划产物。
 
+#### 开始纪律（第 1 阶段全程适用）
+
+- **只读本项目**：规划阶段的上下文只来自当前项目——任务文件、`.sunshine/spec/`、项目 `doc/` 与用户本轮点名的文件。不读其它项目、历史 demo 的设计产物（需求列表、prd、原型、概要设计）作为本项目的设计依据，除非用户点名要参考；别的项目的答案不是本项目的澄清。
+- **开局不全盘扫描**：开始阶段按 start 入口的清单加载（任务状态、工作流概览、spec 地图），工作流按当前阶段读对应节，不全文通读、不漫游目录找参考；问出第一个问题之前，不做项目外检索。
+
 #### 1.0 创建任务 `[required · once]`
 
 征得创建任务的同意后才能创建任务目录：
@@ -244,7 +249,7 @@ sunshine task create "<任务标题>" --slug <名称>
 
 **交付客户的文档（循环结束后按需生成）**：全部需求和原型做完后，按需生成交付客户的文档——不一定是设计概要，概要设计只是其中一种可能，由设计者按客户需要定；要出概要设计时再写 `doc/design/概要设计.md`（模块、接口、数据、技术选型、验收、风险），依据完整的需求列表 + `prd.md`。什么设计文档都没有就是纯代码任务，走直接开发。
 
-**高保真原型派发给子代理**：原型是代码（HTML/CSS/JS + mock 数据），不要由主会话顺手写。每轮按需求派发：用 `sunshine channel spawn --agent prototype` 派发（加载 `.sunshine/agents/prototype.md`），派发消息里给出需求列表 `doc/design/需求列表.md` 的路径、spec 里前端组的设计约束（如 `.sunshine/spec/frontend.md` 里的设计约束）、以及已有原型目录 `doc/prototype/`（保一致：共用 mock 数据、导航入口、样式）；子代理按需求列表当前状态产出或更新该条需求对应的页（每页一个文件 + `index.html` 导航入口），共用页在已有页上加、不重建，完成后只汇报页数、mock 记录数与文件路径，主会话不直接写原型，只收汇报。初版生成与结构性大改走子代理；小修（改个按钮颜色、一行文案）在主会话里用 grep 定向改，不重新派发。
+**高保真原型派发给子代理**：原型是代码（HTML/CSS/JS + mock 数据），不要由主会话顺手写。每轮按需求派发：用 `sunshine channel spawn --agent prototype` 派发（加载 `.sunshine/agents/prototype.md`），派发消息里给出需求列表 `doc/design/需求列表.md` 的路径、spec 里前端组的设计约束（如 `.sunshine/spec/frontend.md` 里的设计约束）、以及本轮只读的原型文件（`doc/prototype/index.html` 导航入口 + `doc/prototype/assets/tokens.css` + `doc/prototype/assets/components-index.md` + `doc/prototype/assets/mock-common.js` + 本轮要做/改的那一页 + 本轮的 `doc/prototype/assets/mock-Rxxx.js`，如已有；只点名这几个文件，不要给整个 `doc/prototype/` 目录，不要读其它已有页，不要读 `components.css` 全文和其它页的 mock 文件）；子代理按需求列表当前状态产出或更新该条需求对应的页（每页一个文件 + `index.html` 导航入口），共用页在已有页上加、不重建，完成后只汇报页数、mock 记录数与文件路径，主会话不直接写原型，只收汇报。初版生成与结构性大改走子代理；小修（改个按钮颜色、一行文案）在主会话里用 grep 定向改，不重新派发。
 
 #### 1.2 任务拆解 `[optional · once]`
 
@@ -297,6 +302,9 @@ sunshine task create "<任务标题>" --slug <名称>
 **需求评审**：激活前把整包规划产物列出来请用户确认——`prd.md`、设计文档清单（`doc/` 里与本任务相关的那几份）、拆解出的子任务（走了 1.2 时）。确认后才往下走。呈报前先逐条核对：父任务 `prd.md` 与 `doc/design/需求列表.md` 一致（每条需求的描述、验收标准、对应原型页；需求列表的变更记录与 `prd.md` 里的 `[变更]` 对得上）。不一致先补齐，不带矛盾进评审。
 
 **缺失项扫描（评审前必做）**：派 `sunshine-audit` 子代理专扫——它只读 `prd.md` 与需求列表、只出清单不改文档，把两份文档当成待挑错的稿子逐条过一遍，专找四类缺失（平台不支持子代理派发或派发失败时，主会话按同一口径自己扫）：判定规则或术语没定义的；写了“可配置 / 灵活 / 适当”等词却没定口径的；文档内部自相矛盾的；引用了不存在的文档或数据的。每条缺失项写清：背景（原文哪里含糊）、要确认的问题、建议选项、不确认会影响哪条需求（R-xxx）或哪个模块，汇成待确认清单。影响核心功能验收的，当场逐条问完、记回 `prd.md`，才算评审材料齐；其余的转成 `[待定]`，拆解时按 1.2 的技术待定分流处理。被引用的基准文档缺失时，相关数值标“不冻结”，并写明暂按什么口径执行。
+
+**深度逼问（条件触发，替代当轮扫描）**：命中下列任一场合，本轮不派普通扫描，改派 `sunshine-audit` 并注明「深度逼问」（逐条把正文规则与验收标准套进句式逼问未定点，覆盖普通扫描，不再叠加派一次；派不了子代理时主会话按同一口径自己做）：①设计先行父任务评审，且需求含规则型内容（金额与判定、登录与权限、状态流转、删除或覆盖数据、对外接口契约——沾一条即算）；②直接开发的任务或子任务在 1.5 激活前属标准档（未标 `risk=light`，判据见 1.2 风险标档）。轻量档不触发。用户可点名对任何任务补跑，也可豁免本轮（豁免记一笔进 `prd.md`）。任务级深挖另读相关 spec：已沉淀的全局规则视为已定、不重问；深挖新定下的全局规则当场回写 spec，不等 3.3。深挖清单的处置同扫描：必须确认当场问完记回 `prd.md`，可延后转 `[待定]`。
+
 
 产物复核通过后，启动任务：
 
@@ -384,14 +392,14 @@ sunshine channel spawn cr-<主题> \
   --as check \
   --jsonl "$TASK/check.jsonl" \
   --file "$TASK/prd.md" \
-  --file "$TASK/design.md" \
-  --file "$TASK/implement.md" \
   --cwd "$PWD" \
   --timeout 30m
 sunshine channel send cr-<主题> --as main --to check --text-file /tmp/check-brief.md
 sunshine channel wait cr-<主题> --as main --kind done --from check --timeout 30m
 sunshine channel messages cr-<主题> --raw --from check --last 40
 ```
+
+检查节食：`design.md` / `implement.md` 不随 spawn 注入，需要判断实现方式是否符合设计时，检查工作线程再按需读。
 
 要做跨供应商的独立复核时，在同一个 channel 里派生 `check-cc`、`check-cx` 与 `check-dsh`：
 

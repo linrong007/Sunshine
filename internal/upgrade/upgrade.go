@@ -33,6 +33,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/linrong007/Sunshine/internal/mirror"
 	"github.com/linrong007/Sunshine/internal/update"
 )
 
@@ -123,6 +124,20 @@ type Client struct {
 	HTTPClient *http.Client
 	// Timeout 是单次请求的超时（仅 HTTPClient 为 nil 时生效）。
 	Timeout time.Duration
+	// Bases 是下载通道前缀候选（见 internal/mirror），为 nil 时用
+	// mirror.Bases()（环境变量镜像 → 直连 → 内置镜像）。
+	Bases []string
+	// UsedBase 记录最近一次成功请求实际走的通道前缀（空串为直连），
+	// 供调用方提示用户本次是否走了镜像。
+	UsedBase string
+}
+
+// bases 返回通道候选：显式设置优先，否则用 mirror 的默认顺序。
+func (c *Client) bases() []string {
+	if c.Bases != nil {
+		return c.Bases
+	}
+	return mirror.Bases()
 }
 
 func (c *Client) httpClient() *http.Client {
@@ -170,7 +185,26 @@ func (c *Client) ManualURL() string {
 	return "https://github.com/" + owner + "/" + name + "/releases"
 }
 
-func (c *Client) getJSON(ctx context.Context, url string, out any) error {
+// getJSON 按通道候选逐个尝试：直连失败（网络错误、异常状态）
+// 换下一个镜像；唯独 404（发布不存在）是确定性结论，立即返回
+// 不再试镜像。全部失败返回最后一次的错误。
+func (c *Client) getJSON(ctx context.Context, rawURL string, out any) error {
+	var lastErr error
+	for _, base := range c.bases() {
+		err := c.getJSONOnce(ctx, mirror.Rewrite(base, rawURL), out)
+		if err == nil {
+			c.UsedBase = base
+			return nil
+		}
+		if errors.Is(err, errReleaseNotFound) {
+			return err
+		}
+		lastErr = err
+	}
+	return lastErr
+}
+
+func (c *Client) getJSONOnce(ctx context.Context, url string, out any) error {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return err
@@ -307,7 +341,22 @@ func SelectAsset(rel *release, version, goos, goarch string) (*releaseAsset, err
 	return nil, fmt.Errorf("发布 %s 里没有适用于 %s/%s 的资产（需要 %s；现有资产：%s）", rel.TagName, goos, goarch, want, strings.Join(names, "、"))
 }
 
+// download 与 getJSON 同口径：按通道候选逐个尝试，
+// 成功时把实际通道记进 UsedBase。
 func (c *Client) download(ctx context.Context, rawURL string) ([]byte, error) {
+	var lastErr error
+	for _, base := range c.bases() {
+		data, err := c.downloadOnce(ctx, mirror.Rewrite(base, rawURL))
+		if err == nil {
+			c.UsedBase = base
+			return data, nil
+		}
+		lastErr = err
+	}
+	return nil, lastErr
+}
+
+func (c *Client) downloadOnce(ctx context.Context, rawURL string) ([]byte, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, rawURL, nil)
 	if err != nil {
 		return nil, err
@@ -531,6 +580,9 @@ func Run(ctx context.Context, opts Options) (*Result, error) {
 	data, err := client.download(ctx, asset.BrowserDownloadURL)
 	if err != nil {
 		return nil, fmt.Errorf("%w%s", err, Troubleshooting(client.ManualURL(), goos))
+	}
+	if client.UsedBase != "" {
+		fmt.Fprintf(w, "（直连未通，本次下载经镜像 %s 完成；完整性仍按 checksums.txt 校验）\n", client.UsedBase)
 	}
 	var sums map[string]string
 	for _, a := range rel.Assets {

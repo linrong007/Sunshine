@@ -11,6 +11,9 @@
 # 装到指定目录（默认 /usr/local/bin，不可写时退到 ~/.local/bin）：
 #   SUNSHINE_INSTALL_DIR="$HOME/bin" sh install.sh
 #
+# 下载走不通时自动回退镜像（与 sunshine upgrade 同口径）：
+# 环境变量 SUNSHINE_DOWNLOAD_MIRROR 可指定优先镜像。
+#
 # 只支持 macOS / Linux（x86_64 与 arm64）。Windows 请到 Release 页下载 zip：
 #   https://github.com/linrong007/Sunshine/releases
 set -eu
@@ -38,23 +41,40 @@ case "$VERSION" in
 EOF
     exit 0 ;;
 esac
+# ---- 下载通道：环境变量镜像 → 直连 → 内置镜像（与 sunshine upgrade 同口径；
+#      镜像只作回退搬运，完整性仍按 checksums.txt 校验） ----
+CHANNELS="direct https://ghfast.top https://gh-proxy.com"
+if [ -n "${SUNSHINE_DOWNLOAD_MIRROR:-}" ]; then
+  CHANNELS="${SUNSHINE_DOWNLOAD_MIRROR%/} $CHANNELS"
+fi
+# prefix_of 把通道名变成 URL 前缀：direct 为空，其余为「镜像/」。
+prefix_of() { case "$1" in direct) printf '' ;; *) printf '%s/' "$1" ;; esac }
+
 if [ "$VERSION" = "latest" ]; then
   echo "正在查询最新版本……"
-  # 先走 releases/latest 的跳转（不走 API：不怕限流、不用解析 JSON）；
+  # 每个通道内先走 releases/latest 的跳转（不走 API：不怕限流、不用解析 JSON）；
   # 跟随全部跳转取最终地址再取版本号——仓库改名会多一跳 301（旧名 → 新名），
   # 只读第一次 Location 会拿到中间地址、解析不出版本号（见 v0.5.1 后的实测）；
-  # 拿不到时再试 API；都拿不到就报错，不让空版本流到后面。
-  VERSION="$(curl -fsSL -o /dev/null -w '%{url_effective}' "https://github.com/$REPO/releases/latest" 2>/dev/null \
-    | sed -E 's#.*/tag/(v[0-9][^/[:space:]]*).*#\1#' || true)"
-  case "$VERSION" in
-    v[0-9]*.[0-9]*.[0-9]*) ;;
-    *) VERSION="" ;;
-  esac
-  if [ -z "$VERSION" ]; then
-    VERSION="$(curl -fsSL "https://api.github.com/repos/$REPO/releases/latest" 2>/dev/null \
+  # 拿不到时再试 API；全部通道都拿不到才报错，不让空版本流到后面。
+  VERSION=""
+  USED_CH="direct"
+  for CH in $CHANNELS; do
+    P="$(prefix_of "$CH")"
+    V="$(curl -fsSL -o /dev/null -w '%{url_effective}' "${P}https://github.com/$REPO/releases/latest" 2>/dev/null \
+      | sed -E 's#.*/tag/(v[0-9][^/[:space:]]*).*#\1#' || true)"
+    case "$V" in
+      v[0-9]*.[0-9]*.[0-9]*) VERSION="$V"; USED_CH="$CH"; break ;;
+    esac
+    V="$(curl -fsSL "${P}https://api.github.com/repos/$REPO/releases/latest" 2>/dev/null \
       | grep '"tag_name":' | sed -E 's/.*"tag_name": *"([^"]+)".*/\1/' || true)"
-  fi
+    case "$V" in
+      v[0-9]*) VERSION="$V"; USED_CH="$CH"; break ;;
+    esac
+  done
   [ -n "$VERSION" ] || die "查不到最新版本，请检查网络，或用 SUNSHINE_VERSION=v0.3.1 指定版本"
+  if [ "$USED_CH" != "direct" ]; then
+    echo "提示：直连未通，版本查询经镜像 $USED_CH 完成"
+  fi
 fi
 # tag 带 v 前缀（如 v0.3.1），包名里的版本号不带 v（如 sunshine_0.3.1_…）。
 TAG="$VERSION"
@@ -85,9 +105,21 @@ trap 'rm -rf "$TMP"' EXIT INT TERM
 cd "$TMP"
 
 # ---- 下载 + 校验 ----
-curl -fsSL -o "$ARCHIVE" "$URL" || die "下载失败：${URL}（请确认该版本已发布）"
-curl -fsSL -o checksums.txt "https://github.com/$REPO/releases/download/$TAG/checksums.txt" \
-  || die "下载校验文件失败"
+# 逐个通道试下：包与 checksums 必须出自同一通道；下载失败换通道，
+# 但校验失败是完整性问题、直接报错不换通道重试。
+DL_OK=""
+for CH in $CHANNELS; do
+  P="$(prefix_of "$CH")"
+  if curl -fsSL -o "$ARCHIVE" "${P}${URL}" 2>/dev/null \
+    && curl -fsSL -o checksums.txt "${P}https://github.com/$REPO/releases/download/$TAG/checksums.txt" 2>/dev/null; then
+    DL_OK="$CH"
+    break
+  fi
+done
+[ -n "$DL_OK" ] || die "下载失败：${URL}（直连与镜像均未通，请检查网络）"
+if [ "$DL_OK" != "direct" ]; then
+  echo "提示：直连未通，已通过镜像 $DL_OK 下载（完整性仍按 checksums.txt 校验）"
+fi
 if command -v sha256sum >/dev/null 2>&1; then
   grep " $ARCHIVE\$" checksums.txt | sha256sum -c - >/dev/null \
     || die "校验失败：下载的文件与 checksums.txt 不一致"

@@ -244,7 +244,7 @@ Inline 模式：跳过 jsonl 整理；第 2 阶段通过 `sunshine-before-dev` �
 流程：`sunshine-implement` -> `sunshine-check` -> `sunshine-update-spec` -> 提交（第 3.4 步）-> `/sunshine:finish-work`。
 
 **子任务顺序固定**：一个子任务的生命周期顺序是固定的，不随开场提示词的措辞而变：实现 → 检查 → 回写 spec → 提交 → 归档。检查验实现、回写 spec 在提交之前、归档在最后一步；提示词说“实现完直接归档/提交”也不跳过检查与回写。
-主会话默认：派发 implement/check 子代理。不得以任务小、改动少为由改走 inline；inline 分支只属于 Codex（dispatch_mode=inline），见 [workflow-state:in_progress-inline]。DeepSeek Harness 与其它平台一样默认派发，只有用户明确要求 inline 时才可主会话直接做，模型不得以改动小自批。DSH 上派发用 subagent 工具，不用 Task 工具。子代理自豁免：如果自己已经是 `sunshine-implement`，不要再派生 `sunshine-implement` 或 `sunshine-check`；如果自己已经是 `sunshine-check`，不要再派生 `sunshine-check` 或 `sunshine-implement`。派发只由主会话做。派发指实际发出子代理调用，只在叙述里走过流程不算；发现没派发就动了手，立即停手补派。
+主会话默认：派发 implement/check 子代理。不得以任务小、改动少为由改走 inline；inline 分支只属于 Codex（dispatch_mode=inline）与 DeepSeek Harness（改动太小不值得派发，或用户要求 inline），见 [workflow-state:in_progress-inline]。DSH 上派发用 subagent 工具，不用 Task 工具。子代理自豁免：如果自己已经是 `sunshine-implement`，不要再派生 `sunshine-implement` 或 `sunshine-check`；如果自己已经是 `sunshine-check`，不要再派生 `sunshine-check` 或 `sunshine-implement`。派发只由主会话做。派发指实际发出子代理调用，只在叙述里走过流程不算；发现没派发就动了手，立即停手补派。
 
 **风险档路由**：激活子任务前先看它的 task.json `meta.risk`。标了 `risk=light`（轻量档）的，主会话直接实现，不派 implement 子代理；check 照常派发，回写 spec → 提交 → 归档的顺序不变。没标的（标准档）走上面的派发流程。档位只在拆解时定：主会话在开发时不得临场改档，也不得以改动少为由对标准档任务跳过派发——上面“不得以任务小、改动少为由改走 inline”的唯一例外，就是拆解时已标轻量档的任务。轻量档实现中发现实际动了数据或判定逻辑，立即停手：改档为标准（`task set-meta`），已写部分按标准档流程补派 implement 复核后再继续。
 派发提示词以 `Active task: <task current 给出的任务路径>` 开头。读上下文的顺序：jsonl 条目 -> `prd.md` -> `design.md（如有）` -> `implement.md（如有）`。jsonl 条目只读 reason 指明的部分；带 `lines` 的条目注入时只切该行范围（1-based 闭区间），无 `lines` 的大文件先 grep 定位。

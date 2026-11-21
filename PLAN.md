@@ -3817,3 +3817,9 @@ hook 19 条、CLI 与任务系统 7 条、平台与 registry 11 条、serve/chan
 - 波折：首打 tag（指向 33b176d）的 CI 两路失败于 gofmt 检查（platforms.go 新增字段后注释对齐未跑 gofmt）；已删该 Release（id 453592433）与 tag，补 gofmt 提交（本地 1ebaca1）后重打 tag。正式版以重打为准。
 - run：发布 44892091144、CI(tag) 44892091163、CI(main) 44892078330，均 success。Release id 453596119，6 资产齐全；linux_amd64 sha256 `bc30fc1dce5b06d462cd4fd5f8bfabd0ca0c3a834726a27a16d144cce8fb7df5` 与 checksums.txt 一致。
 - 实测：发布包二进制报 0.5.42、upgrade --dry-run 报已是最新；发布包 init 的 DSH 项目含 sunshine-prototype skill（.agents/skills 与 .dsh/skills 两处）、AGENTS.md 铁律与 workflow 新口径。校验包在 `~/workspace/scratch/release-0542/`。
+
+## 2026-11-21 还原 DSH inline 分支（用户点选，未发版）
+
+- 真因修正：运动鞋项目「不按工作流」的真因是新项目没先跑 git init——DSH 按最近 .git 祖先定项目根、项目 skill 未被发现，agent 只能读文件即兴发挥（与 demo11/12 同根；init 已有针对性警告与修复步骤，属漏看）。与 v0.5.41/0.5.42 的模板改动无关。
+- 逐件复核 v0.5.42 三件套后，用户定：只还原一件——派发默认段恢复 DSH 的 inline 分支（「改动太小不值得派发，或用户要求 inline」），DSH.md 两句口径同步恢复；这是原有设计取舍（DSH 派发拼自包含 prompt 成本高），当初删除它依据的是误诊。其余保留：AGENTS 铁律、sunshine-prototype skill、汇报落盘、原型小修用户授权（书籍商城 skill 正常加载时仍有自批实证）、提问轮次边界。
+- 验证：全量测试全过，市场镜像已同步。

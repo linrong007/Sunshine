@@ -10,7 +10,7 @@ dsh 是 **class-2 pull-based** Sunshine 宿主：没有 session-start hook 自�
 | 入口 skill（`.dsh/skills/sunshine-*/SKILL.md`） | 可用——dsh 自己的项目 skill 根目录（最高优先级） |
 | 上下文 hook | 无——pull-based：skill 直接读 `.sunshine/` 下的文件 |
 | spec 索引 | 手动——改完 spec 后跑 `sunshine spec index`（无 PostToolUse 自动同步） |
-| 子代理 | 经 `subagent` 工具派发——implement/check/research/prototype 默认走子代理（自包含 prompt，角色步骤写进 prompt），主会话内联只用于用户明确要求时（轻量档子任务按 workflow 规则） |
+| 子代理 | 经 `subagent` 工具派发——implement/check/research/prototype 默认走子代理（自包含 prompt，角色步骤写进 prompt），主会话内联只用于小改动或用户要求时 |
 
 ## 快速开始
 
@@ -51,4 +51,4 @@ dsh web        # 或：dsh --profile headless "start a Sunshine task for ..."
   还包括 `web_search`，以及 skill 依赖的文件系统/终端工具。
 - dsh 没有项目级子代理定义面，因此 Sunshine 不在这里提供
   `sunshine-implement` / `sunshine-check` / `sunshine-research` agent
-  提示词——派发走 `subagent` 工具，prompt 里写完整任务与该角色在 workflow.md 里的步骤与要求（`sunshine-check` 派发时附上 skill 文件）；主会话内联只限用户明确要求或 workflow 写明的轻量档情形，模型不得以改动小自批。
+  提示词——派发走 `subagent` 工具，prompt 里写完整任务与该角色在 workflow.md 里的步骤与要求（`sunshine-check` 派发时附上 skill 文件）；小改动可在主会话内联做。

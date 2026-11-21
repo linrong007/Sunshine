@@ -239,6 +239,8 @@ Inline 模式：跳过 jsonl 整理；第 2 阶段通过 `sunshine-before-dev` �
 
 子代理派发协议适用于所有平台与所有子代理，包括原生的 Codex `SubagentStart` 上下文注入（带子代理侧拉取兜底）、二类 Gemini/Qoder/Copilot/Reasonix/Trae/Grok/Kimi Code、hook 支撑的 ZCode/Snow，以及 `sunshine-research`：每次派发提示词都以 `Active task: <task current 给出的任务路径>` 开头，再写角色专属指令。在 Grok Build 上用 `spawn_subagent`，`subagent_type` 设为 Sunshine 子代理名（例如 `sunshine-implement`）。在 Kimi Code 上派发内置的 `coder` / `explore` 子代理，并附上对应的 `.kimi-code/skills/sunshine-<角色>/SKILL.md` 指令。在 DeepSeek Harness 上用 `subagent` 工具派发子代理：默认用自包含任务（prompt 里写完整任务，以 `Active task: <任务路径>` 开头，再写进该角色在 workflow.md 里的步骤与要求；`sunshine-implement` 与 `sunshine-research` 没有同名 skill 文件，不要编造路径，`sunshine-check` 派发时附上 `.agents/skills/sunshine-check/SKILL.md`）；子任务沿用对话上下文时改用继承对话的派发（`subagent_fork`）。
 
+**交付验收封顶**：子代理交付后，主会话的验收只做三件事——读它的落盘汇报、按汇报核对产物清单齐不齐、抽查其中一个产物确认无误，到此为止。不逐项复核交付内部的接线与细节（链接、锚点、键名、数据对应关系等），那是实现阶段 check 子代理对账的活；不做渲染或截图验证，DeepSeek Harness 上模型读不了图片、截图一律跳过。验收中发现具体问题，记下来退回对应子代理修，不自己下场逐项验。没有落盘汇报的交付视为未完成，先让子代理补汇报再验收。
+
 [workflow-state:in_progress]
 工具：`sunshine-implement` / `sunshine-research` 只是子代理类型（Task/Agent 工具，不是 Skill；没有同名的 skill）。`sunshine-update-spec` 是 skill。`sunshine-check` 两者都是；改完代码后核查时优先用 Agent 形态。
 流程：`sunshine-implement` -> `sunshine-check` -> `sunshine-update-spec` -> 提交（第 3.4 步）-> `/sunshine:finish-work`。

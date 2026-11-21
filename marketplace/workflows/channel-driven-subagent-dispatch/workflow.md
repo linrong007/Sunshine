@@ -143,6 +143,8 @@ Inline 模式：跳过 jsonl 整理；第 2 阶段通过 `sunshine-before-dev` �
 
 Channel 驱动的子代理派发是本工作流的默认执行模型。主会话用 `sunshine channel create`、`sunshine channel spawn`、`sunshine channel send` 与 `sunshine channel wait` 协调工作线程。只有用户明确要求原生派发，或必须用宿主专属能力时，才回退到宿主原生子代理。
 
+**交付验收封顶**：工作线程（或回退派发的子代理）交付后，主会话的验收只做三件事——读它的落盘汇报、按汇报核对产物清单齐不齐、抽查其中一个产物确认无误，到此为止。不逐项复核交付内部的接线与细节（链接、锚点、键名、数据对应关系等），那是 check 工作线程对账的活；不做渲染或截图验证，DeepSeek Harness 上模型读不了图片、截图一律跳过。验收中发现具体问题，记下来退回对应工作线程修，不自己下场逐项验。没有落盘汇报的交付视为未完成，先补汇报再验收。
+
 [workflow-state:in_progress]
 流程：channel 驱动的 `implement` 工作线程 -> channel 驱动的 `check` 工作线程 -> `sunshine-update-spec` -> 提交（第 3.4 步）-> `/sunshine:finish-work`。
 

@@ -3830,3 +3830,9 @@ hook 19 条、CLI 与任务系统 7 条、平台与 registry 11 条、serve/chan
 - 远端主提交 `f3c322d2ea355b3fdf241615cdff2da99ca5aec2`，tree `c60c902ec40f7565c58f867afb01a3b22dc0826e`，父 `b1f9036e61f61d529fb2bbeb45541cd356d2eb78`。tag v0.5.43 对象 `bb7fd74093aaaf728afda8a8f83850e136a5aef9`。
 - run：发布 44894021773、CI(tag) 44894021810、CI(main) 44894003465，均 success。Release id 453608621，6 资产齐全；linux_amd64 sha256 `f4349f15ef02823e410f656b6301139fc143d1cba97675a1fcb6a75a7e0e3381` 与 checksums.txt 一致。
 - 实测：发布包二进制报 0.5.43、upgrade --dry-run 报已是最新；发布包 init 的 DSH 项目 workflow.md 含还原后的 DSH inline 分支、DSH.md 口径已恢复，sunshine-prototype skill 与 AGENTS 铁律仍在。校验包在 `~/workspace/scratch/release-0543/`。
+
+## 2026-11-21 主会话交付验收封顶（用户点选，未发版）
+
+- 背景：demo19（服装后台）R-001 实跑，prototype 子代理侧全部正常（派发自包含、汇报落盘 prototype-R001.md、写后验证仅 wc 与 node --check 两条命令）；但主会话在子代理交付后逐项复核内部接线（导航链接、data-page 键、tab 键、hash、快捷入口，约 6 轮命令），并尝试无头 Chrome 截图验证（失败、重试、挂起、取消）——验证螺旋从子代理转移到主会话。现行验证封顶只约束子代理，未约束主会话的验收深度；且 DSH 上模型无图像输入，截图本就白截（书籍商城已实证）。
+- 改法：workflow×3 在派发协议处加「交付验收封顶」通用口径——主会话验收任何子代理/工作线程的交付只做三件事：读落盘汇报、按汇报核对产物清单、抽查一个产物；不逐项复核内部接线与细节（那是实现阶段 check 的对账活），不做渲染/截图验证（DSH 明确跳过）；发现问题记下来退回对应子代理修，没有落盘汇报的交付视为未完成。市场镜像同步。
+- 验证：全量测试全过；本地构建二进制 init 的 DSH 项目 `.sunshine/workflow.md` 含「交付验收封顶」段（恰 1 处），市场镜像与模板逐字节一致。

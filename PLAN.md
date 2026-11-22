@@ -3890,3 +3890,11 @@ hook 19 条、CLI 与任务系统 7 条、平台与 registry 11 条、serve/chan
 - 根因：`internal/hook/pre_tool_use.go` 两处输出缺 `hookEventName`——Bash 命令改写（RTK）与 Read/Grep 默认限流注入（squeez）。后者即截图来源：Read 没带 limit 时注入 limit=800 并吐 JSON，缺字段被校验打回。其余输出点（session_start、workflow_state、subagent 注入、subagent-start、dedup 的 PostToolUse）都带了 hookEventName，不受影响；shell_session 的 `{"permission":"allow"}` 是另一平台协议形状，不动。
 - 修法：两处 hookSpecificOutput 补 `"hookEventName": "PreToolUse"`；测试补断言（改写路径与限流路径都断言该字段）。
 - 验证：全量测试全过（两条路径各补 hookEventName 断言）；本地构建二进制以真实 payload 实测：Read 缺 limit 与 Bash git log 改写两条路径输出的 hookSpecificOutput 均含 hookEventName=PreToolUse，JSON 合法。
+
+### v0.5.48 发布记录（2026-11-22）
+
+- 内容：修 PreToolUse hook 输出缺 hookEventName——新版 Claude Code 严格校验 hookSpecificOutput 必带 hookEventName，`internal/hook/pre_tool_use.go` 两处输出缺它（Bash 命令改写、Read/Grep 默认限流注入），子代理里每次 Read 报错刷屏（用户 2026-11-22 实跑发现）。两处各补 `"hookEventName": "PreToolUse"`，`pre_tool_use_test.go`、`pre_tool_use_limits_test.go` 各加一条断言。其余 hook 输出点（session_start、workflow_state、subagent 注入、PostToolUse 去重）核查均已带该字段；这两条路径代码内写死只对 claude 生效、模板也只有 claude 的 settings.json 接线，其它平台不受影响。修复只在二进制里，升级即生效，已装项目不用跑 update。
+- 本地：全量测试全过、gofmt 干净；本地构建以真实 payload 实测两条路径输出 JSON 合法。
+- 远端主提交：e41285c（本地 e9ec829，tree 同为 0ad78da）；tag 对象 657e164；三路 run 全过（发布 45025100039、CI tag 45025099997、CI main 45025080334）。
+- Release：id 454451945，6 个资产齐全；linux_amd64 sha256 26a1c9cf 与 checksums 一致；发布包实测：version 报 0.5.48、upgrade --dry-run 认 0.5.48 为最新；用发布包二进制喂 Read 真实 payload，输出含 hookEventName=PreToolUse（原报错路径已合规）。
+- 发版：已发版 v0.5.48。

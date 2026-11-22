@@ -121,6 +121,9 @@ func TestRunPreToolUse(t *testing.T) {
 	if specific["permissionDecision"] != "allow" {
 		t.Fatalf("permissionDecision = %v, want allow", specific["permissionDecision"])
 	}
+	if specific["hookEventName"] != "PreToolUse" {
+		t.Fatalf("hookEventName = %v, want PreToolUse（新版 Claude Code 严格校验，缺了 hook 报错）", specific["hookEventName"])
+	}
 	updated, _ := specific["updatedInput"].(map[string]any)
 	if updated == nil {
 		t.Fatal("缺少 updatedInput")

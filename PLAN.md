@@ -3883,3 +3883,10 @@ hook 19 条、CLI 与任务系统 7 条、平台与 registry 11 条、serve/chan
 - 远端主提交 `50fe48a56416ab26c507f97f7603f3cf84080511`，tree `745c7335f311216fc6ecb2c288b172672eb0d41f`，父 `50727e64bff4da77e46a6e1d2a02ff93b1749f40`。tag v0.5.47 对象 `6991ce92e8b838215bdedd0ad9cd17d09f1819c4`。
 - run：发布 44917001935、CI(tag) 44917001824、CI(main) 44916978128，均 success。Release id 453770602，6 资产齐全；linux_amd64 sha256 `7ff490d87a6e89920ceed596995267dc564cf28a6787dc76e11d4c8040697b26` 与 checksums.txt 一致。
 - 实测：发布包二进制报 0.5.47、upgrade --dry-run 报已是最新；发布包 init 的 Claude 项目 audit 含技术型必问项与收敛式深查、workflow 含收敛口径。校验包在 `~/workspace/scratch/release-0547/`。
+
+## 2026-11-22 PreToolUse hook 输出缺 hookEventName（用户实跑发现，未发版）
+
+- 现象：用户在 Claude Code 子代理里看到每次 Read 都报 `PreToolUse:Read hook failed — hookSpecificOutput is missing required field "hookEventName"`（连读 5 个文件报 5 次）。新版 Claude Code 对 hook 输出做严格校验。
+- 根因：`internal/hook/pre_tool_use.go` 两处输出缺 `hookEventName`——Bash 命令改写（RTK）与 Read/Grep 默认限流注入（squeez）。后者即截图来源：Read 没带 limit 时注入 limit=800 并吐 JSON，缺字段被校验打回。其余输出点（session_start、workflow_state、subagent 注入、subagent-start、dedup 的 PostToolUse）都带了 hookEventName，不受影响；shell_session 的 `{"permission":"allow"}` 是另一平台协议形状，不动。
+- 修法：两处 hookSpecificOutput 补 `"hookEventName": "PreToolUse"`；测试补断言（改写路径与限流路径都断言该字段）。
+- 验证：全量测试全过（两条路径各补 hookEventName 断言）；本地构建二进制以真实 payload 实测：Read 缺 limit 与 Bash git log 改写两条路径输出的 hookSpecificOutput 均含 hookEventName=PreToolUse，JSON 合法。

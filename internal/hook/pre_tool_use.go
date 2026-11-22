@@ -77,6 +77,7 @@ func runPreToolUseBash(input HookInput, opts Options) error {
 	updated["command"] = rewritten
 	out := map[string]any{
 		"hookSpecificOutput": map[string]any{
+			"hookEventName":      "PreToolUse",
 			"permissionDecision": "allow",
 			"updatedInput":       updated,
 			"additionalContext":  note,
@@ -127,6 +128,7 @@ func runPreToolUseLimit(input HookInput, opts Options) error {
 	updated[key] = value
 	out := map[string]any{
 		"hookSpecificOutput": map[string]any{
+			"hookEventName":      "PreToolUse",
 			"permissionDecision": "allow",
 			"updatedInput":       updated,
 			"additionalContext":  note,

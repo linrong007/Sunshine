@@ -205,3 +205,9 @@ agent 在底下调的命令你平时不用敲；下面是你手动干预时用�
 - [Releases](https://github.com/linrong007/Sunshine/releases)
 
 用 Go 构建。Trellis 的 Go 重构版——与 Mindfold 无关。
+
+## 版权
+
+Copyright © 2026 linrong007。保留所有权利。
+
+Sunshine 未以任何开源许可证发布。未经版权持有人书面许可，不得复制、修改、分发或用于商业用途。仓库中的第三方组件版权归其各自作者所有，遵循其随附许可证。

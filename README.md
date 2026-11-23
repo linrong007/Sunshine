@@ -205,3 +205,9 @@ Yes. `sunshine ablate` temporarily removes all supported project-owned Sunshine 
 - [Releases](https://github.com/linrong007/Sunshine/releases)
 
 Built with Go. A Go reimplementation of [Trellis](https://github.com/mindfold-ai/Trellis) — not affiliated with Mindfold.
+
+## Copyright
+
+Copyright © 2026 linrong007. All rights reserved.
+
+Sunshine is not released under any open-source license. Without the copyright holder's prior written permission, it may not be copied, modified, distributed, or used for commercial purposes. Third-party components in this repository remain the property of their respective authors and are used under their own licenses.

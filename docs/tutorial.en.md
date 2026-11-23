@@ -1,22 +1,43 @@
 # Sunshine tutorial: init once, then work in the agent UI
 
-The main flow in one line: **run `sunshine init` once in the terminal, then do everything else by talking to the agent in its UI (Claude Code first, Codex / Cursor the same idea) in plain language — the agent drives the work following `.sunshine/workflow.md` and calls `sunshine` commands under the hood; you review the diff, accept, and the work is committed.**
+The main flow in one line: **run `sunshine init` once in the terminal, then work entirely in the agent UI (Claude Code first, Codex / Cursor the same idea) in plain language: you state the requirement, and the agent follows `.sunshine/workflow.md` — questions first, a written plan, and implementation only after the 1.5 review passes with your confirmation (design-first splits first, then one sub-task at a time); each task runs implement, check, spec write-back, commit, and archive end to end, and you appear only to answer questions, confirm the review and the commit plan, and accept the result.**
 
-That is the whole point of this tutorial: the terminal is not where you spend your day. You type one setup command, then you talk. The `sunshine task …` / `sunshine channel …` commands still exist, but they are the agent's tools, not your daily interface — they appear in this tutorial only in [section 4](#4-what-happened-under-the-hood) (what the agent actually ran, with real outputs), in [section 12](#12-six-scenarios-from-day-one-to-daily-work) (one walkthrough per scenario), and in the [appendix](#appendix-command-reference) (command reference for when you step in manually).
+How to read this tutorial: section 1 walks the main flow end to end; section 2 covers the two modes and the review; the capability sections after that (specs, memory, token saving, collaboration, maintenance) are there to look up as needed; section 9 is the record of six real scenarios, and the appendix is the command reference. Command transcripts live in section 3 and section 9; the rest is flow and capabilities.
 
 The demo project is the same throughout: **refund reason required** — add a mandatory reason field to the refund flow. The example is small; the workflow is real.
 
-Conventions:
+## Contents
 
-- Dialogue with the agent is shown as **example prompts**, labeled as such. They are illustrations of what to say, not records of a real session.
-- Every command output shown is a real excerpt from a run made for this tutorial (`……` marks omitted lines, not rewritten ones). The `11-10` prefix in task directory names is the month-day of the day the commands were run (today, 2026-11-10).
-- This tutorial was verified with v0.2.1 (the current Release). The two places that show a different version say so explicitly.
-- **The CLI itself is Chinese-only.** Commands and sample output below are kept in the original Chinese so you can copy them verbatim; the explanations around them are in English.
-- The demo directories all live under `/tmp/rewrite-en/` (`demo`, `demo2`, `demo3`, `channels`, `home`) — delete them and nothing in any real project is affected.
+- [1. Five minutes in: walk the main flow](#1-five-minutes-in-walk-the-main-flow)
+- [2. Two modes: design-first and development-first](#2-two-modes-design-first-and-development-first)
+- [3. Under the hood: what the agent actually ran](#3-under-the-hood-what-the-agent-actually-ran)
+- [4. Specs: the project contract](#4-specs-the-project-contract)
+- [5. Memory: mem and long-term memory](#5-memory-mem-and-long-term-memory)
+- [6. Saving tokens: the three-piece set](#6-saving-tokens-the-three-piece-set)
+- [7. Multi-agent collaboration](#7-multi-agent-collaboration)
+- [8. Maintenance: update and upgrade](#8-maintenance-update-and-upgrade)
+- [9. Scenario records: from day one to daily work](#9-scenario-records-from-day-one-to-daily-work)
+  - [9.1 Starting a new project from zero (development-first): a clothing-store admin system](#91-starting-a-new-project-from-zero-development-first-a-clothing-store-admin-system)
+  - [9.2 Adopting an existing project: a clothing-store admin system](#92-adopting-an-existing-project-a-clothing-store-admin-system)
+  - [9.3 Requirement changes: stock 0 no longer means off shelf](#93-requirement-changes-stock-0-no-longer-means-off-shelf)
+  - [9.4 Refactoring a legacy module: pin the behavior first, then change the code](#94-refactoring-a-legacy-module-pin-the-behavior-first-then-change-the-code)
+  - [9.5 Fixing a bug that keeps coming back: find how it was fixed last time](#95-fixing-a-bug-that-keeps-coming-back-find-how-it-was-fixed-last-time)
+  - [9.6 Design-first: requirements → design documents → breakdown → development](#96-design-first-requirements--design-documents--breakdown--development)
+- [Appendix: command reference](#appendix-command-reference)
 
-## 1. Run once in the terminal: init
+## 1. Five minutes in: walk the main flow
 
-Install Sunshine first (see [README.md](../README.md#installation)), then confirm it:
+The main flow has five steps: init once → state the requirement → the agent asks questions and writes a plan → implementation after the review passes → you accept and it archives. Here it is step by step, on a small change: adding a mandatory reason field to the refund flow.
+
+### 1.1 Run once in the terminal: init
+
+Install Sunshine first (see [README.md](../README.md#installation)), then confirm it. On Windows, the current one-line install runs in PowerShell (the counterpart of the Unix curl one-liner):
+
+```powershell
+irm https://raw.githubusercontent.com/linrong007/Sunshine/main/install.ps1 | iex
+```
+
+To install a specific version, set `$env:SUNSHINE_VERSION = 'vX.Y.Z'` first and run the same line; the script installs into `%LOCALAPPDATA%\Sunshine\bin` by default and adds that directory to the user PATH (Windows x64 only). The old way still works: download the windows zip from the [Releases](https://github.com/linrong007/Sunshine/releases) page, unzip it, and put `sunshine.exe` on your PATH; with Go installed, `go install github.com/linrong007/Sunshine/cmd/sunshine@latest` works too.
 
 > If github.com is unreachable on your network and downloads time out: the install script, `sunshine upgrade` and `sunshine update` all fall back to public mirror proxies automatically — only fetching the script itself needs a manual mirror hop:
 
@@ -66,21 +87,28 @@ Real output:
 
 The demo directory is empty, so nothing is detected; with `-y` skipping the prompt it defaults to fullstack, which is why the output above says `项目类型：全栈（默认）` ("Project type: fullstack (default)"). `init` requires at least one platform (none checked by default) and generates the Chinese `.sunshine/` skeleton with the selected platforms' configs.
 
-From here on, close the terminal and ask for your first requirement in the agent UI (section 2). All init operations — the interactive questions, the common options, the three modes, project-type detection, and what gets installed — are in the [appendix: command reference](#appendix-command-reference) at the end.
+**Interactive mode (no `-y`) asks four things in order** — the demo above skipped them all with `-y`:
 
-## 2. Open the agent UI: ask in plain language
+1. **Platforms**: a multi-select, nothing checked by default; at least one must be picked to continue (passing a flag such as `--claude` skips the question).
+2. **Statusline confirmation**: asked only when Claude Code is selected — whether to install the statusline (shows the current task and more in the UI); when Codex is selected, a separate question asks whether init may write its hooks switch for you.
+3. **Spec template**: start from scratch with the default templates, or pick a ready-made template from a template marketplace (a custom source can be entered too). A marketplace template becomes this project's spec and is recorded in `.sunshine/config.yaml` under `registry.spec`, so `sunshine update` keeps refreshing it afterwards (section 4); passing `--registry` / `--template` skips this menu.
+4. **Project type**: detection first — init reads `package.json` dependencies and common config files to decide frontend / backend / fullstack, and a detected type is used directly, with the type and its source printed in the output; only when nothing is detected does a menu ask. The four types generate different things: frontend generates `system.md` + `frontend.md`, backend generates `system.md` + `backend.md`, fullstack generates all three; **product design** never takes part in detection and can only be chosen by hand (in the menu, or `--type 产品设计`) — it generates the three specs plus, under the project's `doc/`, the requirements list and prototype placeholders and the seven delivery-document placeholders under `doc/delivery/`, for design-first projects. With a marketplace template there is no detection and no type question (the template is the spec); with `-y` and nothing detected, the default is fullstack.
+
+From here on, close the terminal and ask for your first requirement in the agent UI (section 1.2). All init operations — the interactive questions, the common options, the three modes, project-type detection, and what gets installed — are in the [appendix: command reference](#appendix-command-reference) at the end.
+
+### 1.2 Open the agent UI: ask in plain language
 
 Open the project in Claude Code (Codex and Cursor work the same way — the agent there reads the same `.sunshine/` files). The agent already knows the project conventions from `AGENTS.md`, `spec/`, and `workflow.md`; you just describe what you want.
 
 > **Example prompt** (an illustration of what to say, not a real session transcript):
 >
-> Add a required reason field to the refund flow: when a user submits a refund, the reason must not be empty or the submission is rejected. The reason input is a dropdown — quality issue / wrong size / other — and choosing "other" reveals a text box. On the backend, `POST /refunds` requires `reason`; a missing reason returns 400 with error code `REASON_REQUIRED`. Please follow the Sunshine workflow: ask me first to clarify anything unclear about the product logic or technical details; once confirmed, create the task, write the PRD, then implement.
+> Add a required reason field to the refund flow: when a user submits a refund, the reason must not be empty or the submission is rejected. The reason input is a dropdown — quality issue / wrong size / other — and choosing "other" reveals a text box. On the backend, `POST /refunds` requires `reason`; a missing reason returns 400 with error code `REASON_REQUIRED`. Please follow the Sunshine workflow.
 
-Note: the prompt must name the workflow explicitly — ask first, confirm, then create the task and write the PRD. A bare requirement on its own is not enough: in a real run the agent jumped straight to coding and skipped task creation and requirement confirmation.
+Note: the prompt must name the workflow explicitly ("follow the Sunshine workflow", plus the mode if there is one, e.g. development-first). The steps after that — ask first, create the task and write the PRD on confirmation, review, then implement — do not need restating: they are all in workflow.md, and the agent follows them in order once it has read it. A bare requirement on its own is not enough — in a real run the agent jumped straight to coding and skipped task creation and requirement confirmation — but the problem there was the unnamed workflow, not the unrestated steps.
 
 The designer and the developer are not two workflows — they are two phases of one workflow: the designer does 1.1 (clarify requirements), the design deliverables, 1.5 (review), and 1.2 (breakdown); the developer does phase 2 (implement and check) and phase 3 (write back and commit). They share one workflow.md, one task system, and one PRD, and the handoff runs through the requirements list and the task structure. So the prompt does not need to name a role — naming the workflow and the mode is enough, and the role follows the phase: while the task is in the design phase, the agent is the designer; once it moves into development, the agent is the developer. If the mode is unclear, the agent asks first in 1.1. The only thing to state explicitly is the scope boundary: design only, no code, or the design is done and only development remains.
 
-You do not need to mention commands. The prompt names the workflow explicitly — ask first, confirm, then create the task and write the PRD — because a bare requirement on its own lets the agent jump straight to coding. Once the flow is named, the agent follows it: if the request is big enough to be a task, `workflow.md` requires it to ask for your agreement before creating one — it will not silently create a task directory. It may also ask clarifying questions first (for example, whether "other" needs a minimum text length), and it will tell you what it is about to do before doing it.
+You do not need to mention commands. The prompt names the workflow explicitly because a bare requirement on its own lets the agent jump straight to coding. Once the flow is named, the agent follows it: if the request is big enough to be a task, `workflow.md` requires it to ask for your agreement before creating one — it will not silently create a task directory. It may also ask clarifying questions first (for example, whether "other" needs a minimum text length), and it will tell you what it is about to do before doing it.
 
 Before the work starts, the demo project's conventions need to live in the specs — either you add them, or you ask the agent to ("Put the refund conventions into the spec files"). Either way they end up as three short additions:
 
@@ -92,7 +120,7 @@ Before the work starts, the demo project's conventions need to live in the specs
 - 退款原因必填：用户提交退款时原因字段不能为空，否则拒绝提交。
 ```
 
-(`system.md` is the spec the agent itself maintains in the background; see [section 6](#6-how-specs-are-maintained).)
+(`system.md` is the spec the agent itself maintains in the background; see [section 4](#how-specs-are-maintained).)
 
 `.sunshine/spec/backend.md` — the API contract:
 
@@ -114,7 +142,7 @@ Before the work starts, the demo project's conventions need to live in the specs
 
 Once the specs say it, every later task follows it automatically — that is the point of writing specs down instead of repeating the rule in every prompt.
 
-## 3. The agent works through workflow.md
+### 1.3 The agent works through workflow.md
 
 This is what the agent does after you give it the request. You watch it happen in the UI; you do not type any of this.
 
@@ -138,7 +166,7 @@ This is what the agent does after you give it the request. You watch it happen i
 
 ("Target: the refund reason field is required when refunding.") Then it fills in the real requirements and acceptance criteria. A light task can stop at the PRD; a complex task also gets `design.md` (technical design) and `implement.md` (execution plan) before anything is implemented. It also organizes the context lists `implement.jsonl` / `check.jsonl` — the spec and research files the sub-agents will read. For a complex task it asks you to review the plan before starting implementation; only then does it move the task to `in_progress`.
 
-There are two modes, decided at the start of planning: design-first, where the product design documents (requirements list, outline design, high-fidelity prototype — whatever the project needs, if any) land in the project's `doc/` folder first and the work is then split into sub-tasks, or direct development, where the task goes straight from the PRD to implementation. The design documents live in `doc/`, not in `.sunshine`; `.sunshine` only keeps the index (the task record, `prd.md`, and the `implement.jsonl` / `check.jsonl` lists) pointing at them. Section 12.6 walks the design-first mode end to end.
+There are two modes, decided at the start of planning: design-first, where the product design documents (requirements list, outline design, high-fidelity prototype — whatever the project needs, if any) land in the project's `doc/` folder first and the work is then split into sub-tasks, or direct development, where the task goes straight from the PRD to implementation. The design documents live in `doc/`, not in `.sunshine`; `.sunshine` only keeps the index (the task record, `prd.md`, and the `implement.jsonl` / `check.jsonl` lists) pointing at them. Section 9.6 walks the design-first mode end to end.
 
 **Phase 2 — execution.** The agent dispatches sub-agents: `sunshine-implement` writes the code, then `sunshine-check` verifies it. The platform hooks inject the context automatically — the `implement.jsonl` / `check.jsonl` entries, plus `prd.md`, `design.md`, and `implement.md` if they exist — so each sub-agent starts with the right specs in its prompt. The dispatch prompt always opens with `Active task: <task path>`. The fixed order in `workflow.md` is:
 
@@ -152,7 +180,90 @@ sunshine-implement -> sunshine-check -> sunshine-update-spec -> commit (step 3.4
 
 Your part during all of this: read what the agent says it is doing, answer its questions, and ask it to change course when it goes the wrong way. The commands it runs are listed in the next section — for your understanding, not for you to type.
 
-## 4. What happened under the hood
+### 1.4 You review and accept
+
+The agent does the work; you decide whether it is done. When it says the task is finished, review it in the UI the same way you would review a colleague's change:
+
+- Read the diff the agent shows you (or run `git diff` yourself) — the refund form change, the backend validation, and nothing else. `workflow.md` has an explicit rule for this: only change the affected parts; untouched code and styles stay untouched.
+- Check it against the acceptance criteria in `prd.md` — the criteria you agreed in phase 1 are the definition of done, not the agent's summary.
+- Run the thing yourself if it matters: submit a refund with an empty reason and confirm it is rejected; pick "other" and confirm the text box appears.
+
+If something is off, say so in plain language and the agent fixes it — it is still the same task, still the same conversation:
+
+> **Example prompt** (an illustration of what to say, not a real session transcript):
+>
+> The reason dropdown works, but choosing "other" doesn't show the text box yet. Fix that, and keep the backend validation as it is.
+
+When you accept, the commit has already happened in workflow step 3.4 — the agent batches the code changes into commits before `/sunshine:finish-work` runs, and the finish command itself does no code committing (it only archives the task and records the journal). So "accept" means: the diff is right, the criteria are met, and the commits are already in your branch. Push when you are ready, the same as any other work.
+
+## 2. Two modes: design-first and development-first
+
+When the requirement needs exploring first, or a design has to be shown to people, go design-first; when the requirement is clear and the change is small, go development-first. Say which one in the opening prompt; if you don't, the agent asks first. Both orders are fixed — they do not change with how the opening prompt is worded.
+
+### Design-first
+
+The order: create one parent task, never start it → the per-requirement loop (1.1: one requirement per round — ask it clear, record it in the requirements list, dispatch a prototype sub-agent to build or update its page; the design phase never asks about the tech stack) → at the end of the loop, ask only "shall we enter the review", never about splitting → split (1.2, one sub-task per requirement, the first being stack choice and scaffolding) only after the review (1.5) passes → each sub-task runs implement → check → spec write-back → commit → archive in turn, and the parent task closes with a final integration review.
+
+The review examines the design package: prd, requirements list, design documents, and prototype must all line up. A requirement change does not re-run the whole flow: edit the design documents and the affected prototype pages first, record a [变更] in the parent prd, and the review covers only the change. Record: 9.6.
+
+### Development-first
+
+The order: clarify the requirement (1.1, one question at a time, each answer recorded in prd.md at once) → write the planning products (a light task has only prd.md; a complex one adds design.md and implement.md) → split only if the scope is too large → set up context (1.4) → review (1.5) → task start → development.
+
+The review sits right before start: first check the planning products are self-consistent, then dispatch an audit scan, ask every must-confirm question on the spot and record the answers in prd — implementation starts only after you confirm. A single task starts right after its review; with sub-tasks, each one passes its own review before its own start, and the parent task is never reviewed as a whole and never started. Record: 9.1.
+
+### The audit in the review, and risk tiers
+
+Besides the main session's own check, the 1.5 review dispatches a read-only audit sub-agent to scan: it only reports items that were never confirmed and changes no files, and its findings land in the task directory's `audit.md` — no such file, and the review counts as not done. Answers go back into prd.md; anything undecided is marked `[待定]`.
+
+Tasks carry one of two risk tiers. A light-tier task runs the flow as is; a standard-tier task switches the review to deep interrogation — round after round of questions from both the business and the technical angle (the technical side has eight must-ask categories: stack and dependencies, interface contracts, data definitions, concurrency and consistency, performance and scale, security, failure recovery, environment constraints), until a round adds nothing new, at most 4 rounds. The tier is set on each sub-task at split time (on the task itself for a single task), chosen by blast radius and uncertainty.
+
+### Switching workflow templates
+
+There are three built-in workflow templates. You usually switch by asking the agent in the UI ("Switch the workflow to TDD for the next task"), and the agent runs the command; running it yourself in the terminal works the same way:
+
+```sh
+sunshine workflow --list
+#
+# 可用的工作流模板：
+#
+#   native（内置） — 原生 Sunshine 工作流
+#     默认的 Sunshine 规划 / 执行 / 收尾工作流，含原生子代理与 inline 平台分支
+#   tdd（内置） — TDD 工作流
+#     用一次一个红灯 / 绿灯 / 重构行为切片驱动第 2 阶段的 Sunshine 工作流变体
+#   channel-driven-subagent-dispatch（内置） — Channel 驱动的子代理派发
+#     主会话通过 sunshine channel 协调 implement/check 工作线程的工作流变体
+```
+
+("Available workflow templates: `native` (built-in) — the native Sunshine workflow: the default plan / execute / wrap-up workflow with native sub-agents and inline platform branches; `tdd` (built-in) — TDD workflow: a variant that drives phase 2 with one red / green / refactor behavior slice at a time; `channel-driven-subagent-dispatch` (built-in) — channel-driven sub-agent dispatch: a variant where the main session coordinates implement/check worker threads through `sunshine channel`.")
+
+Switch to the TDD workflow:
+
+```sh
+sunshine workflow --template tdd
+#   ✓ 已把 .sunshine/workflow.md 换成 "tdd"
+```
+
+("Switched `.sunshine/workflow.md` to `tdd`.")
+
+Switching back to native stops you first — because `workflow.md` is now the tdd version, which no longer matches the hash manifest, the CLI treats it as "locally modified":
+
+```sh
+sunshine workflow --template native
+# 错误：.sunshine/workflow.md 已有本地修改，请加 --force 覆盖，或用 --create-new 写 .sunshine/workflow.md.new
+
+sunshine workflow --template native --force
+#   ✓ 已把 .sunshine/workflow.md 换成 "native"
+
+sunshine workflow --template native --create-new
+#   + 已写入 .sunshine/workflow.md.new（workflow.md 未改动）
+```
+
+("Error: `.sunshine/workflow.md` has local modifications; add `--force` to overwrite, or use `--create-new` to write `.sunshine/workflow.md.new`. / Switched `.sunshine/workflow.md` to `native`. / Wrote `.sunshine/workflow.md.new` (`workflow.md` untouched).")
+
+The rule: unmodified files are overwritten directly; modified or unknown-origin files ask interactively (overwrite / write a `.new` copy / skip), and in a non-interactive terminal you use `--force` to overwrite or `--create-new` to write a copy. `--create-new` only writes `.sunshine/workflow.md.new` and leaves the active `workflow.md` alone. The same three-state logic is what `update` uses in the next section — a switched workflow shows up there under "你已修改" ("modified by you").
+
+## 3. Under the hood: what the agent actually ran
 
 These are the commands the agent actually ran for the demo task, with real outputs captured by running the equivalent commands. You are reading them to understand the mechanism; in normal use you never type them.
 
@@ -162,7 +273,7 @@ These are the commands the agent actually ran for the demo task, with real outpu
 sunshine task create "给退款原因加必填校验" --description "退款时原因字段必填" --priority P1
 ```
 
-Real output:
+Real output (excerpt):
 
 ```text
 警告：无法解析仓库默认分支（未配 remote 或离线），base_branch 暂记为当前检出分支 "master"，可用 --base-branch 覆盖。
@@ -172,10 +283,7 @@ Real output:
   - 在 prd.md 里写清需求与验收标准
   - 轻量任务：只有 PRD 也可以
   - 复杂任务：在 sunshine task start 前补充 design.md 与 implement.md
-  - 整理 implement.jsonl / check.jsonl（已建空文件），供子代理在 start 前读规范：
-      每行一个 JSON 对象 {"file": "<路径>", "reason": "<原因>"}，只放规范/调研文档
-      可用 sunshine task context --mode packages 列出可用规范
-  - 用 /sunshine:continue 或阶段上下文决定下一步
+  ……
 
 .sunshine/tasks/11-10-给退款原因加必填校验
 ```
@@ -196,13 +304,9 @@ Real output:
 ```json
 {
   "id": "给退款原因加必填校验",
-  "name": "给退款原因加必填校验",
   "title": "给退款原因加必填校验",
   "description": "退款时原因字段必填",
   "status": "completed",
-  "dev_type": null,
-  "scope": null,
-  "package": null,
   "priority": "P1",
   "creator": "演示者",
   "assignee": "演示者",
@@ -210,15 +314,10 @@ Real output:
   "completedAt": "2026-11-10",
   "branch": "master",
   "base_branch": "master",
-  "worktree_path": null,
-  "commit": null,
-  "pr_url": null,
-  "subtasks": [],
   "children": [],
   "parent": null,
-  "relatedFiles": [],
-  "notes": "",
   "meta": {}
+  ……（其余字段：name、dev_type、scope、package、worktree_path、commit、pr_url、subtasks、relatedFiles、notes）
 }
 ```
 
@@ -234,15 +333,8 @@ sunshine task add-context 11-10-给退款原因加必填校验 check .sunshine/s
 # 已添加文件：.sunshine/spec/backend.md
 
 sunshine task list-context 11-10-给退款原因加必填校验
-# === 上下文文件 ===
-#
-# [implement.jsonl]
-#   1. src/Refund.vue
-#      → 实现退款原因必填校验
-#
-# [check.jsonl]
-#   1. .sunshine/spec/backend.md
-#      → 退款接口契约
+# [implement.jsonl] 1. src/Refund.vue → 实现退款原因必填校验
+# [check.jsonl]     1. .sunshine/spec/backend.md → 退款接口契约
 
 sunshine task validate 11-10-给退款原因加必填校验
 # === 校验上下文文件 ===
@@ -308,9 +400,6 @@ sunshine task context
 # ## 开发者
 # 名字：演示者
 #
-# ## Git 状态
-# 分支：master
-# 工作区：4 处未提交改动
 # ……
 # ## 当前任务
 # 路径：.sunshine/tasks/11-10-给退款原因加必填校验
@@ -322,7 +411,7 @@ sunshine task context
 # ……
 ```
 
-("全部活动任务" = "all active tasks"; "总计：1 个任务" = "total: 1 task"; "会话上下文" = "session context"; "开发者" = "developer"; "Git 状态" = "git status"; "当前任务" = "current task"; "来源" = "source".)
+("全部活动任务" = "all active tasks"; "总计：1 个任务" = "total: 1 task"; "会话上下文" = "session context"; "开发者" = "developer"; "当前任务" = "current task"; "来源" = "source".)
 
 ### Archiving and recording the session
 
@@ -366,47 +455,89 @@ sunshine task add-session --title "退款原因必填校验实现" --summary "�
 Real output (excerpt):
 
 ```text
-========================================
-添加会话
-========================================
-
-会话：1
-标题：退款原因必填校验实现
-提交：-
-
 [OK] 会话已追加到 journal-1.md
 ……
 [OK] 会话 1 添加成功！
-========================================
-
-更新的文件：
-  - journal-1.md
-  - index.md
-
-[OK] 已自动提交：chore: record journal
+[OK] 已自动提交：chore: record journal（更新 journal-1.md 与 index.md）
 ```
 
-("Adding session; session: 1; title: …; commit: -; current journal file: `journal-1.md`; current lines: 7; lines added: 21; total after append: 28; session appended to `journal-1.md`; session 1 added successfully; updated files: `journal-1.md`, `index.md`; auto-committed: `chore: record journal`.")
+("Session appended to `journal-1.md`; session 1 added successfully; auto-committed: `chore: record journal`, updating `journal-1.md` and `index.md`.")
 
 One environment note, recorded as it happened: the auto-commit needs a configured git identity. In the first demo run the sandbox had none, so archiving and `add-session` printed `[警告] 自动提交失败：Author identity unknown` while still writing the files, and re-running the exact same `add-session` command resumed from the commit step instead of appending a second session. Set `git config user.email` / `user.name` once and the `[OK] 已自动提交` lines above are what you get.
 
-## 5. You review and accept
+## 4. Specs: the project contract
 
-The agent does the work; you decide whether it is done. When it says the task is finished, review it in the UI the same way you would review a colleague's change:
+This section covers spec once, completely: where it comes from, how it is dug out of code, what tooling that takes, how it is maintained day to day, how the agent reads it, and where templates come from.
 
-- Read the diff the agent shows you (or run `git diff` yourself) — the refund form change, the backend validation, and nothing else. `workflow.md` has an explicit rule for this: only change the affected parts; untouched code and styles stay untouched.
-- Check it against the acceptance criteria in `prd.md` — the criteria you agreed in phase 1 are the definition of done, not the agent's summary.
-- Run the thing yourself if it matters: submit a refund with an empty reason and confirm it is rejected; pick "other" and confirm the text box appears.
+### Where specs come from: requirements and code, organized in
 
-If something is off, say so in plain language and the agent fixes it — it is still the same task, still the same conversation:
+A spec is not a document someone writes from a blank page — it is organized in from two sources:
 
-> **Example prompt** (an illustration of what to say, not a real session transcript):
->
-> The reason dropdown works, but choosing "other" doesn't show the text box yet. Fix that, and keep the backend validation as it is.
+- **The requirements line**: conventions and decisions clarified while working a requirement land in spec on the spot; rules settled mid-task are written back at the end (see "How specs are maintained" below). The source is the Q&A record and your confirmation.
+- **The code line**: conventions that are already facts in an existing codebase (layering, naming, interface contracts, error handling…) and that nobody can state one by one are dug out of the code by `sunshine-spec-bootstrap` — operations in the next subsection of this section, record in 9.2.
 
-When you accept, the commit has already happened in workflow step 3.4 — the agent batches the code changes into commits before `/sunshine:finish-work` runs, and the finish command itself does no code committing (it only archives the task and records the journal). So "accept" means: the diff is right, the criteria are met, and the commits are already in your branch. Push when you are ready, the same as any other work.
+The code line works "graph first, text second": when the project has a `.codegraph/`, the bootstrap first queries the graph with CodeGraph (`codegraph explore` / `codegraph context`) to map symbols, call relations, and module structure — the graph comes from deterministic parsing, no model involved, cheap and complete; then it reads the actual source the graph points at, verifies it, and distills the patterns that genuinely repeat into spec entries. The graph is navigation, not authority: any convention that goes into spec must be pointable to a real file or a repeating pattern in the source — if it cannot be pointed at, it is not written. Without CodeGraph it falls back to language tooling and direct source reading; the flow is the same, just slower.
 
-## 6. How specs are maintained
+One principle governs both lines: write only what has a source — no generic advice, no placeholder text; the templates are a starting point, and spec files can be deleted, renamed, split, or added when the repository needs it. A finished spec carries its head index and applicability tags (the next two subsections), so the agent reads only the files and sections a task needs — that is what makes spec usable as a "contract": written from evidence, and cheap to read.
+
+### When the conventions are unknown: dig them out of the code with sunshine-spec-bootstrap
+
+The requirements-line route assumes the conventions are known — the three lines were in the README and people remembered them. The following is an example (written from the skill's documentation, not a real run): the more common case is a project that has run for three years with no written conventions at all, everything living in the code and nobody able to state it. The scenario here is a Go backend monolith, a dozen packages, a README with a single startup command.
+
+This time it does not go through creating a task, writing a PRD, and implement/check. It uses the `sunshine-spec-bootstrap` skill (installed with the platform configuration, not referenced by the workflow), one agent running the whole loop in a single pass:
+
+Example prompt (an example, not a real session record):
+
+> Nobody has written conventions for this project; they all live in the code. Please use sunshine-spec-bootstrap to analyze the codebase and produce a usable spec.
+
+The agent first reads the current spec tree (all templates), then analyzes the repository: top-level structure, package list, build scripts; when the project has a `.codegraph/` (built by init for existing projects — see the next subsection) it queries the graph first with CodeGraph (`codegraph explore` / `codegraph context`) to map symbols, call relations, and module structure, then uses GitNexus for execution flow, module clusters, and dependency centers, and ABCoder for exact signatures and types; finally it reads representative source and test files directly, and only turns a finding into a rule after confirming it — the graph supplies leads, and nothing is written down before it is verified in the source. The findings it digs out of the code would look like this (example): on package boundaries, `internal/order` owns orders and `internal/payment` owns payments, payment is only called by order and never the other way; errors are uniformly wrapped with errors.Wrap plus an error code, converted to `{ code, msg }` at the HTTP layer; configuration is config.yaml plus environment overrides; tests are all table-driven.
+
+Then it writes the spec by package and layer: template sections that do not apply — `frontend.md`, say, when there is no frontend — are deleted; each package gets a section, each rule carries a real file path and an example; important local patterns the templates miss (the error-code convention, for example) get a new file of their own. After writing it verifies three things: the spec is internally consistent, there is no placeholder text, and `index.md` matches the final file set.
+
+The difference from the route above is one line: conventions known, ask and land them in spec, people tell the agent; conventions unknown, run spec-bootstrap and let the agent discover them from the code.
+
+One more thing: spec-bootstrap does not produce an API reference directly. Its product is the coding guidance in `.sunshine/spec/` — structure, routes, and data flow are all there, but not as a human-readable endpoint list. For an API document, go in two steps: run spec-bootstrap to land the spec first, then a separate task to produce the document from the spec, placed in the project's `doc/` directory, not in `.sunshine`; the agent writing the document reads the spec instead of re-reading the whole codebase, and when interfaces change later, the document gets updated alongside the spec write-back at step 3.3.
+
+Example prompt (an example, not a real session record):
+
+> Please follow the sunshine workflow: first use sunshine-spec-bootstrap to land this project's structure and conventions in spec, then produce an API reference from the spec and place it in doc/, verifying every endpoint against the code.
+
+No need to name every area to dig into in the opening prompt: spec-bootstrap's repository analysis is full coverage by default — runtime layers (CLI, backend, frontend, worker, shared libraries), deployment (build, deploy steps, rollback), startup, configuration, data flow, error handling, testing, and troubleshooting are all in the default dimension table, and anything with evidence in the code lands in the spec. So the two-step prompt above is the most practical opening line for a legacy project. The only limit is what the code actually contains: nothing is invented without evidence, and template files for layers the repository does not have are deleted outright.
+
+### Code map: CodeGraph for existing projects
+
+The hard part of an existing project is not writing new code; it is helping the agent find the right old code: who calls a function, what a change touches. Grepping file by file is slow and easy to get wrong. For existing projects Sunshine borrows a ready-made code map — CodeGraph (an open-source tool that parses code into a graph of symbols and call relations; building the graph is deterministic parsing, no LLM and no tokens, and it auto-syncs when files change).
+
+**When it is installed**: only when `sunshine init` finds existing code in the project; a brand-new project gets neither the tool nor a graph. Each of the three layers fills in only what is missing:
+
+1. No CodeGraph on the machine — install it with its official script (onto your machine, not into Sunshine's packages);
+2. No `.codegraph/` in the project — build the graph;
+3. Wire the queries into the platforms selected in this init (MCP where the platform supports it, equivalent CLI queries elsewhere).
+
+Any failed step only warns and prints the manual command; it never blocks init. To opt out: `sunshine init --no-codegraph`, or set `SUNSHINE_NO_CODEGRAPH=1`.
+
+**Manual trigger**: no need to wait for init — `sunshine codegraph install` installs the tool, wires it, and builds the graph at any time (manual runs are not gated on the existing-code check and re-wire on every run); `sunshine codegraph status` only reports state and changes nothing.
+
+**How it is used**: you do not query it by hand — the workflow and subagents do. When landing a spec for an existing project (spec-bootstrap) or doing research, they query the graph first to map symbols, call relations and structure, then read files; before changing an existing function they check its callers; during checks they use the graph for affected tests and change impact as evidence for the acceptance reconciliation.
+
+Once wired, the agent gains a set of graph queries (MCP tools on platforms that support them, equivalent CLI commands elsewhere — both ask the same graph): search symbols by name, view a symbol's definition and signature, find callers and callees, compute the impact of a change, and outline a file's structure. You do not need to remember any of these — ask "who calls this function" in the agent UI and it queries the graph itself. To look yourself, run `codegraph explore <question>` in the project.
+
+Status is checkable at any time (real output; here the tool is installed and the graph built):
+
+```text
+$ sunshine codegraph status
+代码地图（CodeGraph）状态：
+  工具：已安装（/usr/bin/codegraph）
+  项目图：已建（.codegraph/）
+  存量代码：检测到（init 会自动供给）
+  已装平台：无（非 Sunshine 项目或尚未 init）
+```
+
+Run inside an initialized project, the last line lists the installed platforms and their wiring targets; whichever line reports "not installed / not built", one `sunshine codegraph install` fills the gap.
+
+**Boundary**: the graph is CodeGraph's own — it syncs itself on file changes, upgrades with `codegraph upgrade`, and can be removed with `codegraph uninstall` (wiring) and `codegraph uninit` (the graph). Sunshine only installs, builds, and writes the rules into the workflow and subagents.
+
+### How specs are maintained
 
 Specs are not a document you write once and forget. `.sunshine/spec/system.md` states the rule at the top:
 
@@ -429,130 +560,7 @@ In practice that means two things:
 - **During a task**, the agent writes what it learned back into the specs (workflow step 3.3, `sunshine-update-spec`) — for the demo task, the `REASON_REQUIRED` error code and the "other reveals a text box" rule are exactly the kind of conventions that get written down so the next refund task does not have to rediscover them.
 - **Between tasks**, you can also just tell the agent to update a spec ("Record in the backend spec that all list endpoints paginate with cursor-based pagination") and it edits the file; you review the diff like any other change.
 
-Specs are user data: `sunshine update` never touches `.sunshine/spec/` — in the scan output in [section 8](#8-update-and-the-template-marketplace) it appears under "用户数据（保持不动）", "user data (kept untouched)". The one exception is a spec installed from the template marketplace, which is hash-tracked and refreshed by `update` — see [section 8](#8-update-and-the-template-marketplace).
-
-## 7. Switching workflows
-
-There are three built-in workflow templates. You usually switch by asking the agent in the UI ("Switch the workflow to TDD for the next task"), and the agent runs the command; running it yourself in the terminal works the same way:
-
-```sh
-sunshine workflow --list
-#
-# 可用的工作流模板：
-#
-#   native（内置） — 原生 Sunshine 工作流
-#     默认的 Sunshine 规划 / 执行 / 收尾工作流，含原生子代理与 inline 平台分支
-#   tdd（内置） — TDD 工作流
-#     用一次一个红灯 / 绿灯 / 重构行为切片驱动第 2 阶段的 Sunshine 工作流变体
-#   channel-driven-subagent-dispatch（内置） — Channel 驱动的子代理派发
-#     主会话通过 sunshine channel 协调 implement/check 工作线程的工作流变体
-```
-
-("Available workflow templates: `native` (built-in) — the native Sunshine workflow: the default plan / execute / wrap-up workflow with native sub-agents and inline platform branches; `tdd` (built-in) — TDD workflow: a variant that drives phase 2 with one red / green / refactor behavior slice at a time; `channel-driven-subagent-dispatch` (built-in) — channel-driven sub-agent dispatch: a variant where the main session coordinates implement/check worker threads through `sunshine channel`.")
-
-Switch to the TDD workflow:
-
-```sh
-sunshine workflow --template tdd
-#   ✓ 已把 .sunshine/workflow.md 换成 "tdd"
-```
-
-("Switched `.sunshine/workflow.md` to `tdd`.")
-
-Switching back to native stops you first — because `workflow.md` is now the tdd version, which no longer matches the hash manifest, the CLI treats it as "locally modified":
-
-```sh
-sunshine workflow --template native
-# 错误：.sunshine/workflow.md 已有本地修改，请加 --force 覆盖，或用 --create-new 写 .sunshine/workflow.md.new
-
-sunshine workflow --template native --force
-#   ✓ 已把 .sunshine/workflow.md 换成 "native"
-
-sunshine workflow --template native --create-new
-#   + 已写入 .sunshine/workflow.md.new（workflow.md 未改动）
-```
-
-("Error: `.sunshine/workflow.md` has local modifications; add `--force` to overwrite, or use `--create-new` to write `.sunshine/workflow.md.new`. / Switched `.sunshine/workflow.md` to `native`. / Wrote `.sunshine/workflow.md.new` (`workflow.md` untouched).")
-
-The rule: unmodified files are overwritten directly; modified or unknown-origin files ask interactively (overwrite / write a `.new` copy / skip), and in a non-interactive terminal you use `--force` to overwrite or `--create-new` to write a copy. `--create-new` only writes `.sunshine/workflow.md.new` and leaves the active `workflow.md` alone. The same three-state logic is what `update` uses in the next section — a switched workflow shows up there under "你已修改" ("modified by you").
-
-## 8. update and the template marketplace
-
-### `update`: refresh the template files in the project
-
-When a new Sunshine version ships new templates, you refresh the project with `update`. First look at the plan with `--dry-run` — it prints the plan and writes nothing:
-
-```sh
-sunshine update --dry-run
-```
-
-Real output (excerpt; run with the v0.2.1 binary, project on 0.2.1):
-
-```text
-Sunshine 更新
-══════════════
-项目版本：0.2.1
-CLI 版本：0.2.1
-最新版：0.2.1
-
-
-正在扫描变更……
-  未变更文件（将跳过）：
-    ○ .claude/agents/sunshine-check.md
-    ○ .claude/agents/sunshine-implement.md
-    ○ .claude/agents/sunshine-research.md
-    ○ .claude/commands/sunshine/continue.md
-    ○ .claude/commands/sunshine/finish-work.md
-    ……另有 102 个
-
-  用户数据（保持不动）：
-    ○ .sunshine/workspace/
-    ○ .sunshine/tasks/
-    ○ .sunshine/spec/
-    ○ .sunshine/.developer/
-
-✓ 已是最新，无需更新。
-```
-
-("Scanning changes… Unchanged files (will be skipped): … / User data (kept untouched): `.sunshine/workspace/`, `.sunshine/tasks/`, `.sunshine/spec/`, `.sunshine/.developer/` / Already up to date, nothing to update.")
-
-Three states at a glance: unchanged template files are updated automatically; files you modified ask one by one (overwrite / skip / write a `.new` copy, default skip); user data (specs, tasks, workspace, developer identity) is never touched. Switch the workflow to tdd first ([section 7](#7-switching-workflows)) and the same scan shows the third state in action:
-
-```text
-  你已修改（需要你决定）：
-    ? .sunshine/workflow.md
-
-  用户数据（保持不动）：
-    ○ .sunshine/workspace/
-    ○ .sunshine/tasks/
-    ○ .sunshine/spec/
-    ○ .sunshine/.developer/
-
-[试运行] 未做任何修改。
-```
-
-("Modified by you (needs your decision): `.sunshine/workflow.md` / User data (kept untouched): … / [Dry run] No changes made.")
-
-To actually run it, drop `--dry-run`. Before writing, it takes a full backup — verified by running it for real on the tdd-switched project (non-interactive, so the conflict file was skipped by default):
-
-```text
-非交互环境，跳过统一确认（冲突文件默认跳过）。
-
-已创建备份：.sunshine/.backups/2026-11-10T01-16-37/
-
---- 逐个确认冲突 ---
-  ○ 已跳过：.sunshine/workflow.md
-
---- 汇总 ---
-  已跳过：1 个文件
-  备份：.sunshine/.backups/2026-11-10T01-16-37/
-
-✓ 更新完成！（0.2.1 → 0.2.1）
-```
-
-("Non-interactive environment, skipping the unified confirmation (conflicting files are skipped by default). / Backup created: `.sunshine/.backups/2026-11-10T01-16-37/` / … skipped: `.sunshine/workflow.md` / … / Update complete! (0.2.1 → 0.2.1).") On success it updates `.sunshine/.version`.
-
-Who runs `update`? Usually you, in the terminal, when you know a new version is out — or you ask the agent to ("Check whether the project templates need updating") and it runs `update --dry-run` and shows you the plan. Either way, nothing is overwritten silently.
+Specs are user data: `sunshine update` never touches `.sunshine/spec/` — in the scan output in [section 8](#8-maintenance-update-and-upgrade) it appears under "用户数据（保持不动）", "user data (kept untouched)". The one exception is a spec installed from the template marketplace, which is hash-tracked and refreshed by `update` — see [section 8](#8-maintenance-update-and-upgrade).
 
 ### The template marketplace: install specs from a registry
 
@@ -599,13 +607,9 @@ Common variations:
 - **Run it again, only missing files are added**: running the same command in a project that already has the template only installs files that are missing — existing files are left alone, including ones you wrote yourself. Delete one file and re-run, and only that file comes back.
 - **Replace everything**: `--overwrite` empties `.sunshine/spec/` and installs fresh, including deleting files you wrote yourself — only use it when you mean it.
 - **A failed install doesn't stop init**: if a template can't be pulled (say the entry points at a directory that doesn't exist), init carries on with the built-in blank specs and prints a retry command to run again later.
-- **Install a skill**: same command, different id. The skill lands in `.agents/skills/<id>/`, and the three default spec files are still generated as usual. The skill install is also recorded in `registry.spec` (the field is still called spec), and `update` refreshes it the same way:
+- **Install a skill**: same command, different id (e.g. `--template go-sdk-author`). The skill lands in `.agents/skills/<id>/`, and the three default spec files are still generated as usual. The skill install is also recorded in `registry.spec` (the field is still called spec), and `update` refreshes it the same way.
 
-```sh
-sunshine init -u 演示者 -y --claude --registry gh:linrong007/Sunshine/marketplace --template go-sdk-author
-```
-
-- **Workflows don't go through this command**: install a workflow template with `sunshine workflow --template tdd` (see section 7).
+- **Workflows don't go through this command**: install a workflow template with `sunshine workflow --template tdd` (see section 2).
 - **Point straight at a template directory**: the source can also be one template's directory, no marketplace and no `--template` needed — the whole directory is installed into `.sunshine/spec/` as-is:
 
 ```sh
@@ -649,13 +653,7 @@ A section title appearing in more than one file is listed; sections whose text i
 
 A marketplace doesn't have to live online: a local git repository works as a `--registry` source too.
 
-- **Local paths**: absolute paths, relative paths (starting with `./` or `../`), and `file://` URLs all work. Both the repository root and a subdirectory work, for example:
-
-```sh
-sunshine init -u 演示者 -y --claude --registry /path/to/Sunshine/marketplace --template sunshine-fullstack
-```
-
-With a subdirectory you don't need to work out where the repository root is: Sunshine walks up from the directory you wrote and takes the first directory containing `.git` as the repository root, with the rest as the subdirectory.
+- **Local paths**: absolute paths, relative paths (starting with `./` or `../`), and `file://` URLs all work; both the repository root and a subdirectory work (e.g. `--registry /path/to/Sunshine/marketplace`). With a subdirectory you don't need to work out where the repository root is: Sunshine walks up from the directory you wrote and takes the first directory containing `.git` as the repository root, with the rest as the subdirectory.
 
 - **Commit first**: a local path is still fetched by cloning, so only committed content is visible. Files you added to the marketplace but haven't committed yet can't be pulled — you'll get a "template not found" error. One `git commit` is enough; no push needed.
 - **LAN shared folders**: a mounted folder on a NAS or shared drive works as a local path (same rule: commit first).
@@ -690,6 +688,129 @@ marketplace/
 
 Commit once after writing it (no push needed), then use a local path or a git address as the `--registry` source. A team marketplace can live in a private repository.
 
+### The index layer: read the index first, then jump
+
+Every spec file carries an index table at its head (section names + a one-line summary each). The agent reads the index first and jumps only to the sections this task needs, instead of pouring the whole file into context — measured on one backend spec: 1742 tokens for the full text, 534 tokens for the index plus the one relevant section. The index is mandatory: files installed by init or pulled from a marketplace carry one; a file you drop into `spec/` by hand gets one automatically at the next session start, or right away with `sunshine spec index`. Only the main session edits specs; sub-agents read them.
+
+### Adopting an existing project: the order is reversed
+
+An existing project lands its conventions before any feature work: `sunshine init` installs the skeleton (supplying CodeGraph along the way) → the conventions go into spec (Q&A when known, spec-bootstrap when unknown) → then feature work starts in one of section 2's modes. init only adds files and never touches existing code; the acceptance bar is one line — after init, `git status` shows no modified old files. The end-to-end record is 9.2.
+
+## 5. Memory: mem and long-term memory
+
+### mem: search the raw sessions
+
+`sunshine mem` searches the agent session records stored on this machine (across platforms), for "how was this fixed last time, what was said then". It is purely manual and read-only, searches the current project by default, and in practice is one command — `sunshine mem search "refund"`; more usage is in the appendix, and the record is 9.5. It searches raw text, not conclusions — conclusions are distilled into the thing below. One boundary to keep clear: it only covers this machine — if the last session ran on a different computer, the search comes up empty; what carries across computers is long-term memory and the spec, which live inside the project and travel with the repo.
+
+### Long-term memory: project lessons
+
+**What it is for**: keeping the pitfalls this project hit, and how its settled practices came to be, for future sessions. A new session or task starts out already knowing these lessons — no re-stepping on the same rake, no re-arguing what was already decided. It is the project's institutional memory.
+
+**What is stored**: one file per item in `.sunshine/memory/` (title, summary, body), with `index.md` as the directory. The split with spec: anything that can be stated as a rule goes into spec (that is "what the rule is now"); the story behind the rule — why it was decided this way, what went wrong at the time, which alternatives were considered — goes into long-term memory (that is "why the rule is this"). When the two conflict, spec wins: long-term memory is a story archive, not a second rulebook.
+
+**When it is written**: at a task's closing step, 3.3 (update the specs), the agent judges in passing whether this task produced a story worth keeping for the future; if so it writes one item and adds a line to `index.md`; if not, it writes nothing — and when in doubt it writes spec only. Nothing is scraped automatically: nobody moves session transcripts in, and mem's raw-text search never turns into long-term memory on its own.
+
+**When it is read**: at the start of every session, the long-term memory index (titles and summaries only, capped at 4000 bytes, truncated by line beyond that) is injected into context automatically, so the agent knows these lessons exist and reads the body of whichever item is relevant; the same index rides along when context is assembled for sub-agents. You never have to remind it "remember last time's pitfall" — it already knows at the start.
+
+## 6. Saving tokens: the three-piece set
+
+Every sub-agent round re-reads its context: what gets injected, and how large tool outputs are, decides the token bill. Three compressions are in place, each measured (all figures are fixed-task byte measurements, not whole-session numbers):
+
+- **check on a diet**: the check sub-agent is injected only with the selected check.jsonl entries + the acceptance-criteria section of prd, not the whole bundle — fixture-measured injection fell from 51285 bytes to 1460 bytes (about -97%, and that is the check round's figure).
+- **narrow RTK rewriting**: a few high-frequency commands have their output slimmed before it reaches the agent, whitelist only: `git log` -86.8%, `git diff` -98.7%, `go test -v` -84.7% (fixed-task measurements).
+- **squeez compression**: tool output gets fuzzy de-duplication and throttling, with repeats replaced by a reference: same-template logs -98.4%, a repeated output's second appearance -65.3%.
+
+One clarification: metering and guardrails (limits, blocks) do not themselves save a single token — they only stop runaway work. The three above are the actual compression.
+
+## 7. Multi-agent collaboration
+
+One task is not done by a single agent end to end: the main session owns clarifying the requirement, the review, and acceptance, while the actual coding, checking, research, prototyping, and review scanning are dispatched to dedicated sub-agents (implement / check / research / prototype / audit). The split is the workflow's internal business — you do not need to manage it: you appear only to answer questions, confirm the review, and accept the result, and every sub-agent's output lands back in the main session for you to see.
+
+### serve: watch progress
+
+`sunshine serve` starts a read-only web page on this machine (`127.0.0.1:17890`) showing the current project's task progress, sub-task completion, and sub-agent start/stop events, refreshed by polling — no agent session needs to stay open. It only reads files and never talks to an agent, so it can only show what has already been written to disk; with no `.sunshine/` it refuses to start. For a second project at the same time, add `--port`.
+
+### channel: how agents coordinate
+
+When several workers run in parallel (one implementing, one checking), they pass messages, wait on events, and queue work through channels, driven by the main session underneath — that is what the `channel-driven` workflow template does. You meet this concept only when choosing a workflow; the command details are the agent's job — the manual-inspection commands are in the appendix. Two preconditions are worth knowing: spawning a real worker needs a logged-in claude / codex on this machine, and a wait timing out is a normal result, not a failure.
+
+## 8. Maintenance: update and upgrade
+
+### `update`: refresh the template files in the project
+
+When a new Sunshine version ships new templates, you refresh the project with `update`. First look at the plan with `--dry-run` — it prints the plan and writes nothing:
+
+```sh
+sunshine update --dry-run
+```
+
+Real output (excerpt; run with the v0.2.1 binary, project on 0.2.1):
+
+```text
+Sunshine 更新
+══════════════
+项目版本：0.2.1
+CLI 版本：0.2.1
+最新版：0.2.1
+
+
+正在扫描变更……
+  未变更文件（将跳过）：
+    ○ .claude/agents/sunshine-check.md
+    ○ .claude/agents/sunshine-implement.md
+    ○ .claude/agents/sunshine-research.md
+    ○ .claude/commands/sunshine/continue.md
+    ○ .claude/commands/sunshine/finish-work.md
+    ……另有 102 个
+
+  用户数据（保持不动）：
+    ○ .sunshine/workspace/
+    ○ .sunshine/tasks/
+    ○ .sunshine/spec/
+    ○ .sunshine/.developer/
+
+✓ 已是最新，无需更新。
+```
+
+("Scanning changes… Unchanged files (will be skipped): … / User data (kept untouched): `.sunshine/workspace/`, `.sunshine/tasks/`, `.sunshine/spec/`, `.sunshine/.developer/` / Already up to date, nothing to update.")
+
+Three states at a glance: unchanged template files are updated automatically; files you modified ask one by one (overwrite / skip / write a `.new` copy, default skip); user data (specs, tasks, workspace, developer identity) is never touched. Switch the workflow to tdd first ([section 2](#switching-workflow-templates)) and the same scan shows the third state in action:
+
+```text
+  你已修改（需要你决定）：
+    ? .sunshine/workflow.md
+
+  用户数据（保持不动）：
+    ○ .sunshine/workspace/
+    ○ .sunshine/tasks/
+    ○ .sunshine/spec/
+    ○ .sunshine/.developer/
+
+[试运行] 未做任何修改。
+```
+
+("Modified by you (needs your decision): `.sunshine/workflow.md` / User data (kept untouched): … / [Dry run] No changes made.")
+
+To actually run it, drop `--dry-run`. Before writing, it takes a full backup — verified by running it for real on the tdd-switched project (non-interactive, so the conflict file was skipped by default):
+
+```text
+非交互环境，跳过统一确认（冲突文件默认跳过）。
+
+已创建备份：.sunshine/.backups/2026-11-10T01-16-37/
+
+--- 逐个确认冲突 ---
+  ○ 已跳过：.sunshine/workflow.md
+
+--- 汇总 ---
+  已跳过：1 个文件
+  备份：.sunshine/.backups/2026-11-10T01-16-37/
+
+✓ 更新完成！（0.2.1 → 0.2.1）
+```
+
+("Non-interactive environment, skipping the unified confirmation (conflicting files are skipped by default). / Backup created: `.sunshine/.backups/2026-11-10T01-16-37/` / … skipped: `.sunshine/workflow.md` / … / Update complete! (0.2.1 → 0.2.1).") On success it updates `.sunshine/.version`.
+
+Who runs `update`? Usually you, in the terminal, when you know a new version is out — or you ask the agent to ("Check whether the project templates need updating") and it runs `update --dry-run` and shows you the plan. Either way, nothing is overwritten silently.
 
 ### After the marketplace template changes, `update` keeps refreshing it
 
@@ -720,214 +841,7 @@ Edit the template in the marketplace, commit, and run `update --dry-run` again (
 
 `system.md` is updated automatically because its local copy was never edited; if you had edited it locally, it would go through the same "modified by you" confirmation. `config.yaml` shows as "modified by you" because `registry.spec` was written into it when the template was installed — that is expected.
 
-
-## 9. mem: look back at sessions
-
-`mem` parses the session records each platform keeps on this machine, read-only — it never writes to session storage. Real usage first: once you have run Sunshine tasks in Claude Code, just ask the agent in the UI ("Find the session where we implemented the refund reason validation") or run these in the project yourself:
-
-```sh
-sunshine mem list              # List this project's sessions
-sunshine mem search "退款"      # Find sessions by keyword
-sunshine mem context 11111111  # View one session's context (the id can be abbreviated)
-sunshine mem extract 11111111  # Export one session's full conversation
-sunshine mem projects          # List projects that have sessions
-```
-
-The outputs below are demonstrated with a hand-made fixture, because the sandbox has no real sessions. The fixture is a real session file in exactly the layout a real session has — `~/.claude/projects/<project directory>/<session id>.jsonl` — four turns (two user, two assistant) about the refund task, written under a temporary `HOME` so your real `HOME` is untouched:
-
-```sh
-export HOME=/tmp/rewrite-en/home   # Demo only; your real HOME is untouched
-mkdir -p "$HOME/.claude/projects/-tmp-rewrite-en-demo"
-# Write a 4-turn demo session 11111111-2222-3333-4444-555555555555.jsonl
-# (two user turns, two assistant turns, about this tutorial's refund task)
-```
-
-```sh
-sunshine mem list
-# 范围：项目=/tmp/rewrite-en/demo  平台=all
-# [claude  ] 2026-11-10 01:14  11111111-222  /tmp/rewrite-en/demo
-#
-# 共 1 个会话
-
-sunshine mem search "退款"
-# 范围：项目=/tmp/rewrite-en/demo  平台=all  关键词="退款"
-#
-# [claude  ] 2026-11-10 01:14  11111111-222  /tmp/rewrite-en/demo  相关度=0.250  命中=1（用户=1，助手=0）  轮次=4
-#     [用户] 给退款原因加必填校验，原因字段不能为空
-#
-# 共 1 个会话
-
-sunshine mem context 11111111
-# # 上下文：[claude] 11111111-2222-3333-4444-555555555555
-# # 工作目录：/tmp/rewrite-en/demo
-# # 未指定关键词 — 显示前 3 轮，共 4 轮
-# # 显示轮次：4  已用预算：83/6000 字符
-#
-# ## 第 0 轮（用户） ← 命中
-#
-# 给退款原因加必填校验，原因字段不能为空
-# ……
-# ## 第 3 轮（助手）
-#
-# 已加上，原因选“其他”时会出现文本框。
-
-sunshine mem extract 11111111
-# # 会话：[claude] 11111111-2222-3333-4444-555555555555
-# # 工作目录：/tmp/rewrite-en/demo
-# # 日期：2026-11-10 14:13
-# # 阶段：all  轮次：4/4
-# ……
-# ## 助手
-#
-# 已加上，原因选“其他”时会出现文本框。
-
-sunshine mem projects
-# 活跃项目
-# 2026-11-10 01:14  会话数=  1 (claude:1)  /tmp/rewrite-en/demo
-#
-# 共 1 个项目
-```
-
-("范围" = "scope"; "共 1 个会话" = "1 session in total"; "相关度" = "relevance"; "命中" = "hits"; "轮次" = "turns"; "上下文" = "context"; "工作目录" = "working directory"; "未指定关键词 — 显示前 3 轮，共 4 轮" = "no keyword given — showing the first 3 of 4 turns"; "显示轮次" = "turns shown"; "已用预算" = "budget used"; "活跃项目" = "active projects"; "会话数" = "session count".)
-
-Each of these outputs starts with a few `警告：未找到 Codex 会话存储（…），已跳过` ("warning: Codex session storage not found (…), skipped") lines — one per platform with no session records on this machine. Those only mean that platform has no sessions here; they are not errors, and they are omitted from the excerpts above. `--global` searches all projects, `--json` outputs machine-readable JSON, and `--platform claude` restricts the search to one platform.
-
-## 10. channel: multi-agent collaboration
-
-A channel is a session where several workers (claude / codex) collaborate: `create` opens a session, `spawn` registers a worker, `send` sends a message, `wait` waits for an event. In normal use you ask for this in the agent UI — for example:
-
-> **Example prompt** (an illustration of what to say, not a real session transcript):
->
-> Open a review channel for the refund task, have the implement worker do the validation, and report back when it is done.
-
-The main session then drives the channel (that is exactly what the `channel-driven-subagent-dispatch` workflow template in [section 7](#7-switching-workflows) does). The commands below are what it runs; you would only type them yourself when debugging a channel. The storage root defaults to `~/.sunshine/channels/` and can be overridden with `SUNSHINE_CHANNEL_ROOT` — this tutorial uses a temporary directory so your real channel storage is untouched:
-
-```sh
-export SUNSHINE_CHANNEL_ROOT=/tmp/rewrite-en/channels
-```
-
-### Create a session, send a message, view events
-
-```sh
-sunshine channel create review --type chat
-# 已创建 channel 'review'（chat）位于 /tmp/rewrite-en/channels/-tmp-rewrite-en-demo/review
-
-sunshine channel send review --to impl "开始实现退款原因必填校验"
-# {"by":"main","kind":"message","origin":"cli","seq":2,"text":"开始实现退款原因必填校验","to":"impl","ts":"2026-11-10T01:14:48.971360806Z"}
-
-sunshine channel messages review
-# [1] 01:14:48 [create] by=main cwd=/tmp/rewrite-en/demo
-# [2] 01:14:48 [message] by=main to=impl
-#          开始实现退款原因必填校验
-
-sunshine channel list
-# 名称                        工作者        事件      最近活动                 最近事件       类型       任务
-# review                    -          2       -                    message    chat     -
-```
-
-("Created channel `review` (chat) at …") `send` prints one JSON event (`seq` is the event sequence number); `messages` is the human-readable timeline. You can bind a task when creating the session: `sunshine channel create review --type chat --task .sunshine/tasks/11-10-给退款原因加必填校验`.
-
-### Title and context
-
-```sh
-sunshine channel title set review --title "退款原因必填校验"
-# {"action":"title","by":"main","kind":"channel","origin":"cli","seq":3,"title":"退款原因必填校验","ts":"2026-11-10T01:14:48.996484414Z"}
-
-sunshine channel context add review --raw "只改退款逻辑，不动其他接口"
-# {"action":"add","by":"main","context":[{"text":"只改退款逻辑，不动其他接口","type":"raw"}],"kind":"context","origin":"cli","seq":4,"target":"channel","ts":"2026-11-10T01:14:49.005600038Z"}
-
-sunshine channel context list review
-# raw  只改退款逻辑，不动其他接口
-```
-
-(The raw context entry means "only change the refund logic, don't touch other interfaces".)
-
-### Waiting for an event: a timeout is a normal result
-
-```sh
-sunshine channel wait review --from impl --kind done --timeout 3s
-# 错误：超时：等待 channel 'review' 超时（3s），仍在等待：impl（上游退出码 124）
-```
-
-("Error: timeout: waiting for channel `review` timed out (3s), still waiting: `impl` (upstream exit code 124).") With no worker replying, `wait` times out after `--timeout` and exits with an error — that is what it is for: the agent uses it to wait for a worker's `done` event.
-
-### Forum channels: threaded discussion
-
-A `forum`-type channel organizes discussion into threads (topics). Forum commands do not work on `chat` channels — verified: `错误：频道 "review" 的类型是 chat，post 操作只支持 forum 类型的频道` ("channel `review` is of type chat; `post` only supports forum-type channels"):
-
-```sh
-sunshine channel create board --type forum
-# 已创建 channel 'board'（forum）位于 /tmp/rewrite-en/channels/-tmp-rewrite-en-demo/board
-
-sunshine channel post board opened --as main --thread t1 --title "退款原因实现方案" --description "原因下拉框：质量问题 / 尺寸不符 / 其他"
-# {"action":"opened","by":"main","description":"原因下拉框：质量问题 / 尺寸不符 / 其他","kind":"thread","origin":"cli","seq":2,"thread":"t1","title":"退款原因实现方案","ts":"2026-11-10T01:14:54.822100697Z"}
-
-sunshine channel post board comment --as alice --thread t1 --text "收到，正在看"
-# {"action":"comment","by":"alice","kind":"thread","origin":"cli","seq":3,"text":"收到，正在看","thread":"t1","ts":"2026-11-10T01:14:54.830614516Z"}
-
-sunshine channel forum board
-# 主题  状态  标题
-# t1 [open] 退款原因实现方案
-
-sunshine channel thread board t1
-# t1 [open] 退款原因实现方案
-# 描述：原因下拉框：质量问题 / 尺寸不符 / 其他
-#   2026-11-10 01:14:54 opened 发帖人=main
-#   2026-11-10 01:14:54 comment 发帖人=alice 收到，正在看
-```
-
-("主题 / 状态 / 标题" = "topic / status / title"; "描述" = "description"; "发帖人" = "posted by"; "收到，正在看" = "got it, looking into it".)
-
-### spawn: requires a real, logged-in worker
-
-`spawn` is the only step in channel that needs a real environment: it starts the local `claude` or `codex` process. The prerequisite is that the corresponding CLI is installed **and logged in**. The sandbox had neither, and the verified results are recorded here as they happened:
-
-```sh
-sunshine channel spawn review --agent implement --provider claude --as impl
-# {
-#   "pid": 8959,
-#   "log": "/tmp/rewrite-en/channels/-tmp-rewrite-en-demo/review/impl.log",
-#   "worker": "impl"
-# }
-```
-
-The command itself returned a pid and a log path, but the event log immediately recorded a failure:
-
-```sh
-sunshine channel messages review
-# ……
-# [5] 01:14:54 [error] by=supervisor:impl worker 拉起失败：拉起 claude worker 失败：exec: "claude": executable file not found in $PATH
-```
-
-("worker failed to start: failed to start claude worker: `exec: "claude": executable file not found in $PATH`.")
-
-Trying codex instead (the sandbox has a codex binary, but it is not logged in): the process did start, then failed while connecting with a 401, recorded in the worker log:
-
-```text
-ERROR codex_api::endpoint::responses_websocket: failed to connect to websocket: HTTP error: 401 Unauthorized, url: wss://api.openai.com/v1/responses
-```
-
-So: **on a machine with claude / codex installed and logged in, messages sent with `send` after `spawn` are received and executed by the worker; without a logged-in worker, `spawn` only leaves an `error` event (or a 401 in the worker log) — it never pretends to succeed.** The same prerequisite applies to `channel run`, which builds a temporary channel, runs one task, and prints the final answer.
-
-### Stop a worker, delete a channel
-
-```sh
-sunshine channel kill review --as impl-codex
-# 已停止 worker 'impl-codex'（channel 'review'）
-
-sunshine channel create tmp --type chat
-# 已创建 channel 'tmp'（chat）位于 /tmp/rewrite-en/channels/-tmp-rewrite-en-demo/tmp
-
-sunshine channel rm tmp
-# 已删除 channel 'tmp'
-
-sunshine channel prune --empty
-# （无可清理的 channel）
-```
-
-("Stopped worker `impl-codex` (channel `review`). / Created channel `tmp`… / Deleted channel `tmp`. / (No channels to clean up).") `kill` takes the worker name with `--as <worker>`; `rm` kills all workers and deletes the whole channel directory. `prune` cleans up channels in bulk by condition (dry-run by default, nothing is really deleted).
-
-## 11. upgrade: update the CLI itself
+### upgrade: update the CLI itself
 
 `upgrade` upgrades the CLI itself (`update` upgrades the template files inside a project — two different things). Check the plan first with `--dry-run`; nothing is written. This is a command you run yourself in the terminal — it is about your installation, not about a task, so the agent has no reason to run it.
 
@@ -954,1246 +868,368 @@ When a new version exists (output from the default local build, whose version is
 
 A real upgrade (drop `--dry-run`) follows the same flow: check the latest version → pick the asset for the current OS and architecture → download → verify sha256 against `checksums.txt` → back up the current binary (a `.bak` next to it) → replace → run the new `--version` to verify, rolling back to the backup and reporting an error on failure. You can also pin a version or channel: `sunshine upgrade --tag 0.2.1`, `sunshine upgrade --tag beta`.
 
-## 12. Six scenarios: from day one to daily work
+## 9. Scenario records: from day one to daily work
 
 Sections 1–11 cover the main flow; this section walks through six real scenarios, each one a complete end-to-end run:
 
 | Scenario | When it applies | The point |
 | --- | --- | --- |
-| 1. Starting a new project from zero | A new product, service, package, or internal tool | Empty directory, `init`, first task grows from nothing |
+| 1. Starting a new project from zero (development-first) | A new product, service, package, or internal tool | Empty directory, `init`, first task grows from nothing |
 | 2. Adopting an existing project | The repo exists, but the conventions live mostly in people's heads | `init` touches no existing code; land the conventions in spec first |
-| 3. Delivering a product feature | One task spans product, API, data, and UI | One task + cross-layer context + channel coordination |
+| 3. Requirement changes | A requirement changes halfway through | The same change run twice, development-first and design-first: only the changed part goes back through the loop; archived tasks stay archived |
 | 4. Refactoring a legacy module | The code runs, but it is no longer safe to change | Pin the behavior with tests first, then refactor, tests green throughout |
-| 5. Fixing a bug that keeps coming back | The same class of problem appears again and again | `mem` finds the last session first, then a task, then the lesson goes into spec |
+| 5. Fixing a bug that keeps coming back | The same class of problem appears again and again | Check long-term memory and the last session first, then create the task and file the lesson in both the spec and long-term memory |
 | 6. Design-first product work | Design comes before development | Design documents land in `doc/`; split into sub-tasks, then developers take them one by one |
 
-### 12.1 Starting a new project from zero: a web store
+### 9.1 Starting a new project from zero (development-first): a clothing-store admin system
 
-An empty directory, nothing in it — the cleanest starting point. Create an empty directory, put it in git, and leave the rest to Claude Code: `init`, creating the task, lining up context, starting it — all of it runs underneath, and you type no commands. An empty directory has no detectable type, so it defaults to full-stack and all three specs (system.md, frontend.md, backend.md) are generated — a new project starts with a default set of specs, and the team adjusts them later, which beats starting with nothing.
+An empty directory, nothing in it — the cleanest starting point. Create an empty directory and run `git init` once (fix the project root first: the agent finding files and platforms discovering skills both depend on it), and leave the rest to Claude Code: `init`, creating the task, writing the PRD — all of it runs underneath, and you type no commands. An empty directory has no detectable type, so it defaults to full-stack and all three specs (system.md, frontend.md, backend.md) are generated — a new project starts with a default set of specs, and the team adjusts them later, which beats starting with nothing.
 
-Open the project in Claude Code and state the first requirement in plain language (same for Codex and Cursor):
+Open the project in Claude Code and state the first requirement like this (same for Codex and Cursor) — development-first, with the opening landing directly on the first requirement's code:
 
 Example prompt (an example, not a record of a real session):
 
-> I'm starting a web store from scratch: first the product list — the home page shows the product name, price, and stock. Please follow the Sunshine workflow: ask me first to pin down the unclear product logic and technical decisions; once confirmed, create the first task, write the PRD, then implement.
+> Please follow the Sunshine workflow, development-first. I'm building a clothing-store admin system; the first requirement is the product list: it shows each product's name, category, price, stock, and on/off-shelf status, and can search by name.
 
-Here is how the session continues (the conversation is an example; the commands and outputs are real values from runs):
+Here is how the session continues (illustrative dialogue):
 
-> **Claude Code:** One question first — it decides how this is built: which stack — a single Go file on the standard library `net/http`, or a framework, or a database?
+> **Claude Code:** First, the technical route. A: a static front end first, product data hard-coded in the page — get the list and search working, and connect a backend in its own later task; B: front and back end together, interfaces and database in this task. I recommend A — the first requirement should validate the fields and interactions; small plate, fast acceptance.
 >
-> **You:** A single Go file, standard library only, module `webstore`, no database.
+> **You:** A.
 >
-> **Claude Code:** Good, next: where does the product data live — hard-coded for now, or read from a file?
+> **Claude Code:** Five columns for the list — name, category, price, stock, status. Enough?
 >
-> **You:** Hard-code it for now, three products is enough for the demo: 无线鼠标 (wireless mouse) ¥89, stock 120; 机械键盘 (mechanical keyboard) ¥299, stock 45; 27寸显示器 (27" monitor) ¥1299, stock 20.
+> **You:** Enough.
 >
-> **Claude Code:** One more: which fields does the list show?
+> **Claude Code:** Search by name only, or name plus category?
 >
-> **You:** Name, price, and stock, prices in yuan.
+> **You:** Name only — keep it simple first.
 >
-> **Claude Code:** Good, that's all the questions. Here's the final planning summary — once you approve it, I'll get moving:
+> **Claude Code:** Here is the planning summary, confirm and I start:
 >
-> **Final planning summary**
+> - Goal: a clothing-store admin system; the first task delivers the product list (static front end, data hard-coded).
+> - In scope: the product list page (five columns: name, category, price, stock, status) + search by name; no backend, no create/edit/delete.
+> - Acceptance: open the page — all 6 sample products shown; searching "down" leaves only products with "down" in the name; a row with stock 0 shows status "off shelf" with the stock in red.
 >
-> - Goal: build the web store from scratch, a single Go file, port 18080; first the product list.
-> - In scope: the product list (list page + `GET /api/products`); the three products hard-coded.
-> - Out of scope: login, payment, ordering, orders, persistence, styling polish; add-to-cart is the next requirement, not this task.
-> - Key decisions (all confirmed): a single Go file on the standard library, no third-party dependencies; product data hard-coded; port 18080.
-> - Risks / deferred items: restarting loses the data (accepted, enough for the demo); no auth, no persistence (to decide later).
-> - Artifact status: the planning task's PRD + the three specs (system/frontend/backend) + the PRD of the first implementation task, "商品列表" (Product list); zero product code (0 `.go` files), no `task start` yet.
->
-> Once you approve this plan, I'll create the planning task, write the PRD and the three specs — still no product code, and the implementation task stays unstarted. OK?
->
-> **You:** Approved.
->
-> **Claude Code:** The planning artifacts are on disk: the three specs and the "商品列表" (Product list) PRD are written, zero product code, the implementation task is created but not started. Here's the delivery list for your confirmation — once you approve it, I'll start the implementation.
->
-> **You:** Approved.
->
-> **Claude Code:** Starting the task, dispatching the `sunshine-implement` subagent. Implementation done, dispatching the `sunshine-check` subagent: `go vet` and `go build` are green, nothing to fix. Let me show you the run:
+> **You:** Confirmed, go.
 
-```sh
-curl -s localhost:18080/api/products
-# [{"id":1,"name":"无线鼠标","price":89,"stock":120},{"id":2,"name":"机械键盘","price":299,"stock":45},{"id":3,"name":"27寸显示器","price":1299,"stock":20}]
-```
+On confirmation the agent creates the task and writes the PRD out in full — each answer you gave was written into it on the spot, and the planning summary is what got written down; the job is small, no breakdown, one task end to end. Next, context curation (1.4): the specs implementation and checking need to read are listed into implement.jsonl and check.jsonl. Then the review (1.5):
 
-Open the home page in a browser and the three products are there too: 无线鼠标 89 元 (wireless mouse, ¥89), 机械键盘 299 元 (mechanical keyboard, ¥299), 27寸显示器 1299 元 (27" monitor, ¥1299).
-
-> **Claude Code:** Step 3.3, spec write-back: no update — the implementation followed exactly the decisions written into the spec during planning, no new patterns, no new pitfalls. Here's the commit plan — reply "OK" and I'll run it:
+> **You:** The planning is done — please follow the Sunshine workflow and review it, and give me the final planning summary to confirm.
 >
-> ```text
-> Suggested commits (in order):
->   1. chore: 初始化 Sunshine 工程骨架（全栈）
->   2. feat: 商品列表页 + GET /api/products
->      - go.mod, main.go, the two task directories
-> Unrecognized dirty files (in no commit — please confirm include or exclude):
->   - None
+> **Claude Code:** Sure. The review has two steps: first the check — the PRD verified line by line, goal, scope, and acceptance criteria all line up; then the audit scan — nothing that has to be decided now. The final planning summary is the one you just confirmed: one task for the product list, its three acceptance criteria all in the PRD. Your nod, and I start.
+>
+> **You:** Confirmed.
+
+Only on your nod does the agent run `task start` and enter implementation. The back half — five steps, none skipped — all happens in the conversation:
+
+**Implement.** The main session does not write code itself; it dispatches an implement sub-agent, which reads exactly the PRD and the implement.jsonl just curated. When it finishes, it reports back and asks you to try it yourself:
+
+> **Claude Code:** Code done — a single file, `index.html`: a search box on top, the five-column table below. Six products are written into the page: down jacket, down vest, hoodie, jeans, dress, and a clearance hoodie (stock 0). Open it and try the search.
+>
+> **You:** Opened it — the list looks right, and searching "down" works.
+
+**Check.** Next, a check sub-agent verifies against the PRD's acceptance criteria one by one, with evidence, not just a verbal pass. This time it catches one:
+
+> **Claude Code:** check is done — two pass, one doesn't:
+>
+> - Five columns complete ✓
+> - Searching "down" leaves 2 products ✓
+> - The stock-0 line ✗: the clearance hoodie's status reads "Off-Shelf" where the acceptance says "Off shelf", and the stock number isn't red.
+>
+> I'll have implement fix those two spots, then check re-verifies.
+>
+> **Claude Code:** Re-checked: "Off shelf" matches now, and the stock is red. All three pass.
+
+**Spec write-back.** With checking done, the conventions settled this round are written back into the spec, so the next task follows them without asking again:
+
+> **Claude Code:** Spec write-back: two lines into `.sunshine/spec/frontend.md` —
+>
+> ```markdown
+> - The product list has five fixed columns: name, category, price, stock, status.
+> - Stock 0: the status shows "Off shelf" and the stock number is red.
 > ```
 >
-> **You:** OK.
+> The order and inventory pages later on will follow the same rules.
+
+**Commit.** A plan first, the commit only on your confirmation; files outside this task are not touched:
+
+> **Claude Code:** Commit plan: one commit with just `index.html` and the spec just written back, message "feat: product list page (static)". There is also a file in the working tree you edited earlier — not part of this task, I won't touch it. Confirm the commit?
 >
-> **Claude Code:** Commits done: `98d1e5d chore: 初始化 Sunshine 工程骨架（全栈）`, `acaa3e3 feat: 商品列表页 + GET /api/products`. The rest is wrap-up: run `/finish-work` to archive the tasks and record the session log. Shall I run it now?
->
-> **You:** Go ahead.
+> **You:** Confirmed.
 
-The first archive attempt was refused: the current branch `main` is also the `base_branch`, and a PR cannot point at its own branch. I cut `feat/product-list`, ran `set-branch` for both tasks, and re-archived — through. `finish-work` archived the product-list task and the planning task, and recorded the session log:
+**Archive.** After the commit, finish-work wraps up, and the agent states plainly where the task ended up:
 
-```sh
-git log --oneline
-# eb7adc7 chore: record journal
-# e961e60 chore(task): archive 11-13-webstore
-# 71f3de9 chore(task): archive 11-13-product-list
-# acaa3e3 feat: 商品列表页 + GET /api/products
-# 98d1e5d chore: 初始化 Sunshine 工程骨架（全栈）
-```
+> **Claude Code:** Committed. The task is archived — you'll find it under `.sunshine/tasks/archive/` — and a session entry is logged: what was done, which commit, and the acceptance results are all in there. This task is closed.
 
-> **Claude Code:** Done — the tasks are archived:
+This case runs the whole development-first flow: questions (answers recorded on the spot) → PRD → context curation → review → implement → check → spec write-back → commit → archive. Afterwards each requirement (order list, stock adjustments, connecting the backend…) gets its own task and repeats this line.
 
-```text
-[2026-11] - 2 个任务
-  - 11-13-product-list/
-  - 11-13-webstore/
-```
+### 9.2 Adopting an existing project: a clothing-store admin system
 
-Then the second requirement:
+This admin system is already live, written by someone else, and you have just taken it over. Products, Orders, Inventory, and Customers all have pages and APIs; the trouble is that the conventions were never written down: two are in the README, some lived only in the original author's head, and the rest are in the code. Adopting an existing project runs in reverse — do not touch features first; land the conventions in the spec first, or the agent can only guess when it writes new code. And do not reverse the order either: init first, then speak in the agent UI; state a requirement before init and the agent has no workflow to follow.
 
-> **You:** Next, the second requirement: add to cart.
->
-> **Claude Code:** One question first: where does the cart live — in memory for now, or a file, or a database?
->
-> **You:** In memory, enough for the demo.
->
-> **Claude Code:** One more: what does adding return, and how is the total calculated?
->
-> **You:** `POST /api/cart/add` to add, `GET /api/cart` for the items and the total; add a wireless mouse first, then a mechanical keyboard, total 388. An unknown id returns 404, adding the same product again accumulates the quantity.
->
-> **Claude Code:** Good, here's the plan summary: the goal is add-to-cart; in scope are `POST /api/cart/add`, `GET /api/cart`, and an "加入购物车" (Add to cart) button after each product on the list page; out of scope are changing `GET /api/products` and persistence; the key decisions are an in-memory cart, quantity accumulates on repeat adds, and an unknown id returns 404. The artifact is the "加入购物车" (Add to cart) PRD, zero product code, not started. Once you approve it, I'll write the PRD; once you approve the delivery, I'll start the implementation. OK?
->
-> **You:** Approved.
->
-> **Claude Code:** The PRD is on disk, zero product code, not started. Confirm, and I'll start the implementation once you approve.
->
-> **You:** Approved.
->
-> **Claude Code:** Starting the task, dispatching the `sunshine-implement` subagent; implementation done, dispatching the `sunshine-check` subagent — green. Let me show you the run:
-
-```sh
-curl -s -X POST localhost:18080/api/cart/add -H 'Content-Type: application/json' -d '{"id":1}'
-# {"status":"ok"}
-curl -s -X POST localhost:18080/api/cart/add -H 'Content-Type: application/json' -d '{"id":2}'
-# {"status":"ok"}
-curl -s localhost:18080/api/cart
-# {"items":[{"id":1,"name":"无线鼠标","price":89,"qty":1},{"id":2,"name":"机械键盘","price":299,"qty":1}],"total":388}
-curl -s -o /dev/null -w "%{http_code}" -X POST localhost:18080/api/cart/add -H 'Content-Type: application/json' -d '{"id":999}'
-# 404
-```
-
-`GET /api/products` still returns the same three products, and every product on the home page has an "加入购物车" (Add to cart) button after it.
-
-> **Claude Code:** Step 3.3, spec write-back: no update. One commit in the plan — reply "OK" and I'll run it:
->
-> ```text
-> Suggested commits (in order):
->   1. feat: 加入购物车 + GET /api/cart
->      - main.go, the 11-13-add-to-cart task directory
-> Unrecognized dirty files: none
-> ```
->
-> **You:** OK.
->
-> **Claude Code:** Commit done: `ba61066 feat: 加入购物车 + GET /api/cart`. Run `/finish-work` to archive and record the log — shall I run it now?
->
-> **You:** Go ahead.
-
-`finish-work` archived "加入购物车" (Add to cart) and recorded the session log:
-
-```sh
-git log --oneline
-# 2d87dc7 chore: record journal
-# 01d6eba chore(task): archive 11-13-add-to-cart
-# ba61066 feat: 加入购物车 + GET /api/cart
-# eb7adc7 chore: record journal
-# e961e60 chore(task): archive 11-13-webstore
-# 71f3de9 chore(task): archive 11-13-product-list
-# acaa3e3 feat: 商品列表页 + GET /api/products
-# 98d1e5d chore: 初始化 Sunshine 工程骨架（全栈）
-```
-
-> **Claude Code:** Done — the tasks are archived:
-
-```text
-[2026-11] - 3 个任务
-  - 11-13-add-to-cart/
-  - 11-13-product-list/
-  - 11-13-webstore/
-```
-
-Two requirements done, and the project now has: a running store service, three archived task records, and the specs from the default templates.
-
-One real pitfall here is worth writing down: add-to-cart was only raised later, and the planning task (`11-13-webstore`) had already been archived when the first task finished, so no subtask can be created under an archived parent — "加入购物车" (Add to cart) had to be created as an independent task (`parent: null`), with its PRD pointing back and forth to the archived parent. Per workflow 1.2, splitting happens exactly once — if both requirements had been known at planning time, both subtasks should have been created then, and the parent archived only after all its subtasks were archived; an archived task never reopens, and rework goes through a new task running the full flow.
-
-### 12.2 Adopting an existing project: land the conventions in spec first
-
-The repo exists, but the conventions live mostly in people's heads — the most common adoption case. The demo is a web store that has run for two years (`express` is the only dependency in `package.json`; the code is split three ways: `src/server.js` is the entry point, `src/routes/` holds the product and order endpoints, `src/db.js` handles data access), with the team's conventions written in `README.md` and nowhere else:
-
-```markdown
-# webstore
-
-团队约定（一直靠人记，没落进任何文档）：
-- 接口统一返回 { code, data }，code 是大写下划线错误码。
-- 价格统一用“分”存库，展示时除以 100。
-- 端口固定 3000，改端口要全组同步。
-```
-
-(In English: "Team conventions (always remembered by people, never written into any document): APIs return { code, data } with code an UPPER_SNAKE error code. Prices are stored in cents and divided by 100 for display. The port is fixed at 3000; changing it needs the whole team to sync.")
-
-Run `init` right in this directory — `init` only adds files, it never changes existing code. Claude Code runs `init` underneath and recognizes a backend project (only `express`), so only `system.md` and `backend.md` are generated; existing files are untouched, and git shows only the new Sunshine directories:
+**Step one: init — put the skeleton in.** Run `sunshine init` once in the project directory (in a terminal, or have the agent run it): it only adds files and does not change a single line of existing code. It recognizes a full-stack project (pages and APIs both), generates the three spec templates, and — because the project already has code — also installs CodeGraph and builds the graph (`.codegraph/`), which the digging below will use. The acceptance check is one line: `git status` shows only additions, no modified old files:
 
 ```text
 ?? .claude/
-?? .cursor/
 ?? .sunshine/
+?? .codegraph/
 ```
 
-The first task on an adopted project is not a feature — it is landing the remembered conventions in spec, so the agent stops having to guess them every time. One sentence to Claude Code is enough (same for Codex and Cursor):
+**Step two: land the known conventions — the workflow route, Q&A.** With init done, open the agent UI (Claude Code; same for Codex and Cursor) and make the first prompt name the workflow:
 
 Example prompt (an example, not a record of a real session):
 
-> I'm bringing an existing project into Sunshine: the repo exists, but the conventions live mostly in people's heads, and the README has three team conventions. Please follow the Sunshine workflow: ask me first to confirm the three conventions and which spec files they belong in; once confirmed, create the task, write the PRD, then write the conventions into .sunshine/spec/ so every task from now on follows them.
+> Please follow the Sunshine workflow. I've just taken over this clothing-store admin system; it's already running. Don't touch any features yet — help me land the conventions I know into the spec first.
 
-Here is how the session continues (the conversation is an example; the commands and outputs are real values from runs):
+The README has two conventions; the agent confirms them with you, and on your nod writes them down:
 
-> **Claude Code:** One question first: where are the three conventions written right now?
+> **Claude Code:** The README lists two conventions — let me confirm they still hold. One: APIs uniformly return `{code, data}`. Two: prices are stored in cents and divided by 100 for display.
 >
-> **You:** Nowhere — only spoken. The code shows the same practices, though.
+> **You:** They hold, that's how it's always been done. One more that was never written down: the admin has a single administrator role, no permission split.
 >
-> **Claude Code:** Next: what exactly do the three conventions say?
->
-> **You:** APIs return `{code, data}`; prices are stored in cents and divided by 100 for display; the port is fixed at 3000.
->
-> **Claude Code:** Next: this run writes spec only, no product code — right? And if the check finds the code disagreeing with a convention, what do I do?
->
-> **You:** Right — zero product-code changes; if something disagrees, report it first, don't change the code on your own.
->
-> **Claude Code:** Next: which spec file does each convention go in?
->
-> **You:** The API format and the cents rule go into `backend.md`; port 3000 goes into `system.md`.
->
-> **Claude Code:** Last one: what counts as done?
->
-> **You:** The three conventions land in spec verbatim; check verifies each one against the code; then commit, archive, and record the log.
->
-> **Claude Code:** Good, that's all the questions. Here's the final planning summary — once you approve it, I'll get moving:
->
-> **Final planning summary**
->
-> - Goal: write the store's three spoken conventions into `.sunshine/spec/` so later tasks follow them automatically; no product-code changes.
-> - In scope: conventions 1 and 2 into `backend.md`, convention 3 into `system.md`; the code as it stands is the source of truth (product and order endpoints, `src/db.js`, `src/server.js`).
-> - Out of scope: no product-code changes (`src/`, `package.json` untouched); don't change the conventions themselves, only record them; no design-first (no `doc/`, straight to development).
-> - Key decisions (all confirmed): a light task, PRD only, no design.md/implement.md; no parent/child split; the port rule goes in `system.md` (a global principle), not `backend.md`.
-> - Risks / deferred items: the current branch `main` is also the `base_branch`, so archiving will refuse — cut a feature branch and `set-branch` before archiving.
-> - Artifact status: `prd.md` is written (with the Q&A record above); `implement.jsonl`/`check.jsonl` have 2 real entries each, `task validate` passes; the three spec lines are written by implement after `task start`.
->
-> Once you approve this plan, I'll write the PRD first; writing the spec is itself this task's implementation, so the three lines go in after approval and `task start`. OK?
->
-> **You:** Approved.
->
-> **Claude Code:** The PRD is on disk, zero product code, not started. Confirm, and I'll start the task, write the spec, and verify it against the code once you approve.
->
-> **You:** Approved.
->
-> **Claude Code:** Starting the task, dispatching the `sunshine-implement` subagent to write the three conventions into spec; implementation done, dispatching the `sunshine-check` subagent to verify each one against the code. Here is what actually landed (line numbers verified):
+> **Claude Code:** Noted, all three.
 
-```markdown
-## backend.md
-- 接口统一返回 `{code, data}`。
-- 价格统一用“分”存库，展示时除以 100。
-```
+This step is itself a complete task, run on the same line as 9.1: create the task, write the PRD, review, implement writes the three conventions into the spec (the first two into `backend.md`, the role one into `system.md`), check verifies them against the code one by one (the return format looked at endpoint by endpoint, the price unit confirmed), then commit and archive.
 
-```markdown
-## system.md
-- 服务端口固定 3000。
-```
-
-The check results, all true, no issues, no fixes: convention 1 — `grep "res.json" src/` finds 5 places, all `{ code: 0, data: ... }` or `{ code: 404, data: null }`; convention 2 — `db.js` holds the three prices as 8900/29900/129900 (cents), `products.js` divides by 100 in two places (`price: p.price / 100`), and the order `totalPrice` multiplies cents; convention 3 — `server.js` has `const PORT = 3000;` and `app.listen(PORT, ...)`. `node --check` passes all four files, and the product code is untouched (`git diff --stat` is empty). A live run confirmed it too: the server log says "商城服务运行在端口 3000" (the store service runs on port 3000), `GET /products` returns the three products (prices 89/299/1299), and `POST /orders {"productId":2,"quantity":3}` returns `{"code":0,"data":{"id":1,"productId":2,"quantity":3,"totalPrice":89700}}` — 29900×3, cents arithmetic as agreed.
-
-> **Claude Code:** Step 3.3, spec write-back: the spec is this task's deliverable, and there is no new knowledge beyond the three conventions — no further spec updates. Here's the commit plan — reply "OK" and I'll run it:
->
-> ```text
-> Suggested commits (in order):
->   1. docs: 把三条口头约定写进规范
->      - .claude/ (Sunshine init: Claude Code platform config)
->      - .cursor/ (Sunshine init: Cursor platform config)
->      - .sunshine/ (project skeleton + task artifacts + the three conventions in spec)
-> Unrecognized dirty files (in no commit — please confirm include or exclude):
->   - None
-> ```
->
-> **You:** OK.
->
-> **Claude Code:** Commit done: `0476a72 docs: 把三条口头约定写进规范` (122 files), working tree clean. Run `/finish-work` to archive and record the log — shall I run it now?
->
-> **You:** Go ahead.
-
-The first archive attempt was refused: the current branch `main` is also the `base_branch`, and a PR cannot point at its own branch. I cut `docs/old-shop-conventions`, ran `set-branch` for the task, and re-archived — through. `finish-work` archived the task and recorded the session log:
-
-```sh
-git log --oneline
-# f0c95ed chore: record journal
-# b8fcd1a chore(task): archive 11-13-old-shop-conventions
-# 0476a72 docs: 把三条口头约定写进规范
-# 998efb7 chore: 初始提交：Express 商城（商品/订单接口）
-```
-
-One ordering detail: the work commit `0476a72` was made on `main`, and the feature branch was only cut before archiving, so `main` holds just the first two commits and the archive and journal commits live only on `docs/old-shop-conventions`.
-
-> **Claude Code:** Those two blocks are what landed. The task ran its normal course and is archived:
-
-```text
-[2026-11] - 1 个任务
-  - 11-13-old-shop-conventions/
-```
-
-From now on the conventions no longer live only in senior engineers' heads: the agent on a new task reads the spec, and the conventions survive people leaving. The acceptance bar for adopting an existing project is one line — **after `init`, `git status` shows no modified old files, and spec has one more convention that used to live only in memory**.
-
-#### When the conventions are unknown: dig them out of the code with sunshine-spec-bootstrap
-
-The route above assumes the conventions are known — the three lines were in the README and people remembered them. The following is an example (written from the skill's documentation, not a real run): the more common case is a project that has run for three years with no written conventions at all, everything living in the code and nobody able to state it. The scenario here is a Go backend monolith, a dozen packages, a README with a single startup command.
-
-This time it does not go through creating a task, writing a PRD, and implement/check. It uses the `sunshine-spec-bootstrap` skill (installed with the platform configuration, not referenced by the workflow), one agent running the whole loop in a single pass:
-
-Example prompt (an example, not a real session record):
-
-> Nobody has written conventions for this project; they all live in the code. Please use sunshine-spec-bootstrap to analyze the codebase and produce a usable spec.
-
-The agent first reads the current spec tree (all templates), then analyzes the repository: top-level structure, package list, build scripts; GitNexus for execution flow, module clusters, and dependency centers; ABCoder for exact signatures and types; finally it reads representative source and test files directly, and only turns a finding into a rule after confirming it. The findings it digs out of the code would look like this (example): on package boundaries, `internal/order` owns orders and `internal/payment` owns payments, payment is only called by order and never the other way; errors are uniformly wrapped with errors.Wrap plus an error code, converted to `{ code, msg }` at the HTTP layer; configuration is config.yaml plus environment overrides; tests are all table-driven.
-
-Then it writes the spec by package and layer: template sections that do not apply — `frontend.md`, say, when there is no frontend — are deleted; each package gets a section, each rule carries a real file path and an example; important local patterns the templates miss (the error-code convention, for example) get a new file of their own. After writing it verifies three things: the spec is internally consistent, there is no placeholder text, and `index.md` matches the final file set.
-
-The difference from the route above is one line: conventions known, ask and land them in spec, people tell the agent; conventions unknown, run spec-bootstrap and let the agent discover them from the code.
-
-One more thing: spec-bootstrap does not produce an API reference directly. Its product is the coding guidance in `.sunshine/spec/` — structure, routes, and data flow are all there, but not as a human-readable endpoint list. For an API document, go in two steps: run spec-bootstrap to land the spec first, then a separate task to produce the document from the spec, placed in the project's `doc/` directory, not in `.sunshine`; the agent writing the document reads the spec instead of re-reading the whole codebase, and when interfaces change later, the document gets updated alongside the spec write-back at step 3.3.
-
-Example prompt (an example, not a real session record):
-
-> Please follow the sunshine workflow: first use sunshine-spec-bootstrap to land this project's structure and conventions in spec, then produce an API reference from the spec and place it in doc/, verifying every endpoint against the code.
-
-No need to name every area to dig into in the opening prompt: spec-bootstrap's repository analysis is full coverage by default — runtime layers (CLI, backend, frontend, worker, shared libraries), deployment (build, deploy steps, rollback), startup, configuration, data flow, error handling, testing, and troubleshooting are all in the default dimension table, and anything with evidence in the code lands in the spec. So the two-step prompt above is the most practical opening line for a legacy project. The only limit is what the code actually contains: nothing is invented without evidence, and template files for layers the repository does not have are deleted outright.
-
-#### Code map: CodeGraph for existing projects
-
-The hard part of an existing project is not writing new code; it is helping the agent find the right old code: who calls a function, what a change touches. Grepping file by file is slow and easy to get wrong. For existing projects Sunshine borrows a ready-made code map — CodeGraph (an open-source tool that parses code into a graph of symbols and call relations; building the graph is deterministic parsing, no LLM and no tokens, and it auto-syncs when files change).
-
-**When it is installed**: only when `sunshine init` finds existing code in the project; a brand-new project gets neither the tool nor a graph. Each of the three layers fills in only what is missing:
-
-1. No CodeGraph on the machine — install it with its official script (onto your machine, not into Sunshine's packages);
-2. No `.codegraph/` in the project — build the graph;
-3. Wire the queries into the platforms selected in this init (MCP where the platform supports it, equivalent CLI queries elsewhere).
-
-Any failed step only warns and prints the manual command; it never blocks init. To opt out: `sunshine init --no-codegraph`, or set `SUNSHINE_NO_CODEGRAPH=1`.
-
-**Manual trigger**: no need to wait for init — `sunshine codegraph install` installs the tool, wires it, and builds the graph at any time (manual runs are not gated on the existing-code check and re-wire on every run); `sunshine codegraph status` only reports state and changes nothing.
-
-**How it is used**: you do not query it by hand — the workflow and subagents do. When landing a spec for an existing project (spec-bootstrap) or doing research, they query the graph first to map symbols, call relations and structure, then read files; before changing an existing function they check its callers; during checks they use the graph for affected tests and change impact as evidence for the acceptance reconciliation. To look yourself, run `codegraph explore <question>` in the project.
-
-**Boundary**: the graph is CodeGraph's own — it syncs itself on file changes, upgrades with `codegraph upgrade`, and can be removed with `codegraph uninstall` (wiring) and `codegraph uninit` (the graph). Sunshine only installs, builds, and writes the rules into the workflow and subagents.
-
-### 12.3 Delivering a product feature: one task across product, API, data, and UI
-
-When one task spans four layers, the usual failure is changing one layer and missing another — Sunshine's answer is one task: what changes in all four layers goes into the same PRD, the change order goes through a channel, and acceptance checks against the same API contract. The demo is the same web store that has run for two years, and the task is making the delivery address mandatory at checkout: the checkout page (UI) gets an address field, the order endpoint (API) returns 400 without one, and the order record (data) gains an address field.
-
-State the requirement to Claude Code (same for Codex and Cursor):
+**Step three: land what nobody can state — dig it out of the code with spec-bootstrap.** The remaining conventions (how lists page, when stock is deducted, how files are layered) are ones nobody can fully state; the agent has to find them in the code itself. This step's prompt is different — it does not name the workflow; it names the skill itself:
 
 Example prompt (an example, not a record of a real session):
 
-> I need to deliver a product feature: the delivery address is mandatory at checkout, one task across the product, API, data, and UI layers (the UI is public/checkout.html, the API is src/routes/orders.js, the data is src/db.js). Please follow the Sunshine workflow: ask me first to pin down the unclear validation rules (the error code when the address is missing) and the order to change the four layers; once confirmed, create the task, write the PRD, then implement.
+> Plenty of this project's conventions are ones nobody can state — they're all in the code. Please use sunshine-spec-bootstrap to analyze the codebase, dig out the remaining conventions, and land them in the spec.
 
-Here is how the session continues (the conversation is an example; the commands and outputs are real values from runs):
+Why no workflow in this sentence: spec-bootstrap is not a workflow task. It is a standalone skill — a single agent runs it in one pass, no task created, no PRD written. And you do not need to list what to dig for: by default it looks at everything — structure, APIs, data flow, error handling, tests — and lands whatever the code gives evidence for; without evidence, it writes nothing.
 
-> **Claude Code:** One question first — it decides how this is built: what does the backend return when the address is missing — a 400 with an error code, or a 200 with an error message?
->
-> **You:** 400, with the error code ADDRESS_REQUIRED.
->
-> **Claude Code:** Next: one text box for the address, or split by province/city/district?
->
-> **You:** Just one text box, `name="address"`.
->
-> **Claude Code:** Next: in what order do the four layers change?
->
-> **You:** API first, then UI — put the order in the channel.
->
-> **Claude Code:** Next: what does the address field in the order record store?
->
-> **You:** The raw string exactly as submitted.
->
-> **Claude Code:** Last one: what counts as done?
->
-> **You:** Two curls (400 without an address, 200 with one, the order carrying the address) plus a `name="address"` field on the checkout page; the task is archived as usual.
->
-> **Claude Code:** Good, that's all the questions. Here's the final planning summary — once you approve it, I'll get moving:
->
-> **Final planning summary**
->
-> - Goal: make the delivery address mandatory at checkout, one task across the product, API, data, and UI layers.
-> - In scope: an address field on the checkout page; `POST /orders` without an address returns 400 (ADDRESS_REQUIRED); the order record gains an address field; the PRD rule.
-> - Out of scope: the product endpoints and price calculation, port 3000, coupons, login/auth, design-first.
-> - Key decisions (all confirmed): a missing address returns 400 + ADDRESS_REQUIRED (not a 200 with an error message); a single text box, `name="address"`; API first, then UI, with the order going through the channel; the address is stored as the raw string.
-> - Risks / deferred items: if no worker replies, the channel wait will time out (normal — this section only coordinates as far as sending the messages; spawning a real worker needs a logged-in claude/codex on this machine); the empty/blank-address edge was not asked in the Q&A, so the implementation handles it under the "mandatory" reading.
-> - Artifact status: a light task, `prd.md` only; `implement.jsonl`/`check.jsonl` have 1 entry each (only the `.sunshine/spec/backend.md` contract, no code files), `task validate` passes; zero product code, no `task start` yet.
->
-> Once you approve this plan, I'll write the PRD and the context list — still no product code, no start. OK?
->
-> **You:** Approved.
->
-> **Claude Code:** The PRD and the context list are on disk, zero product code, not started. Confirm, and I'll start the task and begin implementing once you approve.
->
-> **You:** Approved.
->
-> **Claude Code:** Starting the task, dispatching the `sunshine-implement` subagent. The four layers change API first, then UI, and I put the order in the channel — two messages:
+Its process is fixed: first it queries the CodeGraph graph to map the four modules' structure and who calls whom; then it reads representative source files and verifies each finding (the graph only gives leads — nothing is written down before it is verified in the source); finally it writes the conventions into the spec, each with its source file, and self-checks at the end (internally consistent, no placeholder text, the index matches). When it finishes, it reports:
 
-```sh
-sunshine channel create s3-cross --type chat --task .sunshine/tasks/11-13-下单必填收货地址 --force
-# 已创建 channel 's3-cross'（chat）位于 /home/hatch/.sunshine/channels/-tmp-scenes-s3-cross/s3-cross
-sunshine channel send s3-cross --by main "1. 先改 API：POST /orders 缺 address 返回 400，错误码 ADDRESS_REQUIRED"
-sunshine channel send s3-cross --by main "2. API 改完再改 UI：结算页加收货地址输入框，缺了不让提交"
-sunshine channel messages s3-cross --raw
-# {"by":"main","cwd":"/tmp/scenes/s3-cross","kind":"create","origin":"cli","scope":"project","seq":1,"task":".sunshine/tasks/11-13-下单必填收货地址","ts":"2026-11-13T04:02:50.625514611Z","type":"chat"}
-# {"by":"main","kind":"message","origin":"cli","seq":2,"text":"1. 先改 API：POST /orders 缺 address 返回 400，错误码 ADDRESS_REQUIRED","ts":"2026-11-13T04:02:50.639038496Z"}
-# {"by":"main","kind":"message","origin":"cli","seq":3,"text":"2. API 改完再改 UI：结算页加收货地址输入框，缺了不让提交","ts":"2026-11-13T04:02:50.650859117Z"}
-```
-
-(In English: "1. Change the API first: POST /orders without an address returns 400, error code ADDRESS_REQUIRED"; "2. Once the API is done, change the UI: add an address field to the checkout page, and the order can't be submitted without it.")
-
-The channel is bound to the task, so the task path shows in the messages; these two are numbered coordination messages, not casual notes. Waiting 10 seconds for a worker's reply and getting a timeout is normal — this section only coordinates as far as sending the messages, and spawning a real worker needs a logged-in claude / codex on this machine (section 10):
-
-```sh
-time sunshine channel wait s3-cross --from impl --kind done --timeout 10s
-# 错误：超时：等待 channel 's3-cross' 超时（10s），仍在等待：impl（上游退出码 124）
-# EXIT:1
-# real  0m10.013s
-```
-
-Implementation done, dispatching the `sunshine-check` subagent. Here is the real run result: ordering without an address returns 400, ordering with one succeeds, and the order carries the address:
-
-```sh
-curl -s -X POST localhost:3000/api/orders -H 'Content-Type: application/json' -d '{"items":[{"id":1,"qty":1}]}' -w "\nHTTP %{http_code}\n"
-# {"code":"ADDRESS_REQUIRED","data":null}
-# HTTP 400
-
-curl -s -X POST localhost:3000/api/orders -H 'Content-Type: application/json' -d '{"items":[{"id":1,"qty":1}],"address":"北京市朝阳区建国路 1 号"}' -w "\nHTTP %{http_code}\n"
-# {"code":"OK","data":{"id":1,"items":[{"id":1,"qty":1}],"address":"北京市朝阳区建国路 1 号","status":"待付款"}}
-# HTTP 200
-```
-
-Also verified: `GET /api/products` still returns the prices 8900/29900/129900 (cents); the checkout page has a `name="address"` field; an empty string or a blank address also returns 400 `ADDRESS_REQUIRED` — the Q&A never asked that one separately, so the implementation handled it under the "mandatory" reading and wrote it into the spec.
-
-> **Claude Code:** Step 3.3, spec write-back: `backend.md` gains a section, "下单必填收货地址" (Delivery address mandatory at checkout) — `POST /api/orders` without an `address` (missing, empty, or blank) returns 400, error code `ADDRESS_REQUIRED`, `data` is `null`; the order record carries an `address` field holding the raw string as submitted. Here's the commit plan — reply "OK" and I'll run it:
+> **Claude Code:** Digging done — 6 more landed, 9 in the spec together with step two's 3. The main ones:
 >
-> ```text
-> Suggested commits (in order):
->   1. 下单必填收货地址：结算页加地址输入框，缺地址返回 400（ADDRESS_REQUIRED）
->      - public/checkout.html
->      - src/routes/orders.js
->      - .sunshine/spec/backend.md
-> Unrecognized dirty files (in no commit — please confirm include or exclude):
->   - .sunshine/.current-task
->   - .sunshine/tasks/11-13-下单必填收货地址/
-> ```
+> - List APIs uniformly page at 20 per page (source: all four list endpoints under `src/routes/`);
+> - Page files live by module under `public/`, APIs by module under `src/routes/`.
 >
-> **You:** OK.
+> One I couldn't settle, so I didn't write it down: when stock is deducted, two places in the code disagree — `src/routes/orders.js` deducts at order time, `src/routes/pay.js` looks like payment time. Which one rules?
 >
-> **Claude Code:** Commit done: `da27e80 下单必填收货地址：结算页加地址输入框，缺地址返回 400（ADDRESS_REQUIRED）` (3 files). Run `/finish-work` to archive and record the log — shall I run it now?
+> **You:** Payment time rules. The order-time one is the old way; I'll open a task to fix it later.
 >
-> **You:** Go ahead.
+> **Claude Code:** Written down as payment-time, then; the order-time spot is marked "contradicts the convention, to be fixed" — from now on, check will flag it when it sees it.
 
-Before archiving I cut a feature branch first (`main` is also the `base_branch`, so archiving directly would be refused): `git checkout -b feature/address-required` + `task set-branch`. `finish-work` archived the task and recorded the session log:
+The landed spec sits in `.sunshine/spec/`: three files, an index at the head of each, and every convention traceable to its source. This step, too, writes not one line of business code.
 
-```sh
-git log --oneline
-# c229570 chore: record journal
-# c956c40 chore(task): archive 11-13-下单必填收货地址
-# da27e80 下单必填收货地址：结算页加地址输入框，缺地址返回 400（ADDRESS_REQUIRED）
-# ed97a6e 12.2 商城 baseline：Express 商城 + 约定进 spec
-```
+**Step four: a small trial task, to prove the spec works.** Landing it on disk is not enough — the next task has to actually follow it. You give a real small job:
 
-The checkout page has the address field too, and the task ran its normal course and is archived:
+> **You:** Please follow the Sunshine workflow. Add category filtering to the product list.
+>
+> **Claude Code:** Following the workflow, then. You don't need to explain anything this time — implement read the spec and wrote the code by it: return format `{code, data}`, 20 per page, all from the spec; check verified against the spec, format and paging both right. All acceptance items pass; committed and archived.
 
-```text
-[2026-11] - 1 个任务
-  - 11-13-下单必填收货地址/
-```
+This task's flow is exactly 9.1's — questions → PRD → review → implement → check → commit → archive — so it is not spelled out again here.
 
-The acceptance bar for a cross-layer task is in the same list: the files in all four layers done, and the one spec for acceptance verified line by line — whichever layer is missed shows up on the list.
+Only when the trial runs right is the adoption complete. Three criteria: init touched no old files; the conventions are in the spec, each with a source; the trial task followed the spec and got it right. From then on, the conventions no longer live in the original author's head — people leave, the spec stays, and every new task works by it.
 
-### 12.4 Refactoring a legacy module: pin the behavior first, then change the code
+### 9.3 Requirement changes: stock 0 no longer means off shelf
 
-The code runs, but it is no longer safe to change — the first step of a refactor is not to change anything, but to pin down what the code currently does. The demo module is the store's price function — the cart and order totals both go through it — with all the discount rules hard-coded in `if`s:
+Halfway through a project, a requirement changes — utterly common. The change itself is the same in both halves below: out-of-stock sizes get restocked all the time, so stock 0 should no longer show "Off shelf" — show "Temporarily out of stock" instead, with a "Notify me" button. But where the change lands depends on the project's mode: development-first lands it on the task and PRD; design-first lands it back in the design pack first. One pass each — and both follow the same change rules: ask only about the delta, fix the blast radius first, update the record before touching code, and review only the changed part.
 
-```go
-// 老模块：能跑，但折扣规则全写死在 if 里，改一次怕一次。
-func Price(qty int, vip bool) int {
-	total := qty * 100
-	if qty >= 10 {
-		total = total * 9 / 10
-	}
-	if vip {
-		total = total * 95 / 100
-	}
-	return total
-}
-```
+#### Development-first: the change lands on the task and the PRD
 
-(In English: "Legacy module: it runs, but the discount rules are hard-coded in ifs — every change is a gamble.")
-
-State the requirement to Claude Code (same for Codex and Cursor):
+On the development-first clothing-store admin: the product list is done and archived (9.1), the order list is in progress. Operations brings the change to you, and you say in Claude Code:
 
 Example prompt (an example, not a record of a real session):
 
-> I need to refactor a legacy module: the store's price function Price, with all the discount rules hard-coded in `if`s — the cart and order totals go through it, and the code runs, but it is no longer safe to change. Please follow the Sunshine workflow (the TDD template this time): ask me first to confirm the behavior to pin down (the expected prices for each quantity tier and VIP) and the boundaries of the refactor; once confirmed, create the task, write the PRD, then follow TDD: write characterization tests to pin the current behavior first, then refactor.
+> Please follow the Sunshine workflow. A requirement change: products with stock 0 should no longer show "Off shelf" — show "Temporarily out of stock", and add a "Notify me" button.
 
-Here is how the session continues (the conversation is an example; the commands and outputs are real values from runs):
+Here is how the session continues (illustrative dialogue).
 
-> **Claude Code:** One question first: which cases should I pin down — the expected prices for each quantity tier, VIP and non-VIP?
+**First, pin down what changed.** The agent goes back to clarification, but only asks about the delta — settled things are not re-asked:
+
+> **Claude Code:** Only the changed parts to confirm — two questions. One: what does "Notify me" do when clicked? A: just register it, the button turns into "Registered"; B: actually send a notification. Two: only the product list changes, or everywhere stock is shown, orders included?
 >
-> **You:** Pin three cases: 1 item non-VIP 100, 10 items non-VIP 900, 10 items VIP 855.
+> **You:** A — register only, for now. Product list only.
+
+**Then fix the blast radius.** Before anything else, the agent walks the task list and classifies each task, so nothing is missed and nothing is changed for nothing:
+
+> **Claude Code:** Blast radius checked: the product-list task is archived and it is exactly what displays this — affected. The order-list task is in progress; I read its PRD, it doesn't display stock status — not affected, no need to stop. Only the product list changes.
+
+**Then update the record, before any code.** With the radius fixed, the agent still does not touch code — it fixes the sources of truth first:
+
+> **Claude Code:** Record first, then: a new rework task, with a `[Change 2026-11-23]` entry in its PRD — what changed, why, and who decided, all written down; the spec line "stock 0 shows Off shelf" is updated to the new wording at the same time, "Notify me registers only, no notification" goes in with it, and the rework task's context is curated (the updated spec and the product-list code listed into implement.jsonl / check.jsonl). The archived product-list task is not reopened — it records the history as it was; touching it would scramble that.
+
+**Review only the change.** The review (1.5) does not re-review the whole project; it walks the change checklist item by item:
+
+> **You:** The change is done — please follow the Sunshine workflow and review it, reviewing only the changed part.
 >
-> **Claude Code:** Good, one more: where does the refactor stop — only pull the discount rules out, with `Price`'s signature and return value unchanged, right?
+> **Claude Code:** Reviewing only the change, then — all four items check out: the `[Change]` entry is recorded; the spec is updated; the rework task's acceptance criteria and context are ready; the unaffected order task is untouched. Shall I start?
 >
-> **You:** Right, only the discount rules; the signature stays, and behavior must not change.
->
-> **Claude Code:** Good, that's all the questions. Here's the final planning summary — once you approve it, I'll get moving:
->
-> **Final planning summary**
->
-> - Goal: pull the discount rules in `Price` out of the `if`s into one place, so changing a rule means changing one place; behavior must not change by a single cent.
-> - In scope: the discount rules in `calc.go` become constants plus `applyBulk` / `applyVIP`, with `Price` only composing them; a new `calc_test.go` pins the three cases; the cart (`CartTotal`) and order totals (`OrderTotal`) keep going through `Price`, no caller changes.
-> - Out of scope: no signature or return-value changes; no changes to the discount values or the order they stack (bulk first, then VIP); no new discount tiers, no performance work.
-> - Key decisions (all confirmed): write characterization tests to pin the current behavior first (all green is the baseline), then refactor; run the same tests after the refactor — still all green.
-> - Risks / deferred items: none. The integer division order matches the original implementation (multiply first, then divide), and the three cases cover bulk and the VIP stack.
-> - Artifact status: `prd.md` is written; `implement.jsonl`/`check.jsonl` have 1 entry each (`.sunshine/spec/backend.md`), `validate` passes; a light task, no `design.md`/`implement.md`.
->
-> Once you approve this plan, I'll write the PRD and the context list — still no product code, no start. OK?
->
-> **You:** Approved.
->
-> **Claude Code:** The PRD and the context list are on disk, zero product code, not started. Confirm, and I'll switch to the TDD template, start the task, and begin implementing once you approve.
->
-> **You:** Approved.
->
-> **Claude Code:** The workflow is on the TDD template, the task is created and started. Writing the characterization tests to pin the three cases first:
+> **You:** Go.
 
-```sh
-sunshine workflow --template tdd
-# ✓ 已把 .sunshine/workflow.md 换成 "tdd"
-sunshine task create "重构价格计算" --description "把 Price 的折扣规则从 if 里抽成常量与两个小函数，签名与行为不变；购物车和订单总价继续走 Price。" --base-branch main
-# 已为本会话激活任务：.sunshine/tasks/11-13-重构价格计算
-sunshine task set-branch 11-13-重构价格计算 refactor-price
-# ✓ 分支已设为：refactor-price
-sunshine task start 11-13-重构价格计算
-# ✓ 状态：planning → in_progress
-```
+**Only then, hands on code.** The rest follows 9.1's line: implement → check → spec write-back → commit → archive. check verifies against the new wording: stock 0 shows "Temporarily out of stock", the stock number still red, "Notify me" turning into "Registered" when clicked. All pass; committed and archived; the rework task is closed.
 
-Then write characterization tests — not tests for behavior you want, but tests that pin the existing behavior as it is:
+#### Design-first: the change lands back in the design pack first
 
-```go
-func TestPrice(t *testing.T) {
-	cases := []struct {
-		qty  int
-		vip  bool
-		want int
-	}{
-		{1, false, 100},
-		{10, false, 900},
-		{10, true, 855},
-	}
-	for _, c := range cases {
-		if got := Price(c.qty, c.vip); got != c.want {
-			t.Errorf("Price(%d, %v) = %d, want %d", c.qty, c.vip, got, c.want)
-		}
-	}
-}
-```
-
-Let me show you the run — all green. All green is the baseline — this step changed no business code at all, it only proves "the current behavior is exactly these three cases". The first run is green in the real run: the old code already returns exactly those three values, so characterization tests can only pin the existing behavior — there is no red run to write about:
-
-```sh
-go test ./...
-# ok  	shop	0.003s
-```
-
-Only then does the refactor happen: discount rules become constants and two small functions, and `Price` only composes them:
-
-```go
-// 折扣规则集中在这里改；Price 只做组合。
-const (
-	unitPrice = 100 // 单价（分）
-	bulkQty   = 10  // 满多少件打折
-	bulkRate  = 90  // 批量折扣：九折
-	vipRate   = 95  // 会员折扣：九五折
-)
-
-func Price(qty int, vip bool) int {
-	total := qty * unitPrice
-	total = applyBulk(total, qty)
-	total = applyVIP(total, vip)
-	return total
-}
-```
-
-(In English: "Discount rules change here and nowhere else; Price only composes them.")
-
-Run the same tests once more after the refactor — still all green. The behavior did not change, so the refactor stands. The red light in the TDD workflow is for new behavior; a pure refactor runs the other way around: **write characterization tests to pin the behavior (green), then refactor (still green)**:
-
-```sh
-go test ./...
-# ok  	shop	0.011s
-go test -count=1 ./...
-# ok  	shop	0.003s
-go test -count=1 -v ./...
-# === RUN   TestPrice
-# --- PASS: TestPrice (0.00s)
-# PASS
-# ok  	shop	0.004s
-```
-
-(The first run after the refactor is `0.011s`, which includes compilation; re-running with `-count=1` gives `0.003s`, matching the pre-refactor run.) Dispatching the `sunshine-check` subagent: `func Price(qty int, vip bool) int` is unchanged, `cart.go` and `order.go` still go through `Price`, `go vet` exits 0, `go fmt` is clean — nothing to fix.
-
-> **Claude Code:** Step 3.3, spec write-back: the new convention goes into `backend.md`, so the next rule change starts from the test table:
-
-```markdown
-## 价格计算
-
-- 折扣规则集中在 calc.go 的常量与 applyBulk / applyVIP，Price 只做组合；改规则先改 calc_test.go 的用例表。
-```
-
-(In English: "Price calculation: discount rules live in the constants and applyBulk / applyVIP in calc.go; Price only composes them. Change a rule by changing the case table in calc_test.go first.")
-
-> **Claude Code:** Here's the commit plan — reply "OK" and I'll run it:
->
-> ```text
-> Suggested commits (in order):
->   1. refactor: 把 Price 的折扣规则抽成常量与小函数
->      - calc.go
->      - calc_test.go
->      - .sunshine/spec/backend.md
-> Unrecognized dirty files (in no commit — please confirm include or exclude):
->   - .sunshine/workflow.md (the TDD template switch — back to baseline once the workflow is switched back to native)
->   - .sunshine/.template-hashes.json (the template switch's side record, same)
->   - .sunshine/tasks/11-13-重构价格计算/ (task artifacts, carried by the archive commit)
->   - .sunshine/.current-task (the current-task pointer, cleaned up by archiving)
-> ```
->
-> **You:** OK.
->
-> **Claude Code:** Commit done: `f73b1e3 refactor: 把 Price 的折扣规则抽成常量与小函数` (3 files, +46/−5). Run `/finish-work` to archive and record the log — shall I run it now?
->
-> **You:** Go ahead.
-
-`finish-work` archived the task and recorded the session log:
-
-```sh
-git log --oneline -5
-# 2dc676c chore: record journal
-# 50c33dc chore(task): archive 11-13-重构价格计算
-# f73b1e3 refactor: 把 Price 的折扣规则抽成常量与小函数
-# e293a24 chore: sunshine init
-# 3fb2275 chore: 初始化商城价格计算场景
-```
-
-Archive the task as usual:
-
-```text
-[2026-11] - 1 个任务
-  - 11-13-重构价格计算/
-```
-
-Then switch the workflow back to native — switching directly fails (the `workflow.md` has local changes), so add `--force`:
-
-```sh
-sunshine workflow --template native
-# 错误：.sunshine/workflow.md 已有本地修改，请加 --force 覆盖，或用 --create-new 写 .sunshine/workflow.md.new
-sunshine workflow --template native --force
-#   ✓ 已把 .sunshine/workflow.md 换成 "native"
-```
-
-After switching back, `workflow.md` and `.template-hashes.json` are both back to baseline.
-
-### 12.5 Fixing a bug that keeps coming back: find the last session first
-
-When the same class of problem appears again and again, the most expensive part is investigating it from zero every time. The bug in this section really happened: the store project's codex worker failing to connect with a 401 — once on November 9, again in the early hours of November 10, and once more today.
-
-State the requirement to Claude Code (same for Codex and Cursor):
+Now the same admin system on a design-first project: the design pack has passed review and been broken down, and the sub-tasks are being developed one by one — the product-list sub-task is archived, the order sub-task is in progress, the inventory sub-task has not started. The same change comes in, with the same opening line:
 
 Example prompt (an example, not a record of a real session):
 
-> I need to fix a bug that keeps coming back: the store project's codex worker failing to connect with a 401 — once on November 9, again in the early hours of November 10, and once more today. Please follow the Sunshine workflow: use mem to find the last related session first, then ask me to confirm whether this is the same class of problem and what the reproduction steps are; once confirmed, create the task, write the PRD, and write the lesson into the spec after the fix.
+> Please follow the Sunshine workflow. A requirement change: products with stock 0 should no longer show "Off shelf" — show "Temporarily out of stock", and add a "Notify me" button.
 
-Here is how the session continues (the conversation is an example; the commands and outputs are real values from runs):
+Here is how the session continues (illustrative dialogue).
 
-> **Claude Code:** I checked `mem` first:
+**Asking about the delta and fixing the blast radius are the same in both modes.** The same two questions, and the same answers: register only, and only the places that display stock status. The radius, checked against the parent task's sub-task list: the product sub-task is archived — affected; the inventory sub-task hasn't started — affected (it displays stock status too); the order sub-task is in progress and doesn't display stock status — not affected. What differs is below.
 
-```sh
-sunshine mem search 401 --global
-# 范围：全部项目  平台=all  关键词="401"
-#
-# [codex   ] 2026-11-10 05:05  01a1c3d8-457  /tmp/scenes/s5-bug  相关度=1.000  命中=1（用户=1，助手=0）  轮次=1
-#     [用户] 线上 codex worker 又连不上了，之前报过 401，帮我查一下这次的原因
-#
-# 共 1 个会话
-```
+**Change the design pack first — and bring the affected sub-tasks in line before the review.** In design-first, the source of truth is the design pack, so the change lands there first, with everything updated before the review:
 
-> **Claude Code:** The last related session is the dispatch from November 10, 05:05, whose message to the worker already mentions 401. One question first: is this the same class of problem — the store project's codex worker failing to connect with a 401?
+> **Claude Code:** Sources of truth first, no code: the product-list entry in the requirements list gets the new wording in its description and acceptance criteria, and the parent task's PRD gets a `[Change 2026-11-23]` entry; a prototype sub-agent updates the prototype — the product-list page's status text becomes "Temporarily out of stock", with the "Notify me" button added; the spec line is updated in step. And the inventory sub-task, which hasn't started: its PRD is edited now — acceptance criteria switched to the new wording, and the new prototype page added to its context list with add-context (the list can only grow, never shrink) — so it starts out right.
+
+**The review covers only the change, item by item.** This time 1.5 checks whether the change has fully landed; one missing item fails it, and development may not start:
+
+> **You:** The change is done — please follow the Sunshine workflow and review it, reviewing only the changed part.
 >
-> **You:** Same class — still 401 today.
+> **Claude Code:** Reviewing only the change, then — four items: the parent PRD's `[Change]` entry is recorded; requirements list, prototype, and spec are all updated; the affected inventory sub-task's PRD is in sync and the new file is in its context list; the unaffected order sub-task is untouched. All four pass — the change can land.
 >
-> **Claude Code:** Good, one more: how do I reproduce it — on this machine, or online?
->
-> **You:** Reproduce it on this machine, codex isn't logged in.
->
-> **Claude Code:** Good, that's all the questions. Here's the final planning summary — once you approve it, I'll get moving:
->
-> **Final planning summary**
->
-> - Goal: reproduce the 401, locate the root cause, and write the lesson into system.md.
-> - In scope: build a channel on this machine, send the original message, spawn the codex worker, confirm the 401 in worker.log, confirm the root cause, write the lesson.
-> - Out of scope: no changes to the store's business code; don't log in to codex for the user; don't fix codex or the channel itself; don't handle spawn failures other than 401.
-> - Key decisions (all confirmed): the reproduction only verifies as far as the 401 appearing; the login is left for the user to handle.
-> - Risks / deferred items: none (the 401 has already appeared three times, and the root cause points to not being logged in).
-> - Artifact status: the PRD plus the context list (system.md, backend.md), zero product code.
->
-> Once you approve this plan, I'll write the PRD (with the session id 01a1c3d8 in the description) and the context list — still no product code, no start. OK?
->
-> **You:** Approved.
->
-> **Claude Code:** The PRD and the context list are on disk (`implement.jsonl`/`check.jsonl` have 2 entries each, `task validate` passes), zero product code, not started. Confirm, and I'll start the task and begin the reproduction once you approve.
->
-> **You:** Approved.
->
-> **Claude Code:** Starting the task, dispatching the `sunshine-implement` subagent to reproduce. Reproducing the dispatch once on this machine: a channel is created, the same message goes to the worker, and the worker starts — then fails in its log (codex is not logged in on this machine, the same precondition section 10 states; `ls ~/.codex/auth.json` → `No such file or directory`):
+> **You:** Good.
 
-```sh
-sunshine channel create codex-401 --type chat --task .sunshine/tasks/11-13-codex-worker-401
-# 已创建 channel 'codex-401'（chat）位于 /home/hatch/.sunshine/channels/-tmp-s5-repro/codex-401
-sunshine channel spawn codex-401 --provider codex --as worker
-# {"pid": 7235, "log": "/home/hatch/.sunshine/channels/-tmp-s5-repro/codex-401/worker.log", "worker": "worker"}
-sunshine channel send codex-401 --to worker "线上 codex worker 又连不上了，之前报过 401，帮我查一下这次的原因"
-# {"by":"main","kind":"message","origin":"cli","seq":3,"text":"线上 codex worker 又连不上了，之前报过 401，帮我查一下这次的原因","to":"worker","ts":"2026-11-13T04:01:49.517881231Z"}
-```
+**Only after the review do the tasks move.** What remains is routing by state:
 
-The 401 line in worker.log (verbatim, first seen 2026-11-13T04:01:49.049897Z), appearing 7 times:
+> **Claude Code:** Two things on the task side. One: the product sub-task is archived — not reopened; a new rework sub-task goes under the parent, its description naming the original task and the reason for the change, and it changes that one spot following the new prototype. Two: the order sub-task is not affected and keeps going. One rule worth stating: an in-progress task that *is* affected stops its current work, goes back through the loop, and then continues, status unchanged — not needed this time, since it isn't affected.
 
-```text
-failed to connect to websocket: HTTP error: 401 Unauthorized, url: wss://api.openai.com/v1/responses
-```
+**The rework sub-task runs its own line.** Like every sub-task: its own review → implement → check (against the new prototype and the new wording) → spec write-back → commit → archive. Once it is archived, the change has fully landed.
 
-And the root-cause line (verbatim):
+**Where the two modes differ.** The common ground first: both ask only about the delta, both fix the blast radius first, both record a `[Change]`, both review only the changed part, neither reopens archived work, neither stops unaffected work, and an affected in-progress task pauses, loops back, and continues. The single difference is where the change lands first — development-first has no design pack, so the change goes straight onto the task and PRD; design-first has one, so the change lands in the design pack first (requirements list + prototype), the review reviews the design pack, and affected sub-tasks are brought in line before that review. A brand-new requirement runs the same play in miniature: a small round of clarify → break down → curate context → review, and the new task hangs off the same structure.
 
-```text
-unexpected status 401 Unauthorized: Missing bearer or basic authentication in header, url: wss://api.openai.com/v1/responses
-```
+### 9.4 Refactoring a legacy module: pin the behavior first, then change the code
 
-The worker then retried on its own, `Reconnecting... 2/5` through `5/5` — which is exactly the evidence for "don't spawn again and again". Waiting for the worker's reply returned a terminal error event (seq 16), and then the worker was stopped:
+Same clothing-store admin (the one adopted into Sunshine in 9.2). This time the target is the old order-amount code: the algorithm originally lived only in the orders API, `src/routes/orders.js`; later the product page needed an estimated price and the inventory page needed stock values, and each copied the code over — three copies, each edited separately, and one of them has already produced a wrong amount once. The refactor's goal is one shared function all three call; the rule is to pin the current behavior down first, then touch the code, and the money must not change by a single cent.
 
-```sh
-sunshine channel wait codex-401 --from worker --kind done,error --timeout 2m
-# {"by":"worker","kind":"error","message":"unexpected status 401 Unauthorized: Missing bearer or basic authentication in header, url: https://api.openai.com/v1/responses, cf-ray: a59ae10cfee192d0-DFW, request id: req_856bb946182d43f9a9620b912c13e4cc","origin":"worker","seq":16,"ts":"2026-11-13T04:02:06.752406346Z"}
-sunshine channel kill codex-401 --as worker
-```
-
-(Note: the positional form `kill codex-401 worker` errors with `accepts 1 arg(s), received 2` — use `--as worker`.)
-
-> **Claude Code:** Dispatching the `sunshine-check` subagent — all green, nothing to fix: the 401 log line hit 7 times exactly; the root cause is codex not being logged in (`~/.codex/auth.json` still does not exist); the lesson sits at system.md:17; the business code is untouched (`git diff --stat -- server.js package.json` is empty); searching `mem` for 401 now returns 2 sessions — the new one from this reproduction, `01a1d311-99c`, plus the original `01a1c3d8-457`. The lesson is in spec:
-
-```markdown
-## 多 Agent 派发
-
-- 派发 codex worker 前，先确认本机 codex 已登录（`~/.codex/auth.json` 存在；未登录时 worker 拿不到 bearer token，启动即 401）。
-- spawn 失败时先看 worker.log，不要反复重派：`failed to connect to websocket: HTTP error: 401 Unauthorized, url: wss://api.openai.com/v1/responses` 即未登录（根因：`Missing bearer or basic authentication in header`），重派只会重复报 401。
-- 复现记录：2026-11-13，商城项目派 codex worker 连不上报 401（此前 11 月 9 日、11 月 10 日凌晨已出现两次）；mem 搜 401 命中会话 01a1c3d8（2026-11-10 05:05）。
-```
-
-(In English: "Multi-agent dispatch: before spawning a codex worker, confirm codex is logged in on this machine (`~/.codex/auth.json` exists; if it is not logged in, the worker gets no bearer token and fails with 401 at startup). When a spawn fails, read worker.log first and don't spawn again and again: the websocket 401 line means not logged in (root cause: `Missing bearer or basic authentication in header`), and re-spawning only repeats the 401. Reproduction record: 2026-11-13, the store project spawned a codex worker that could not connect, 401 (twice before, on November 9 and in the early hours of November 10); searching `mem` for 401 hits session 01a1c3d8 (2026-11-10 05:05).")
-
-One boundary found by actually running this, worth remembering: **`mem` searches the words in dialogue turns (user / assistant); it does not search error events**. The session from the early hours of November 10 (`01a1c376`, in `/tmp/h-test/chanproj`) had a worker fail with the same 401, but its 401 only appears in an error event, not in any dialogue turn — so searching `401` does not find it. What you search for is the sentence that was sent to the worker at the time. This run is findable because the message sent to the worker already says 401. Grep of the session files confirmed it: `01a1c376`'s 401 only appears in the error field of an `event_msg/task_complete`, while `01a1c3d8` has the user's own words. The November 9 case is the same: `01a1bfa4-3c6`'s session file does contain the same 401 error line, `01a1bfa3`'s does not.
-
-Once the last session confirms it is the same class of problem, create the task — with the session id (01a1c3d8) in the description, so the agent does not have to ask "what happened last time" all over again. When the task is done, the lesson goes into spec — otherwise it will happen the same way next time, which is the actual fix for a recurring bug.
-
-> **Claude Code:** Step 3.3, spec write-back: no other new knowledge beyond this lesson, backend.md needs no change. One commit in the plan — reply "OK" and I'll run it:
->
-> ```text
-> Suggested commits (in order):
->   1. docs: codex worker 401 教训写进 system.md（多 Agent 派发）
->      - .sunshine/spec/system.md
-> Unrecognized dirty files (in no commit — please confirm include or exclude):
->   - .sunshine/.current-task (the task-session pointer, cleaned up by archiving)
->   - .sunshine/tasks/11-13-codex-worker-401/ (the task directory, managed by finish-work's archive commit)
-> ```
->
-> **You:** OK.
->
-> **Claude Code:** Commit done: `9a4b2bd docs: codex worker 401 教训写进 system.md（多 Agent 派发）` (1 file, 6 lines added). Only a spec file changed, so the prefix is `docs:`, not `fix:`. Run `/finish-work` to archive and record the log — shall I run it now?
->
-> **You:** Go ahead.
-
-Before archiving I cut a feature branch first (`master` is also the `base_branch`, so archiving directly would be refused): `git checkout -b fix/codex-worker-401` + `task set-branch`. `finish-work` archived the task and recorded the session log:
-
-```sh
-git log --oneline
-# c29bd5e chore: record journal
-# 38775f6 chore(task): archive 11-13-codex-worker-401
-# 9a4b2bd docs: codex worker 401 教训写进 system.md（多 Agent 派发）
-# bfe6581 chore: sunshine init（后端）
-# 6ed4c18 chore: 商城后端初始代码
-```
-
-Archive the task as usual:
-
-```text
-[2026-11] - 1 个任务
-  - 11-13-codex-worker-401/
-```
-
-Next time a 401 shows up, the agent reads the spec and checks the login first, instead of spawning another worker into the same wall.
-
-### 12.6 Design-first product work: requirements → design documents → split → code
-
-This scenario starts from zero: a brand-new web store project, done design-first. The difference from 12.1 is the mode — 12.1 is a new project built by direct development; this one is a new project designed first and coded second: questions first, design documents on disk, a review that passes, a split, and only then hands on keyboards one sub-task at a time. Designers and developers share one workflow, but they enter and exit at different times — each part below says who is on stage.
-
-**[Designer enters]**
-
-State the requirement to Claude Code (same for Codex and Cursor):
+Say it in Claude Code — this time, name the TDD template:
 
 Example prompt (an example, not a record of a real session):
 
-> I want to build a web store with coupons from zero, design-first. Please follow the Sunshine workflow.
+> Please follow the Sunshine workflow (the TDD template this time). Refactor the order-amount code in the clothing-store admin: one copy in the orders API, one copied into the product page, one into the inventory page, and the three no longer agree. Pin the current behavior first, then refactor; the amounts must not change by a cent.
+
+Here is how the session continues (illustrative dialogue).
+
+**First, two questions: what gets pinned, and where the boundary is.**
+
+> **Claude Code:** Two things to confirm. One: if the three copies disagree, what then? A: unify on the orders copy outright; B: pin each one as it actually behaves, extract the shared function without changing any result, and list the disagreements for you to decide. I recommend B — a refactor does not change behavior; changing the rule is a separate matter. Two: the boundary — just the amount calculation, or stock valuation too? The valuation uses a variant of the same algorithm.
 >
-> Design runs per requirement, one loop at a time: for each requirement, ask me first to pin down that requirement's product logic (one question at a time, each with 2–4 options — one marked as the recommendation with its trade-offs — plus a free-text 'fill in your own' option; the recommendation is only a suggestion, not a default, and never decides for you; go round by round against the requirements-dimension checklist until scope, boundaries, constraints, and acceptance criteria are all aligned), record the answer in prd.md right away, write that requirement into doc/design/需求列表.md as an R-xxx line, then dispatch a prototype sub-agent to build or update that requirement's page from the requirements list. The prototype is a multi-page HTML demo with mock data — don't ask real or demo; don't ask about the tech stack in the design phase.
+> **You:** B. And the boundary stops at the amount calculation; leave valuation alone this time.
+
+**The PRD's acceptance rests on a baseline.** The agent creates the task and writes the PRD: first a batch of characterization tests pins all three copies' actual outputs as the baseline (four scenario families: plain orders, threshold discounts, shipping fees, partial refunds); the refactor's acceptance is a single line — after the refactor, the same batch matches the baseline item by item, and only one implementation remains across the three call sites. Context is curated (implement.jsonl lists the three copies and the spec's price convention: stored in cents, divided by 100 for display).
+
+**The review checks whether the test list is complete.** At the review (1.5), beyond checking the PRD, the audit scan finds one unpinned scenario family: orders where a coupon and a threshold discount apply together. It goes into the baseline list, you confirm, and only then `task start`.
+
+**Implementation comes in two steps; step one only pins.** implement writes the characterization tests and produces the baseline — changing no business code in this step. Midway, it stops and reports something:
+
+> **Claude Code:** Baseline pinned, all four scenario families covered. But one disagreement was already there: for the same threshold-discount order, the orders copy computes 89700 cents and the product-page copy 89699 — one cent apart, a rounding difference (one sums then rounds, the other rounds per item). A refactor can't settle that; it's a rules disagreement. Which one rules?
 >
-> After the loop, generate the delivery document for the client as needed (the outline design is one possibility), then give me the final planning summary for review — by then the requirements list, the outline design, and the prototype pages are already in doc/. After the review passes, split it into sub-tasks per requirement and then implement.
+> **You:** The orders one — sum first, then round.
 >
-> The store needs a product list, adding to cart, checkout, using a coupon at checkout for a discount, and a coupon list page showing each coupon's threshold, amount, status, and expiry.
+> **Claude Code:** Recorded in the PRD as a confirmed rules correction, and the baseline pins the orders rule; everything else is pinned exactly as it behaves — nothing quietly changed under cover of the refactor.
 
-Here is the session (the conversation is an example; the commands and outputs are real values from runs):
+**Step two is the refactor itself.** With the baseline complete, implement extracts the shared function `src/lib/money.js` and switches the three call sites to it one by one, running the full batch after each switch. When all three are switched, the tests match the baseline item by item (except the one spot you confirmed as a correction, which the PRD records).
 
-Design-first does not mean asking every question up front and then producing the whole design package in one go. It runs per requirement, one loop at a time: for each requirement, a round of questions, then the requirements list is updated on disk, then a prototype sub-agent builds that requirement's page. The loop stops only when the designer and the user agree the current batch is enough, and only then does it move to review and split. The scope is not fixed in advance — the loop starts from the requirements already in the opening prompt (a starting batch, not a fixed scope); shared constraints and shared data are fixed the first time they are needed; the boundary of what is out of scope is set as the work goes.
+**Check reconciles three things.** check does not grade whether the code looks nice; it reconciles: one, the full characterization batch compared against the baseline item by item, results attached; two, a repo-wide grep — the amount algorithm exists only in `money.js`, the other two sites are calls; three, against the spec — prices in cents, divided by 100 for display, and the shared function follows both.
 
-#### Round 1: R-001 product list
+**One anti-copy convention is written back.** This lesson is worth landing in words, or in two years there will be three copies again:
 
-> **Claude Code:** What product data do we use? A, three products — wireless mouse 8900 fen / stock 120, mechanical keyboard 29900 fen / stock 45, 27-inch monitor 129900 fen / stock 20; B, add more products.
+> **Claude Code:** Spec write-back: one line added to `backend.md` — order amounts must go through the shared function in `src/lib/money.js`; copying the algorithm into a page or an endpoint is forbidden; the rule is sum first, then round. If anyone copies it again, check will flag it against this line.
+
+**Commit and archive.** The commit plan still comes to you first: one commit (the shared function + the three switches + the characterization tests + that spec line); on your confirmation it commits, archives, and logs.
+
+The refactor rules in three sentences: pin the behavior before touching the code — the baseline is the contract; when the baseline exposes a disagreement, stop and let a human decide — never quietly change the rules under cover of a refactor; and when the refactor is done, write back one convention that stops the next copy.
+
+### 9.5 Fixing a bug that keeps coming back: find how it was fixed last time
+
+When the same class of problem keeps appearing, the expensive part is investigating from zero every time. Same clothing-store admin: after a successful payment, the stock was deducted twice — this happened once last month, was fixed, and now it is back. Do not rush into the code: first dig out how it went last time — how it was diagnosed, what was fixed, and what was missed.
+
+For finding last time, name memory (the project's long-term memory): it lives inside the project and travels with the repo — another computer, another platform, still there. mem is a different thing: it only searches session transcripts stored on this machine, so if the last fix happened on a different computer, it finds nothing — and finding nothing does not mean it was never fixed. That is why the opening line names memory, not mem.
+
+Say it in Claude Code:
+
+Example prompt (an example, not a record of a real session):
+
+> Please follow the Sunshine workflow. Fix an old bug: in the clothing-store admin, stock is deducted twice after a successful payment. It happened last month, was fixed, and it's back. Check memory (the project's long-term memory) first — how was it fixed last time, and what was missed?
+
+Here is how the session continues (illustrative dialogue).
+
+**One memory entry picks the thread straight up.** At the start of a new session, the project long-term memory's index is injected automatically, and the agent spots the entry at once and opens it — a story written when the last task wrapped up, with the root cause, the fix, and the miss all inside:
+
+> **Claude Code:** Found it — the memory entry has the whole story. Last time, the diagnosis was a user submitting the order twice, and the order entry point deducted twice; the fix added a duplicate guard in `src/routes/orders.js`. The root cause was written down plainly even then — "deduction has no idempotency; any entry point that fires twice will deduct again" — but only the order entry point was fixed, the payment one untouched. And the crucial part: the rule went into this story, never into the spec — and the sub-agents doing the work read the spec, so as far as they were concerned, the rule was never set.
 >
-> **You:** A, as given.
-
-> **Claude Code:** How do we fix prices, APIs, and the port? A, prices stored in "fen", all APIs return `{code, data}`, port 3000; B, decide each separately later.
+> **You:** This time it's the payment side: the payment platform retried its callback once, and it deducted again.
 >
-> **You:** A, these three are shared constraints — fix them in this round.
+> **Claude Code:** Same class, different door, then: the root cause survived and came in the other way. This time we fix the class, not just the payment entry point — both entry points get closed off together. Confirm?
 
-Requirements list updated on disk: 45 lines, with a new R-001 line (the product list page shows all products: name, price, stock; GET /api/products returns the three products).
+(mem never appears in this section: it only digs up this machine's session transcripts. Memory alone picked the thread up this time; only if memory had no such entry, and it happened to be the same machine, would mem be the fallback for the original transcript — in that order, not the reverse.)
 
-Prototype dispatch: three inputs — the requirements list (current state) + the spec's frontend style constraints (`.sunshine/spec/frontend.md`) + the existing prototype directory `doc/prototype/`. The sub-agent reported: 1 new page. 商品列表页.html 72 lines; mock.js 8 lines (3 products); index.html 38 lines; the template placeholder 示例页.html deleted.
+**The task's acceptance is written for the class.** On confirmation: task created, PRD written — root cause stated plainly (deduction has no idempotency check); the acceptance is not merely "payment callbacks no longer double-deduct", but: one order, from any entry point, triggered any number of times, deducts exactly once. The memory entry is listed into the context, so implement does not re-derive it. At the review, the audit scan walks the deduction entry points once more and confirms there are exactly two (order placement, payment callback); the inventory page's manual adjustment is a human operation, not automatic deduction, and is explicitly out of scope.
 
-#### Round 2: R-002 adding to cart
+**Implementation closes the class off.** implement extracts a shared deduction function, `src/lib/stock.js`: the order number is the idempotency key — already deducted means return immediately, no second deduction; both entry points are switched to call it. The duplicate guard added at the order entry point last time is deleted in passing — the rule now lives in exactly one place, so the two can never disagree again.
 
-> **Claude Code:** Where does the cart live? A, in the browser's localStorage, no backend API; B, stored on the backend.
+**Check reproduces it for you.** check verifies the acceptance item by item, and re-runs the reproduction: the same order's payment callback fired twice — stock down once; the same order submitted twice — also once; a repo-wide grep shows deduction living only in the shared function, both entry points calling it.
+
+**Write-back lands in two places — last time only one was used.** This time the rule and the story are filed separately:
+
+> **Claude Code:** Write-back, two places. One, the rule into the spec: a line in `backend.md` — stock deduction must be idempotent (keyed by order number; repeated triggers deduct once), must go through `src/lib/stock.js`, and entry points must not write their own deduction; that is a hard rule every task follows. Two, the story into long-term memory: why it happened again and how the two entry points were closed off, as a new entry with a line in the index — so the next occurrence is visible right at session start. Last time only the story was filed and the rule never was: enough to remember the incident, not enough to govern the sub-agents doing the work.
+
+**Commit and archive.** The usual rule: commit plan for your confirmation first, then commit, archive, and log.
+
+A recurring bug, in three sentences: check memory for the last time first — it travels with the project, there on any computer and any platform, with mem only a fallback for this machine's transcripts; fix the class, not just the entry point you happened to hit; and file the lesson in two places — the rule into the spec to govern the work, the story into long-term memory for the why — because filing only one of them is how it comes back.
+
+### 9.6 Design-first: requirements → design documents → breakdown → development
+
+The difference from 9.1 is the mode — 9.1 is a new project developed directly; this scenario designs a new project thoroughly first, then develops it. Same clothing-store admin system. The design output lands in the project's `doc/` (requirements list and prototypes live there); `.sunshine` holds only indexes and pointers.
+
+Open the empty project in Claude Code (after `git init` and a `sunshine init` run), and open like this:
+
+Example prompt (an example, not a record of a real session):
+
+> Please follow the Sunshine workflow, design-first, design only, no development. Build a clothing-store admin system — start with the first requirement's prototype: the navigation menu, in the prototype's index.html.
+
+Here is how the session continues (illustrative dialogue).
+
+**One parent task, then the design loop.** The agent creates only the parent task and does not start it (the design phase has no "start developing"). Then the requirements loop runs, one requirement at a time: clarify → record into the PRD on the spot → write into the requirements list → dispatch a prototype sub-agent for its page. The first requirement you named is the navigation menu; before building a menu, the agent asks about the top-level modules — a menu first has to know what it lists:
+
+> **Claude Code:** Before the navigation, the top-level modules. My suggestion is A: Products, Orders, Inventory, Customers — a clothing admin is these four; say now if you want changes.
 >
-> **You:** A, localStorage.
+> **You:** A it is.
 
-Requirements list updated on disk: 46 lines, with a new R-002 line (click "add to cart" on the product list page; the cart page shows the added products, quantities, and total; the cart lives in the browser's localStorage, no backend API).
+**R-001, the navigation menu.** Modules settled, it clarifies the navigation form (left sidebar, content area switching on click), records into the PRD, lands R-001 in the requirements list, and dispatches prototype for `index.html` (the navigation shell + entry points to the four modules). The sub-agent files its report in the parent task's directory (`prototype-R001.md`: one new page, its mock data), you open it, click through, and confirm.
 
-Prototype dispatch: same three inputs. The sub-agent reported: 1 new page. 购物车页.html 145 lines; index.html 39 lines; mock.js unchanged. The cart's localStorage key is `sunshine_cart`; the demo pre-fills 1 keyboard + 2 mice, totalling 47700 fen (node check: 29900 + 8900 × 2 = 47700).
+**R-002, product management.** Two rounds of clarification: what the list shows (name, category, price, stock, status); what operations exist (add, edit, on/off shelf; no delete — off-shelf only, your call). R-002 lands, prototype builds the product list page and the edit dialog, you confirm.
 
-#### Round 3: R-003 checkout
+**R-003, order management.** Clarify the status flow (pending payment → pending shipment → shipped → completed, plus refunding) and the refund rule (an administrator confirms manually before any refund). R-003 lands, prototype builds the order list page and the order detail page, you confirm.
 
-> **Claude Code:** Is the shipping address required? What happens without one? A, required — a missing address returns 400 ADDRESS_REQUIRED; B, optional.
->
-> **You:** A, required.
-
-Requirements list updated on disk: 47 lines, with a new R-003 line (fill in the shipping address on the checkout page and submit the order; the address is required, a missing address returns 400 ADDRESS_REQUIRED; an order with an address succeeds).
-
-Prototype dispatch: same three inputs. The sub-agent reported: 1 new page. 结算页.html 132 lines; index.html 40 lines; mock.js unchanged. An empty address shows "请填写收货地址"; submitting with an address shows "下单成功，订单状态：待付款". No coupon area yet — only a source comment reserving the R-004 spot.
-
-#### Round 4: R-004 using a coupon at checkout
-
-> **Claude Code:** Coupon validation order and error codes? A, not found → used → expired → below threshold, with COUPON_INVALID / COUPON_USED / COUPON_EXPIRED / COUPON_THRESHOLD; B, only usable versus not usable.
->
-> **You:** A, the four-step order.
-
-> **Claude Code:** How is the coupon code submitted, and who validates it? A, type the code on the checkout page and submit it with the order; the backend validates and deducts; B, claim the coupon first, then order.
->
-> **You:** A, submit the code with the order.
-
-The three coupons were fixed in this round, the first time they were needed: MAN100JIAN10 (10000 off 1000, unused, 2026-12-31), MAN200JIAN30 (20000 off 3000, used), NEW5 (new-user 5-yuan coupon, expired, 2026-10-01).
-
-Requirements list updated on disk: 48 lines, with a new R-004 line (type the coupon code on the checkout page, 100 off 10; the coupon must be unused and unexpired and meet the threshold, otherwise the order fails with a reason).
-
-Prototype dispatch: same three inputs, explicitly sharing the checkout page with R-003 (add the coupon area, do not rebuild the page). The sub-agent reported: 0 new pages. 结算页.html 215 lines (coupon code input on line 49, the "满 100 元减 10 元" threshold hint on line 50, validation logic on lines 121–189); mock.js 17 lines (3 products + 3 coupons); index.html unchanged. A node check of all six cases passed (1 keyboard pays 28900, 2 mice pay 16800, 1 mouse is below threshold).
-
-#### Round 5: R-005 coupon list
-
-> **Claude Code:** What does the coupon list show? A, coupon name, threshold, amount, status, expiry; B, only name and amount.
->
-> **You:** A, all five fields.
-
-Requirements list updated on disk: 49 lines, with a new R-005 line (the coupon page shows all coupons: name, threshold, amount, status, expiry; GET /api/coupons returns the three coupons).
-
-Prototype dispatch: same three inputs. The sub-agent reported: 1 new page. 优惠券页.html 86 lines; index.html 41 lines; mock.js unchanged. Final count: 4 content pages + the navigation entry.
-
-#### Closing questions
-
-> **Claude Code:** What is explicitly out of scope? A, no payments, no login, no coupon issuing / claiming / redemption backend, no automatic expiry cleanup, no database, no cache; B, build all of it.
->
-> **You:** A, all of that is out — write it into the prd.md "out of scope" section.
-
-Designer and user agreed the current batch was enough; the loop ends, and the work moves to review and split.
-
-All eight dimensions (users and scenarios, feature boundaries, data, performance, security, compatibility, acceptance, out of scope) are covered by now: performance is a single-machine demo with no special concurrency needs, security is exact-match coupon codes, compatibility is prices in fen, APIs in `{code, data}`, and port 3000 — those three were settled in the answers and in the requirements list's non-functional section, so no separate questions. No blocking open questions, so on to design.
-
-The outline design was written after the loop ended — the opening prompt asked for it by name (generated on demand, not a mandatory checklist item). The final design package lands in the project's `doc/`, not `.sunshine`:
+**R-004 inventory, R-005 customers.** The same loop once each: inventory is about low-stock warnings (below threshold, shown red) and stock in/out records; customers are a list plus each customer's order history. Five requirements done, and the design output all sits in `doc/`:
 
 ```text
-doc/design/需求列表.md        # 49 lines: R-001–R-005 (lines 23–27), open items (lines 39–44, empty), change log (lines 45–49)
-doc/delivery/概要设计.md        # 78 lines: goals and scope, module split, key flows, interfaces (lines 38–40), data, tech selection (lines 55–64, [待定] on lines 60–63), acceptance criteria, risks
-doc/prototype/index.html       # 41 lines: navigation entry listing the 4 pages and their requirements
-doc/prototype/mock.js          # 17 lines: shared mock, 3 products and 3 coupons
-doc/prototype/商品列表页.html  # 72 lines: R-001
-doc/prototype/购物车页.html    # 145 lines: R-002
-doc/prototype/结算页.html      # 215 lines: R-003 + R-004 (coupon code input on line 49, the "满 100 元减 10 元" threshold hint on line 50, validation logic on lines 121–189)
-doc/prototype/优惠券页.html    # 86 lines: R-005
+doc/design/requirements list.md   # R-001 to R-005, each with acceptance criteria
+doc/prototype/index.html           # the navigation shell
+doc/prototype/product list page.html, order list page.html, order detail page.html …
 ```
 
-Five requirements map to four prototype pages — R-003 checkout and R-004 using a coupon share the checkout page (R-004 is the coupon-code area on that page); every other requirement gets its own page. The prototype was built by dispatching a `sunshine-prototype` sub-agent once per round, with the same three inputs (requirements list as it stood + the spec's frontend style constraints + the existing prototype directory), and each report gave only page count, mock rows, and paths; the template `doc/prototype/示例页.html` that `init` ships is a placeholder, not a real page, so it was deleted in round 1 and `index.html` rewritten for the real pages.
+**The wrap-up asks only about entering the review.** The design loop stops, and the agent does not ask about breakdown, let alone development — it asks one thing:
 
-The requirements list is one item per requirement, each pointing at its page in the system prototype (real file content, excerpt):
-
-```text
-| R-001 | 商品列表 | 商品列表页展示全部商品：名称、价格（元）、库存；GET /api/products 返回三件商品 | P0 | GET /api/products 返回三件商品：无线鼠标 8900 分 / 库存 120、机械键盘 29900 分 / 库存 45、27寸显示器 129900 分 / 库存 20 |
-| R-002 | 加入购物车 | 商品列表页点“加入购物车”，购物车页展示已加商品、数量、合计；购物车放浏览器 localStorage，不设后端接口 | P0 | 购物车页能展示已加商品与合计；刷新后购物车还在 |
-| R-003 | 下单结算 | 结算页填收货地址提交订单；收货地址必填，缺地址返回 400 ADDRESS_REQUIRED；带地址下单成功 | P0 | 缺地址下单返回 400 ADDRESS_REQUIRED；带地址下单成功，返回订单 id、items、address、status“待付款” |
-| R-004 | 下单用优惠券 | 结算页输入券码，满 100 元减 10 元；券须未使用且未过期、且满足门槛，否则下单失败并提示原因 | P0 | 券码 NOPE 下单返回 400 COUPON_INVALID；MAN200JIAN30 返回 400 COUPON_USED；NEW5 返回 400 COUPON_EXPIRED；1 件机械键盘用 MAN100JIAN10 实付 28900 分；2 件无线鼠标用 MAN100JIAN10 实付 16800 分；1 件无线鼠标用 MAN100JIAN10 返回 400 COUPON_THRESHOLD |
-| R-005 | 优惠券列表 | 优惠券页展示全部券：券名、门槛、面额、状态、有效期；GET /api/coupons 返回三条券 | P0 | GET /api/coupons 返回三条券：MAN100JIAN10 满100减10 未使用、MAN200JIAN30 满200减30 已使用、NEW5 新人5元券 已过期 |
-```
-
-The outline design's interface lines (real content):
-
-```text
-| GET /api/products | 无 | { code, data: products }，三件商品 | 返回全部商品，不分页 |
-| POST /api/orders | { items, address, couponCode } | { code, data: order }，实付写在 data.total | 缺地址返回 400 ADDRESS_REQUIRED；券校验顺序：不存在 → 已使用 → 已过期 → 不满门槛；失败返回 400 + 错误码 COUPON_INVALID / COUPON_USED / COUPON_EXPIRED / COUPON_THRESHOLD |
-| GET /api/coupons | 无 | { code, data: coupons }，三条券 | 返回全部券，不分页 |
-```
-
-The tech-selection section (outline design, lines 55–64) only writes constraints and open items and never forces a decision: constraints are prices in fen, APIs in `{code, data}`, port 3000, and a single-machine demo with no special concurrency needs; language, framework, database, and cache are all marked `[待定]` (lines 60–63), left for the backend-foundation sub-task's 1.1 questions. That is the v0.5.5 rule — when the backend foundation is big enough for its own sub-task, its selection items are marked `[待定]` in its PRD and its 1.1 answers them before any scaffolding.
-
----
-
-**[Design review: designer and developer both on stage]**
-
-The design package is reviewed before any split. The review is the 1.5 final planning summary — the whole planning package laid out for confirmation, and only then does anything `task start`:
-
-The opening line needs no step number: the agent locates the step from the project state (design done, not yet split, so it is the review), with no task name, requirement IDs, or prototype paths:
-
-> **You:** The design is done. Please review it following the sunshine workflow and give me the final planning summary for confirmation.
-
-> **Claude Code:** Final planning summary for confirmation: the goal is a coupon-carrying web store built from zero, design-first; the scope is all five requirements R-001–R-005; out of scope are payments, login, coupon issuing / claiming / redemption, automatic expiry cleanup, database, and cache; the key decisions are leaving the stack to the backend-foundation sub-task, keeping the cart in localStorage, requiring the address, and the four-step coupon validation order; the deliverables are prd.md, the requirements list (49 lines), the outline design (78 lines), a 4-page prototype plus mock, and 6 sub-tasks already created and validated, in order backend foundation → product list → adding to cart → checkout → using a coupon → coupon list. Once you confirm, I'll start them one by one. OK?
+> **Claude Code:** All five requirements are done; the requirements list and prototypes are in doc/. Is this batch enough — shall we enter the review?
 >
-> **You:** OK, go ahead.
+> **You:** The design is done. Please follow the Sunshine workflow and review it — and give me the final planning summary to confirm.
 
----
+**The 1.5 review: the design pack is what gets reviewed.** That sentence of yours is the door into the review. The agent first does the review itself: a line-by-line check (requirements list, PRD, and prototypes all line up; every requirement has its prototype report on file — a missing one means that requirement is not done); then an audit scan — this design pack contains rule-type content (order status flow, refunds), so it goes to deep interrogation, which forces out two must-confirms:
 
-**[Split: 1.2 runs once]**
-
-The split runs once, right after the review passes, creating all 6 sub-tasks in one pass; it starts nothing, and every sub-task is created in `planning`. The parent task is only created, never started (it has no implementation work of its own), and the split follows the requirements list (the main thread and the contract) and what is actually in `doc/`:
-
-```sh
-sunshine task list
-# 全部活动任务：
-#
-#   - 11-13-商城/ (planning) [0/6 已完成] [lin]
-#     - 11-13-后端基础/ (planning) [lin]
-#     - 11-13-商品列表/ (planning) [lin]
-#     - 11-13-加入购物车/ (planning) [lin]
-#     - 11-13-下单结算/ (planning) [lin]
-#     - 11-13-下单用优惠券/ (planning) [lin]
-#     - 11-13-优惠券列表/ (planning) [lin]
-#
-# 总计：7 个任务
-```
-
-The planning products were committed as `b4bf106` (doc/ + the 7 task files) — the design package and the task structure land in one commit before any coding starts.
-
-The backend-foundation sub-task goes first, and its 1.1 answers the `[待定]` items one question at a time:
-
-> **Claude Code:** Which language? A, Node.js; B, Go.
+> **Claude Code:** Two open points from the review that must be settled now. One: when an order is cancelled, is the deducted stock restored? Two: does a pending-payment order hold stock — deducted at order time, or only at payment time?
 >
-> **You:** A, Node.js — the store demo is light, and one language front and back.
+> **You:** Cancel restores it. Deduct at payment time; an order alone holds nothing.
 >
-> **Claude Code:** Which framework? A, Express; B, raw http.
+> **Claude Code:** Both recorded back into the PRD. Finally, the final planning summary, presented for your confirmation: the goal is the clothing-store admin, the scope is the five requirements, the breakdown preview is six sub-tasks (selection first), and acceptance runs requirement by requirement against the list. One clarification: this summary is the review's presentation material — the review itself was the checking and interrogation just now. Your confirmation of the summary is what passes the review.
 >
-> **You:** A, Express.
->
-> **Claude Code:** Where does the data live? A, in memory, no database; B, SQLite.
->
-> **You:** A, in memory — the data is small, three products and three coupons, and the demo needs no persistence.
->
-> **Claude Code:** Cache? A, none; B, add an in-memory cache layer.
->
-> **You:** A, none — in-memory data is already the fastest layer there is.
+> **You:** Confirmed — review passed.
 
-The four answers go into that sub-task's prd.md and design.md, and the `[待定]` items clear; once the stack is fixed it does not change again, and the later sub-tasks reuse it. Each requirement sub-task's own 1.1 only briefly confirms its scope (the one requirement in its prd.md plus its acceptance criteria) and skips the full brainstorm, going straight to 1.4.
+**Only after the review, the breakdown.** Breakdown (1.2) makes one sub-task per requirement, with a "technical selection and scaffolding" sub-task in front: the selection items (front/back-end stack, database, cache) are marked `[To be decided]` in the PRD, left for that sub-task's own 1.1 — breakdown does not write back into the spec. The agent presents the list for your confirmation: 6 sub-tasks with their risk tiers (the order-status one is standard tier, the rest light), all in planning, none starting on its own.
 
-Each sub-task's implement.jsonl / check.jsonl lists only specs, research, and doc/ design products — never code files (the sub-agent reads those itself during implementation, so they need no advance registration); before `task start`, each jsonl needs at least one real entry, and `task validate` must pass. Dependencies go in the prd: the requirement sub-tasks start only after the backend foundation is archived; R-004 depends on R-003's order API; R-005 depends on R-004's coupon data.
+**Development takes over, one sub-task at a time.** Starting with the first, and the next starts only when the previous one is fully done. Selection and scaffolding goes first: its own 1.1 settles the selection with you (Node + Express, SQLite for now, your confirmation), its own 1.5 passes, `task start`, a runnable skeleton goes up (page opens, APIs answer, database connected), check, spec write-back (the settled selection is only now written into system / frontend / backend), commit, archive. Then the R-001 navigation sub-task runs the same line: its own review → implement → check → write-back → commit → archive. The remaining four follow one by one.
 
----
+**The parent task wraps up.** With all six sub-tasks archived, the parent does a final integration review: the five modules clicked through together, each requirement signed off against the requirements list. Last, the delivery documents: the seven placeholders generated at init sit in `doc/delivery/`; the agent lists them and asks which to generate — you pick the high-level design and the deployment guide, it generates those two, and the rest stay placeholders. The parent task archives; the project is closed.
 
-**[Developers enter]**
-
-When developers enter, start with the opening prompt below.
-
-It first lists the subtasks and the first subtask's context for the user to confirm, then works through them one by one.
-
-> The design review passed and the subtasks are split. Now let's start development following the sunshine workflow: first list the parent task's subtasks and the first subtask's context for me to confirm; after I confirm, start from the first subtask and work through them one by one; start each subtask, then check it, write the specs back, commit, and archive it before starting the next one; once all subtasks are archived, run the final integration review on the parent task and archive it.
-
-After confirmation, development follows each sub-task's record below, one by one; if the session closes and reopens midway, run /sunshine:continue — it routes by the task.json status.
-
-One sub-task at a time: each runs the full implement → check → write back → commit → archive cycle before the next starts. Here is each sub-task's record (the conversation is an example; the commands and outputs are real values from runs).
-
-### Backend foundation: stack choice and scaffolding
-
-The backend-foundation sub-task goes first. Its implement.jsonl has 3 entries (outline design interfaces and data, the backend spec, this task's design.md), its check.jsonl has 2 (outline design acceptance criteria, this task's prd.md), and `task validate` passes before start. 2.1 implementation: `package.json` (single-line JSON, Express ^4.21.2, start is `node server.js`), `server.js` 18 lines (port 3000, a GET / health JSON, serves public/), `src/db.js` 21 lines (products / coupons / orders / nextOrderId=1), a root `.gitignore` (node_modules/), and package-lock.json generated automatically; `npm install` pulls in express 4.21.2, 68 packages in total.
-
-Two inferences (the task data did not say): MAN200JIAN30's expiry is 2026-12-31 (same as MAN100JIAN10); NEW5's threshold is 0 and its amount 500 fen.
-
-2.2 check:
-
-```sh
-curl -s -i http://localhost:3000/
-# HTTP/1.1 200 OK
-# {"code":0,"data":{"status":"ok"}} (health JSON)
-curl -s http://localhost:3000/api/products
-# Cannot GET /api/products (expected: no route mounted yet)
-```
-
-3.3 write back: the check ran and the answer was "no spec update" (the stack and the interfaces are already recorded in the task prd/design and the outline design; the team spec gains no new convention). Work commit `d4845de` → archive commit `bfe26d0` → journal commit `0d2d697` (session 1). Note: the `.gitignore` (containing only `node_modules/`) was created here — `init` does not generate a repo-root `.gitignore`, or `node_modules/` would land in the working tree.
-
-### Product list
-
-implement.jsonl has 3 entries (outline design interface GET /api/products, the product list prototype page, this task's prd.md), check.jsonl has 2 (outline design acceptance criteria, this task's prd.md), `task validate` passes. 2.1 implementation: `src/routes/products.js` 11 lines (GET /api/products), `server.js` 22 lines (+5, route mounted), `public/index.html` 103 lines (fetches /api/products, writes the cart to localStorage, Loading and error states).
-
-2.2 check:
-
-```sh
-curl -s http://localhost:3000/api/products
-# {"code":0,"data":[{"id":1,"name":"无线鼠标","price":8900,"stock":120},{"id":2,"name":"机械键盘","price":29900,"stock":45},{"id":3,"name":"27寸显示器","price":129900,"stock":20}]}
-curl -s -o /dev/null -w "%{http_code} %{size_download} bytes" http://localhost:3000/index.html
-# 200, 4143 bytes
-curl -s -o /dev/null -w "%{http_code}" http://localhost:3000/
-# 200
-```
-
-3.3 write back: the check ran and the answer was "no spec update" (the API follows the existing backend spec; no new pattern, no new decision). Work commit `3977045` → archive commit `b6fdb15` → journal commit `a6faa74` (session 2).
-
-### Adding to cart
-
-implement.jsonl has 2 entries (the cart prototype page, this task's prd.md), check.jsonl has 2 (the cart prototype page, this task's prd.md), `task validate` passes. 2.1 implementation: `public/cart.html` 156 lines (6680 bytes) — reads localStorage `sunshine_cart`, calls /api/products to resolve prices, quantities are editable with the total updating live, the cart survives a refresh, empty state, and a "go to checkout" link to checkout.html; the production page does not pre-fill demo data (the prototype stuffs 1 keyboard + 2 mice when it opens with no data), so no data means the empty state; it also drops products that are no longer listed and clamps out-of-range quantities.
-
-2.2 check: the cart has no backend API — adding to the cart is a browser localStorage action that curl cannot click — so the check is page reachability + key-logic grep + a node calculation against the db.js data:
-
-```sh
-curl -s -o /dev/null -w "%{http_code} %{size_download} bytes" http://localhost:3000/cart.html
-# 200, 6680 bytes (the page has localStorage in 4 places, fetch in 1)
-node -e "console.log('total = ' + (29900 + 8900 * 2) + ' fen = ' + (29900 + 8900 * 2) / 100 + ' yuan')"
-# total = 47700 fen = 477 yuan (1 mechanical keyboard + 2 wireless mice)
-```
-
-3.3 write back: the check ran and the answer was "no spec update". Work commit `1853417` → archive commit `faac8ce` → journal commit `ace811d` (session 3).
-
-### Checkout
-
-implement.jsonl has 3 entries (outline design interface POST /api/orders, the checkout prototype page, this task's prd.md), check.jsonl has 2 (outline design acceptance criteria, this task's prd.md), `task validate` passes. 2.1 implementation: `src/routes/orders.js` 40 lines (address check on line 13 — a missing or empty address returns 400 ADDRESS_REQUIRED; the id comes from `db.nextOrderId++`; the total is price × qty; status "待付款"; couponCode is accepted but not validated and not deducted), `server.js` 29 lines (adds the `express.json()` the scaffold lacked, plus the route mount), `public/checkout.html` 176 lines (address input on line 48, no coupon area yet — only the `<!-- R-004 券码输入区（预留位置） -->` comment; the cart is cleared after a successful order).
-
-2.2 check:
-
-```sh
-curl -s -X POST http://localhost:3000/api/orders -H "Content-Type: application/json" -d '{"items":[{"id":2,"qty":1}]}'
-# {"code":"ADDRESS_REQUIRED","data":null}, HTTP 400 (no address)
-curl -s -X POST http://localhost:3000/api/orders -H "Content-Type: application/json" -d '{"items":[{"id":2,"qty":1}],"address":""}'
-# {"code":"ADDRESS_REQUIRED","data":null}, HTTP 400 (an empty address counts as missing)
-curl -s -X POST http://localhost:3000/api/orders -H "Content-Type: application/json" -d '{"items":[{"id":2,"qty":1}],"address":"测试地址"}'
-# {"code":0,"data":{"id":1,"items":[{"id":2,"qty":1}],"address":"测试地址","couponCode":null,"total":29900,"status":"待付款"}}, HTTP 200
-curl -s -o /dev/null -w "%{http_code} %{size_download} bytes" http://localhost:3000/checkout.html
-# 200, 7241 bytes
-```
-
-3.3 write back: the check ran and the answer was "no spec update" (ADDRESS_REQUIRED is this task's contract, already in design.md and the outline design's interface line; it does not belong in the shared spec). Work commit `0d56a42` → archive commit `cc5b816` → journal commit `9f84869` (session 4). Note: db.js exports nextOrderId by value, and orders.js mutates the exported object with `db.nextOrderId++`, so the id keeps incrementing across requests.
-
-### Using a coupon at checkout
-
-implement.jsonl has 3 entries (outline design interface POST /api/orders, the four-step coupon validation, the checkout prototype page's coupon area, this task's prd.md), check.jsonl has 2 (outline design acceptance criteria, this task's prd.md), `task validate` passes. 2.1 implementation: `src/routes/orders.js` 64 lines (`checkCoupon` on line 8, called on line 42; the order is not found → COUPON_INVALID, status used → COUPON_USED, status expired or expires before today → COUPON_EXPIRED, subtotal below threshold → COUPON_THRESHOLD; a passing coupon deducts its discount; an empty or missing couponCode skips validation and deducts nothing; the order object gains a couponCode field), `public/checkout.html` 200 lines (coupon code input on line 49, the "满 100 元减 10 元" threshold hint on line 50). The coupons table (three coupons) was already in db.js from the backend foundation, so nothing was added there.
-
-2.2 check, all six cases (the address is `测试地址` throughout):
-
-```sh
-curl -s -X POST http://localhost:3000/api/orders -H "Content-Type: application/json" -d '{"items":[{"id":2,"qty":1}],"address":"测试地址","couponCode":"NOPE"}'
-# {"code":"COUPON_INVALID","data":null}, HTTP 400 (coupon code does not exist)
-curl -s -X POST http://localhost:3000/api/orders -H "Content-Type: application/json" -d '{"items":[{"id":2,"qty":1}],"address":"测试地址","couponCode":"MAN200JIAN30"}'
-# {"code":"COUPON_USED","data":null}, HTTP 400 (already used)
-curl -s -X POST http://localhost:3000/api/orders -H "Content-Type: application/json" -d '{"items":[{"id":2,"qty":1}],"address":"测试地址","couponCode":"NEW5"}'
-# {"code":"COUPON_EXPIRED","data":null}, HTTP 400 (expired)
-curl -s -X POST http://localhost:3000/api/orders -H "Content-Type: application/json" -d '{"items":[{"id":2,"qty":1}],"address":"测试地址","couponCode":"MAN100JIAN10"}'
-# {"code":0,"data":{"id":1,"items":[{"id":2,"qty":1}],"address":"测试地址","couponCode":"MAN100JIAN10","total":28900,"status":"待付款"}}, HTTP 200 (1 keyboard pays 28900)
-curl -s -X POST http://localhost:3000/api/orders -H "Content-Type: application/json" -d '{"items":[{"id":1,"qty":2}],"address":"测试地址","couponCode":"MAN100JIAN10"}'
-# {"code":0,"data":{"id":2,"items":[{"id":1,"qty":2}],"address":"测试地址","couponCode":"MAN100JIAN10","total":16800,"status":"待付款"}}, HTTP 200 (2 mice pay 16800)
-curl -s -X POST http://localhost:3000/api/orders -H "Content-Type: application/json" -d '{"items":[{"id":1,"qty":1}],"address":"测试地址","couponCode":"MAN100JIAN10"}'
-# {"code":"COUPON_THRESHOLD","data":null}, HTTP 400 (1 mouse is below the threshold)
-```
-
-3.3 write back: the check ran and the answer was "no spec update" (the validation order is a business rule, already in design.md and the outline design's interface line; the backend.md addition is left for the change demo). Work commit `7901f3e` → archive commit `cd2a51e` → journal commit `87afc67` (session 5). Order ids count from 1 after each service restart (in-memory data, wiped on restart) — expected for the demo.
-
-### Coupon list
-
-implement.jsonl has 3 entries (outline design interface GET /api/coupons, the coupon prototype page, this task's prd.md), check.jsonl has 2 (outline design acceptance criteria, this task's prd.md), `task validate` passes. 2.1 implementation: `src/routes/coupons.js` 11 lines (GET /api/coupons), `server.js` 33 lines (+4, route mounted), `public/coupons.html` 94 lines (fetches /api/coupons, five fields, thresholds and amounts converted from fen to yuan, a 0 threshold shows "无门槛", the coupon name row also carries the code, and anything but "未使用" is greyed out and marked "（不可用）").
-
-2.2 check:
-
-```sh
-curl -s http://localhost:3000/api/coupons
-# {"code":0,"data":[{"code":"MAN100JIAN10","name":"满100减10","threshold":10000,"discount":1000,"status":"未使用","expires":"2026-12-31"},{"code":"MAN200JIAN30","name":"满200减30","threshold":20000,"discount":3000,"status":"已使用","expires":"2026-12-31"},{"code":"NEW5","name":"新人5元券","threshold":0,"discount":500,"status":"已过期","expires":"2026-10-01"}]}
-curl -s -o /dev/null -w "%{http_code} %{size_download} bytes" http://localhost:3000/coupons.html
-# 200, 3916 bytes
-```
-
-The last round's 2.2 is a full-range regression: GET /api/products returns the three products, the six POST /api/orders cases (missing address 400, 1 keyboard + MAN100JIAN10 pays 28900, 2 mice + MAN100JIAN10 pay 16800, 1 mouse 400 COUPON_THRESHOLD), and `/`, /index.html, /cart.html, /checkout.html, /coupons.html all HTTP 200.
-
-3.3 write back: the check ran and the answer was "no spec update". Work commit `8c03060` → archive commit `8c4e04f` → journal commit `f37743d` (session 6).
-
----
-
-**[Parent task: final integration review]**
-
-With all six sub-tasks archived, the parent task is `[6/6 已完成]` and gets a final integration review before it is archived. The review reads the acceptance criteria + each sub-task's check results + the interface contracts — it does not re-read the whole prototype; a fresh service start runs everything once:
-
-```sh
-curl -s http://localhost:3000/api/products
-# {"code":0,"data":[{"id":1,"name":"无线鼠标","price":8900,"stock":120},{"id":2,"name":"机械键盘","price":29900,"stock":45},{"id":3,"name":"27寸显示器","price":129900,"stock":20}]}
-curl -s http://localhost:3000/api/coupons
-# three coupons (thresholds 10000/20000/0, as before the change)
-curl -s -X POST http://localhost:3000/api/orders -H "Content-Type: application/json" -d '{"items":[{"id":2,"qty":1}]}'
-# {"code":"ADDRESS_REQUIRED","data":null}, HTTP 400
-curl -s -X POST http://localhost:3000/api/orders -H "Content-Type: application/json" -d '{"items":[{"id":2,"qty":1}],"address":"测试地址","couponCode":"MAN100JIAN10"}'
-# {"code":0,"data":{"id":1,"items":[{"id":2,"qty":1}],"address":"测试地址","couponCode":"MAN100JIAN10","total":28900,"status":"待付款"}}, HTTP 200
-curl -s -X POST http://localhost:3000/api/orders -H "Content-Type: application/json" -d '{"items":[{"id":1,"qty":2}],"address":"测试地址","couponCode":"MAN100JIAN10"}'
-# total 16800, HTTP 200
-curl -s -X POST http://localhost:3000/api/orders -H "Content-Type: application/json" -d '{"items":[{"id":1,"qty":1}],"address":"测试地址","couponCode":"MAN100JIAN10"}'
-# {"code":"COUPON_THRESHOLD","data":null}, HTTP 400
-# all four pages HTTP 200: index.html, cart.html, checkout.html, coupons.html
-```
-
-The parent task has no code commit of its own (the code is all in the sub-tasks' work commits); before archiving, run `task set-branch 11-13-商城 feature/11-13-商城`. finish-work step 1 (`task context --mode record`) found no other finished-but-unarchived tasks besides the parent, so the "archive together" question has N=0 and needs no asking. Archive commit `13c9f37` → journal commit `90531a6` (session 7; `--commit` records the planning-products commit `b4bf106`, since the parent has no work commit of its own, and the summary says so). After archiving, `task list` shows 0 active tasks and `task list-archive` shows 7 tasks for 2026-11.
-
----
-
-**[Change demo: the designer returns]**
-
-After the parent task is archived, the user changes their mind: the coupon threshold moves from 100 yuan to 200 yuan. How does a change work under design-first? The designer edits `doc/` and the affected prototype pages first, the parent task's prd records a `[变更]`, and 1.5 reviews only the change; an archived task is never reopened for rework, an in-progress one pauses and goes back, one not started is edited directly.
-
-Create the change task first. Following 1.2, the first instinct is to hang it under the parent task — but the parent is already archived:
-
-```sh
-sunshine task create "满减门槛改成 200 元" --slug 满减门槛改成-200 --parent 11-13-商城 --no-start
-# 错误：无法在 /tmp/scenes/s6-loop/.sunshine/tasks 下解析任务 "11-13-商城"
-# 错误：父任务无法解析：11-13-商城
-# 未创建任务。请传入已存在的任务目录。
-```
-
-A sub-task cannot be created under an archived parent — that is what 1.2 means by "split once": either create all the sub-tasks during planning, or archive the parent only after all its sub-tasks are archived; a rework task cannot hang off an archived parent, so it is created standalone. Create it as an independent task, with the PRD recording `[变更 2026-11-13]`:
-
-```sh
-sunshine task create "满减门槛改成 200 元" -d "优惠券满减门槛 100 元改为 200 元" --slug 满减门槛改成-200 --no-start
-# 任务已创建：11-13-满减门槛改成-200
-```
-
-One point of wording: `[变更 2026-11-13]` is not written into the archived parent task's prd.md — an archive is history, it is not reopened; the `[变更]` goes only into the change task's own prd.md and the design documents' change log. The archived parent prd still says "满 100 元减 10 元" and "2 件无线鼠标用 MAN100JIAN10 实付 16800 分" — that is its pre-archive state, not an omission.
-
-The designer revisits six places:
-
-| # | File | Line | Change |
-| --- | --- | --- | --- |
-| 1 | `doc/design/需求列表.md` | 26 (the R-004 line) | "满 100 元减 10 元" → "满 200 元减 10 元"; the acceptance "2 件无线鼠标用 MAN100JIAN10 实付 16800 分" → "返回 400 COUPON_THRESHOLD" |
-| 2 | `doc/design/需求列表.md` | 49 (change log line) | New line: `2026-11-13 ｜ MAN100JIAN10 门槛从 10000 分改为 20000 分（满 100 元减 10 元改为满 200 元减 10 元）；券名“满100减10”未改 ｜ 门槛调整` |
-| 3 | `doc/delivery/概要设计.md` | 70 (acceptance criteria, R-004 line) | Same as #1 (acceptance updated in step) |
-| 4 | `doc/delivery/概要设计.md` | 78 (risk line) | Now reads "券名‘满100减10’与门槛 20000 分（200 元）不一致，名不副实（2026-11-13 由 10000 改为 20000，未改名）" |
-| 5 | `doc/prototype/结算页.html` | 50 (threshold hint line) | "满 100 元减 10 元" → "满 200 元减 10 元（券码 MAN100JIAN10，满 20000 分减 1000 分）" |
-| 6 | `doc/prototype/mock.js` | 14 | MAN100JIAN10 `threshold: 10000` → `threshold: 20000` (the shared prototype mock updates; the coupon page renders from the mock, so it follows automatically) |
-
-A grep afterwards confirms: the old value "10000" remains only in the change log and risk lines, where it is history; "16800" is gone entirely; "满100减10" remains only as the coupon name itself (deliberately not renamed).
-
-The opening line again needs no step number — the agent locates it from the project state (already split, with a `[变更]` note, so it is the change-only review):
-
-> **You:** The changes are done. Please review them following the sunshine workflow, only the changed parts.
-
-The change task's 1.5 reviews only the changed part (prd.md + the design changes above); once confirmed, `task start`. implement.jsonl / check.jsonl have 3 / 2 entries (requirements list R-004 and change log, outline design acceptance and risks, this task's prd.md with `[变更]`), and `task validate` passes. The implementation changes three places:
-
-| # | File | Line | Change |
-| --- | --- | --- | --- |
-| 1 | `src/db.js` | 11 | MAN100JIAN10 `threshold: 10000` → `threshold: 20000` |
-| 2 | `.sunshine/spec/backend.md` | 16 (new line) | `优惠券 MAN100JIAN10 门槛 20000 分（2026-11-13 由 10000 改为 20000；券名“满100减10”未改，名不副实）。` |
-| 3 | `public/checkout.html` | 50, 179 | Threshold hint "满 100 元减 10 元" → "满 200 元减 10 元" (line 50); the `COUPON_THRESHOLD` message "未满门槛，满 100 元减 10 元" → "未满门槛，满 200 元减 10 元" (line 179); no other logic touched |
-
-Post-change curl checks (the address is `测试地址` throughout):
-
-```sh
-curl -s -X POST http://localhost:3000/api/orders -H "Content-Type: application/json" -d '{"items":[{"id":1,"qty":2}],"address":"测试地址","couponCode":"MAN100JIAN10"}'
-# {"code":"COUPON_THRESHOLD","data":null}, HTTP 400 (2 mice used to pay 16800; now they are below the 200-yuan threshold)
-curl -s -X POST http://localhost:3000/api/orders -H "Content-Type: application/json" -d '{"items":[{"id":2,"qty":1}],"address":"测试地址","couponCode":"MAN100JIAN10"}'
-# {"code":0,"data":{"id":1,"items":[{"id":2,"qty":1}],"address":"测试地址","couponCode":"MAN100JIAN10","total":28900,"status":"待付款"}}, HTTP 200 (1 keyboard still pays 28900)
-curl -s http://localhost:3000/api/coupons
-# MAN100JIAN10 {"code":"MAN100JIAN10","name":"满100减10","threshold":20000,"discount":1000,"status":"未使用","expires":"2026-12-31"} (the name is still "满100减10", the threshold is now 20000)
-```
-
-Work commit `3f80cf9` (7 files, +10/−9, design revisit and implementation in one commit) → archive commit `261bc6c` → journal commit `28eb3c1` (session 8). After archiving, `task list-archive` shows 8 tasks for 2026-11.
-
----
-
-Final git log (old → new, 25 commits; each task runs "work commit → archive commit → journal commit" in order):
-
-```text
-fd8a2a1 init: 产品设计类型初始化（sunshine v0.5.6，新工作流：按需求循环）
-b4bf106 规划产物：需求列表、概要设计、原型 4 页 + mock、7 个任务（设计先行，按需求循环）
-d4845de 后端基础：Node.js/Express 脚手架与内存数据（选型：Node.js/Express/内存/无缓存）
-bfe26d0 chore(task): archive 11-13-后端基础
-0d2d697 chore: record journal
-3977045 商品列表：GET /api/products 返回三件商品，生产版商品列表页调真实接口
-b6fdb15 chore(task): archive 11-13-商品列表
-a6faa74 chore: record journal
-1853417 加入购物车：生产版购物车页，localStorage 购物车、数量可改合计实时更新
-faac8ce chore(task): archive 11-13-加入购物车
-ace811d chore: record journal
-0d56a42 下单结算：POST /api/orders 地址必填校验，生产版结算页
-cc5b816 chore(task): archive 11-13-下单结算
-9f84869 chore: record journal
-7901f3e 下单用优惠券：券校验四档 + 抵扣，结算页加券码输入区
-cd2a51e chore(task): archive 11-13-下单用优惠券
-87afc67 chore: record journal
-8c03060 优惠券列表：GET /api/coupons 返回三条券，生产版优惠券页五字段
-8c4e04f chore(task): archive 11-13-优惠券列表
-f37743d chore: record journal
-13c9f37 chore(task): archive 11-13-商城
-90531a6 chore: record journal
-3f80cf9 满减门槛改成 200：MAN100JIAN10 门槛 10000→20000 分（设计返场 + 实现）
-261bc6c chore(task): archive 11-13-满减门槛改成-200
-28eb3c1 chore: record journal
-```
-
-The loop in this scenario is: empty directory `init` → per-requirement loop (each requirement gets one round: questions → requirements list updated on disk → that requirement's prototype page), stopping when both sides agree the current batch is enough → the outline design written on demand → review (final planning summary) → one split creating all 6 sub-tasks → each sub-task runs implement, check, write back, commit, archive in turn → the parent task's integration review, then archive → a change goes through the designer revisiting the design and the loop closes again. Design-first has no mandatory deliverables list — the outline design, the requirements list, and the prototype are not hard requirements, they are just this scenario's design package; the designer decides what the design produces, 1.5 reviews the current batch, and the split follows the requirements list (the main thread and the contract) and what is actually in `doc/`; with no design documents it is simply a code-only task.
-
-A few boundaries, stated as they are:
-
-- The "add to cart" button's localStorage logic ships with R-001's product list page; R-002's deliverable is the cart page itself (reading localStorage, rendering, totalling) plus the end-to-end check — the cart has no backend API, curl cannot click a button, so the check is page reachability + key-logic grep + a node calculation of the total.
-- `task start` left no session record at all this round: the `.sunshine/.runtime/` directory does not even exist, and none of the 8 starts wrote a session file; the status still flipped as normal, and nothing blocked.
-- The automatic commits from archiving and add-session succeeded on the first try all 8 times — the demo repo had a local git identity set up in advance.
-- The `.gitattributes` that `add-session` leaves behind (the journal's `merge=union` rule) was not picked up by any of the 8 journal commits, and the final `git status` still shows one leftover line, `?? .gitattributes`.
-- `.sunshine/.developer` is not gitignored and entered the repo with the baseline commit `fd8a2a1`; `init` also does not generate a repo-root `.gitignore`, and `node_modules/` was only excluded once the backend-foundation sub-task created a root `.gitignore`.
-- Two sub-agent exec calls reported `subprocess.output_drain_timeout` (exitCode 0): one in the coupon-list implement, one in the change implement; both reports were complete, and the results were independently re-checked by the main session.
-- Known prototype-versus-production differences: the prototype mock.js gives coupons only a code, no name field, so the page shows the code where the name goes; the production db.js has a name field. The production cart page does not pre-fill demo data (the prototype stuffs 1 keyboard + 2 mice when it opens with no data), so no data means the empty state.
-- Real browser rendering was not verified: the sandbox has no browser, so the prototype and production pages were only fetched with curl (HTTP 200 + key-logic grep); what the pages look like and how the buttons feel were never seen in a real browser.
+The whole design-first line is this: requirements loop (clarify → record in the PRD → requirements list → prototype) → wrap-up asks about the review → 1.5 reviews the design pack → breakdown → sub-tasks developed one by one → the parent's integration wrap-up. Its biggest difference from development-first: the review comes before the breakdown, and what it reviews is the design pack, not one task's PRD.
 
 ## Appendix: command reference
 
@@ -2201,7 +1237,7 @@ That is the whole mainline: you ran `init` once, asked for the refund validation
 
 Everything else in Sunshine is something you reach for when you step in manually. These are the only commands you ever need to type yourself — every one of them was run for real earlier in this tutorial (the one-line descriptions of `uninstall` / `ablate` / `restore` come from their own `--help`, not from a run here).
 
-Everything not listed here — `task create/start/archive`, `task add-context/validate`, `channel create/send/spawn/wait`, `task add-session` — is the agent's job, driven by `workflow.md` (see section 4). If you find yourself typing those by hand every day, something is wrong: open the agent UI and let it drive.
+Everything not listed here — `task create/start/archive`, `task add-context/validate`, `channel create/send/spawn/wait`, `task add-session` — is the agent's job, driven by `workflow.md` (see section 3). If you find yourself typing those by hand every day, something is wrong: open the agent UI and let it drive.
 
 ### init reference
 
@@ -2281,13 +1317,13 @@ sunshine platforms
 | --- | --- | --- |
 | Where did we get to? | `sunshine task list` / `sunshine task current` / `sunshine task context` | Show active tasks, the current task, and the full session context |
 | Check the next step | `sunshine task list-archive` | Show archived tasks by month |
-| Switch how the agent works | `sunshine workflow --list` / `sunshine workflow --template tdd` | List or switch workflow templates ([section 7](#7-switching-workflows)) |
-| Refresh project templates | `sunshine update --dry-run` (drop `--dry-run` to apply) | Sync template files; user data is never touched ([section 8](#8-update-and-the-template-marketplace)) |
-| Install a spec from a marketplace | `sunshine init --registry <source> --template <id>` | Install a spec template, refreshed by `update` afterwards ([section 8](#8-update-and-the-template-marketplace)); in interactive mode, omit `--template` to pick from a list |
+| Switch how the agent works | `sunshine workflow --list` / `sunshine workflow --template tdd` | List or switch workflow templates ([section 2](#switching-workflow-templates)) |
+| Refresh project templates | `sunshine update --dry-run` (drop `--dry-run` to apply) | Sync template files; user data is never touched ([section 8](#8-maintenance-update-and-upgrade)) |
+| Install a spec from a marketplace | `sunshine init --registry <source> --template <id>` | Install a spec template, refreshed by `update` afterwards ([section 8](#8-maintenance-update-and-upgrade)); in interactive mode, omit `--template` to pick from a list |
 | All init operations | `sunshine init --help` | Platforms, statusline, template picker, project type, three modes — see the init reference in this appendix |
-| Look back | `sunshine mem search "退款"` / `sunshine mem list` | Search local session history, read-only ([section 9](#9-mem-look-back-at-sessions)) |
-| Multi-agent work | `sunshine channel list` / `sunshine channel messages <name>` | Inspect channels and their event timelines ([section 10](#10-channel-multi-agent-collaboration)) |
-| Update the CLI itself | `sunshine upgrade --dry-run` (drop `--dry-run` to apply) | Upgrade the `sunshine` binary ([section 11](#11-upgrade-update-the-cli-itself)) |
+| Look back | `sunshine mem search "退款"` / `sunshine mem list` | Search local session history, read-only ([section 5](#5-memory-mem-and-long-term-memory)) |
+| Multi-agent work | `sunshine channel list` / `sunshine channel messages <name>` | Inspect channels and their event timelines ([section 7](#7-multi-agent-collaboration)) |
+| Update the CLI itself | `sunshine upgrade --dry-run` (drop `--dry-run` to apply) | Upgrade the `sunshine` binary ([section 8](#8-maintenance-update-and-upgrade)) |
 | See what is configured | `sunshine platforms` | Show the platforms configured for this project |
 | Install / build the code map manually | `sunshine codegraph install` / `sunshine codegraph status` | init provisions CodeGraph only for existing projects; a manual run is not gated on that check and re-wires on every run |
 | Remove Sunshine from a project | `sunshine uninstall` / `sunshine ablate` / `sunshine restore` | Delete all Sunshine files, temporarily remove them (reversible), or restore exactly what `ablate` saved |

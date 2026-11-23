@@ -10,6 +10,22 @@ AI writes code fast, but every session it starts from scratch — no memory of y
 
 **Note:** Sunshine's CLI itself is Chinese-only — commands, help text, prompts, and output are all in Chinese. This document translates the explanations into English, but commands and sample output are kept in the original Chinese so you can copy them verbatim.
 
+## Sunshine in One Picture
+
+![What is Sunshine](docs/images/what-is-sunshine-en.png)
+
+Two ways to work, clarified requirements, the spec, the review gate, sub-agent teamwork, and long-term memory — the six things Sunshine does, in one picture. Details in the [full tutorial](docs/tutorial.en.md).
+
+## The Two Workflows
+
+**Design-first** — for new systems and big projects: work the requirements and prototype out first, pass review, then break down and build. Every sub-task it breaks out runs on the development-first line.
+
+![Sunshine design-first workflow](docs/images/workflow-design-en.png)
+
+**Development-first** — for clear, small-to-medium work: clarify, plan, review, build, archive — one line to the end.
+
+![Sunshine development-first workflow](docs/images/workflow-dev-en.png)
+
 ## Why Sunshine?
 
 | Capability | What it changes |

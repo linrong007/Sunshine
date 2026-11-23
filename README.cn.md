@@ -10,6 +10,22 @@ AI 写代码很快，但每次会话都从零开始——不记得你的项目�
 
 **注意：**命令与示例输出均为中文原文，可直接复制使用。
 
+## 一张图看懂 Sunshine
+
+![Sunshine 是什么](docs/images/what-is-sunshine-zh.png)
+
+两种走法、问清需求、规范、评审、子代理分工、长期记忆——Sunshine 的六件事，一张图说清。细节见[完整教程](docs/tutorial.md)。
+
+## 两种工作流
+
+**设计先行**——新系统、大项目：先把需求和原型做透，评审过了再拆解开发；拆出的每个子任务，走的都是开发先行那条线。
+
+![Sunshine 设计先行工作流](docs/images/workflow-design-zh.png)
+
+**开发先行**——需求清楚的中小任务：问清、写规划、评审、开发、归档，一条线走到底。
+
+![Sunshine 开发先行工作流](docs/images/workflow-dev-zh.png)
+
 ## 为什么用 Sunshine？
 
 | 能力 | 改变了什么 |

@@ -135,8 +135,8 @@ GitHub Copilot、Factory Droid）。
 配置文件），只生成对应的 spec 模板；检测不到时交互问一句；--type 可显式
 指定（合法值：前端、后端、全栈、产品设计）；-y 或非交互终端时检测不到默认全栈；
 --registry 写 spec 时不检测、不提问。产品设计不参与检测，只能手动选：
-选它只生成通用规范（system.md）与 doc/ 文档（需求列表、原型，及七份交付文档占位），
-不生成前后端规范（技术栈待定，以后定了再 init -f 补）。`,
+选它按全栈生成三份规范（system.md、frontend.md、backend.md）与 doc/ 文档（需求列表、原型，及七份交付文档占位），
+规范里的技术栈先占位，选型在第一个子任务里定下后再回写定稿。`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		printInitBanner()
 		cwd, err := os.Getwd()

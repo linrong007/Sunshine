@@ -111,16 +111,16 @@ Sunshine runs a 4-phase loop with auto-invoked skills and sub-agents:
 
 ## Six scenarios
 
-Section 12 of the tutorial walks through six real scenarios, each one a complete end-to-end run:
+Section 9 of the tutorial records six scenarios, all following one clothing-store admin system, each a complete end-to-end run:
 
 | Scenario | When it applies |
 | --- | --- |
-| [Starting a new project from zero](docs/tutorial.en.md#121-starting-a-new-project-from-zero-a-duty-roster-tool) | A new product, service, package, or internal tool |
-| [Adopting an existing project](docs/tutorial.en.md#122-adopting-an-existing-project-land-the-conventions-in-spec-first) | The repo exists, but the conventions live mostly in people's heads |
-| [Delivering a product feature](docs/tutorial.en.md#123-delivering-a-product-feature-one-task-across-product-api-data-and-ui) | One task spans product, API, data, and UI |
-| [Refactoring a legacy module](docs/tutorial.en.md#124-refactoring-a-legacy-module-pin-the-behavior-first-then-change-the-code) | The code runs, but it is no longer safe to change |
-| [Fixing a bug that keeps coming back](docs/tutorial.en.md#125-fixing-a-bug-that-keeps-coming-back-find-the-last-session-first) | The same class of problem appears again and again |
-| [Design-first product work](docs/tutorial.en.md#126-design-first-product-work-requirements--design-documents--split--code) | Design comes before development |
+| [Starting a new project from zero (development-first)](docs/tutorial.en.md#91-starting-a-new-project-from-zero-development-first-a-clothing-store-admin-system) | A new product, service, package, or internal tool |
+| [Adopting an existing project](docs/tutorial.en.md#92-adopting-an-existing-project-a-clothing-store-admin-system) | The repo exists, but the conventions live mostly in people's heads |
+| [Requirement changes](docs/tutorial.en.md#93-requirement-changes-stock-0-no-longer-means-off-shelf) | Requirements change mid-flight; only the changed parts go back |
+| [Refactoring a legacy module](docs/tutorial.en.md#94-refactoring-a-legacy-module-pin-the-behavior-first-then-change-the-code) | The code runs, but it is no longer safe to change |
+| [Fixing a bug that keeps coming back](docs/tutorial.en.md#95-fixing-a-bug-that-keeps-coming-back-find-how-it-was-fixed-last-time) | The same class of problem appears again and again |
+| [Design-first product work](docs/tutorial.en.md#96-design-first-requirements--design-documents--breakdown--development) | Design comes before development |
 
 For design-first work, the design documents land in `doc/` first, then split into sub-tasks (scenario 6). The terminal commands are the agent's tools, not your daily interface — an opening prompt names four things: the workflow, ask first, confirm then create the task and write the PRD, then implement.
 

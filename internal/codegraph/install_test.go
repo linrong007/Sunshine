@@ -54,6 +54,65 @@ func buildFakeBundle(t *testing.T, target string) []byte {
 	return buf.Bytes()
 }
 
+// TestSelfInstallMirrorFailover 通道逐个试：版本解析第一把失败、
+// 下载第一把 500，都应换下一个通道重试并最终装成，且有换通道提示行。
+// 本地服务器不是 GitHub 主机，Rewrite 对所有通道都原样返回，
+// 因此重试会再次打到同一服务器——正好验证重试回路本身。
+func TestSelfInstallMirrorFailover(t *testing.T) {
+	target, ok := targetTriple()
+	if !ok {
+		t.Skip("当前平台无预编译包口径")
+	}
+	bundle := buildFakeBundle(t, target)
+	var latestHits, downloadHits int
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.URL.Path == "/releases/latest":
+			latestHits++
+			if latestHits == 1 {
+				w.WriteHeader(http.StatusOK) // 无 Location，第一把解析失败
+				return
+			}
+			w.Header().Set("Location", "/releases/tag/v9.9.9")
+			w.WriteHeader(http.StatusFound)
+		case r.URL.Path == "/releases/download/v9.9.9/codegraph-"+target+".tar.gz":
+			downloadHits++
+			if downloadHits == 1 {
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+			w.Header().Set("Content-Length", strconv.Itoa(len(bundle)))
+			_, _ = w.Write(bundle)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer srv.Close()
+
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	oldBase := releaseBase
+	defer func() { releaseBase = oldBase }()
+	releaseBase = srv.URL
+
+	var out bytes.Buffer
+	if err := selfInstall(context.Background(), &out); err != nil {
+		t.Fatalf("换通道后应装成：%v", err)
+	}
+	if latestHits < 2 {
+		t.Errorf("版本解析应重试，实际请求 %d 次", latestHits)
+	}
+	if downloadHits < 2 {
+		t.Errorf("下载应换通道重试，实际请求 %d 次", downloadHits)
+	}
+	if !strings.Contains(out.String(), "改走") {
+		t.Errorf("应有换通道提示行，实际输出：%q", out.String())
+	}
+	if _, err := os.Stat(filepath.Join(home, ".local", "bin", "codegraph")); err != nil {
+		t.Errorf("装完应有 codegraph 软链：%v", err)
+	}
+}
+
 func TestSelfInstallAgainstLocalServer(t *testing.T) {
 	target, ok := targetTriple()
 	if !ok {

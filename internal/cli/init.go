@@ -113,8 +113,9 @@ GitHub Copilot、Factory Droid）。
 还会顺带供给 CodeGraph 代码地图（装工具是整台机器一次性的事，
 新老项目一视同仁）：机器上没装 CodeGraph 时，交互模式先问一句
 （只问一次，拒绝会记进 .sunshine/config.yaml、之后不再问），
-同意才下载安装（Sunshine 自带下载、带进度，失败回退官方脚本；
--y 与非交互不自动装，只提示手动运行 sunshine codegraph install）。
+同意才下载安装（Sunshine 自带下载、带进度、带镜像通道，
+全失败才回退官方脚本；-y 与非交互不自动装，只提示手动运行
+sunshine codegraph install）。
 新项目没代码，只装工具不建图；存量项目（目录里已有代码）在工具
 已装的前提下，项目里没建图就建图，并把查询接进所选平台；
 三层都是缺什么补什么、在就不动，任何一步失败都只警告不阻断

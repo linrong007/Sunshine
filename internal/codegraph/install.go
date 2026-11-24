@@ -5,6 +5,10 @@ package codegraph
 // curl -s 的静默下载干等（2026-11-24 用户实测：脚本卡在
 // 「Installing CodeGraph v1.6.4...」无任何输出，最后还失败了，
 // 失败原因也看不到）。任何一步走不通，调用方回退官方脚本。
+//
+// 下载通道与 upgrade / update 同口径（internal/mirror）：环境变量
+// SUNSHINE_DOWNLOAD_MIRROR 指定的镜像 → 直连 → 内置镜像，逐个试；
+// 单个通道最多 4 分钟，直连慢到下不完也会切镜像，不再干等。
 
 import (
 	"archive/tar"
@@ -18,6 +22,8 @@ import (
 	"runtime"
 	"strings"
 	"time"
+
+	"github.com/linrong007/Sunshine/internal/mirror"
 )
 
 // releaseBase 是 CodeGraph 的 GitHub 仓库根地址（测试可替换）。
@@ -68,8 +74,8 @@ func installDirs() (installDir, binDir string, err error) {
 
 // resolveLatestVersion 解析最新版本号：与官方脚本同法，读
 // releases/latest 的重定向目标，不走 API（不吃未认证限流）。
-// CODEGRAPH_VERSION 已设置时直接用它。
-func resolveLatestVersion(ctx context.Context, client *http.Client) (string, error) {
+// latestURL 是已按通道改写过的地址。CODEGRAPH_VERSION 已设置时直接用它。
+func resolveLatestVersion(ctx context.Context, client *http.Client, latestURL string) (string, error) {
 	if v := os.Getenv("CODEGRAPH_VERSION"); v != "" {
 		if !strings.HasPrefix(v, "v") {
 			v = "v" + v
@@ -82,7 +88,7 @@ func resolveLatestVersion(ctx context.Context, client *http.Client) (string, err
 	}
 	rctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
-	req, err := http.NewRequestWithContext(rctx, http.MethodHead, releaseBase+"/releases/latest", nil)
+	req, err := http.NewRequestWithContext(rctx, http.MethodHead, latestURL, nil)
 	if err != nil {
 		return "", err
 	}
@@ -97,6 +103,60 @@ func resolveLatestVersion(ctx context.Context, client *http.Client) (string, err
 		return "", fmt.Errorf("解析最新版本失败：重定向地址异常（%s）", loc)
 	}
 	return loc[idx+len("/releases/tag/"):], nil
+}
+
+// resolveVersionViaMirrors 按下载通道逐个解析最新版本号，
+// 第一个解析成功的通道即用；全失败返回最后一次的错误。
+func resolveVersionViaMirrors(ctx context.Context, client *http.Client) (string, error) {
+	var lastErr error
+	for _, base := range mirror.Bases() {
+		v, err := resolveLatestVersion(ctx, client, mirror.Rewrite(base, releaseBase+"/releases/latest"))
+		if err == nil {
+			return v, nil
+		}
+		lastErr = err
+		if ctx.Err() != nil {
+			return "", ctx.Err()
+		}
+	}
+	return "", lastErr
+}
+
+// shortErr 把错误压成一行短原因（下载错误常带完整 URL 与多层包装，
+// 直接打给用户看太长），供换通道提示行使用。
+func shortErr(err error) string {
+	s := err.Error()
+	if r := []rune(s); len(r) > 90 {
+		s = string(r[:90]) + "…"
+	}
+	return s
+}
+
+// downloadViaMirrors 按下载通道逐个下载安装包：单通道最多 4 分钟
+// （直连慢到下不完也切镜像，不干等），失败或超时换下一个通道；
+// 每次换通道向 out 报一行原因。全失败返回最后一次的错误。
+func downloadViaMirrors(ctx context.Context, client *http.Client, rawURL, destFile string, out io.Writer) error {
+	var lastErr error
+	for i, base := range mirror.Bases() {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+		if out != nil && (i > 0 || base != "") {
+			if lastErr != nil {
+				fmt.Fprintf(out, "  … 代码地图：上一通道没走通（%s），改走 %s 重试……\n", shortErr(lastErr), mirror.Label(base))
+			} else {
+				fmt.Fprintf(out, "  … 代码地图：经 %s 下载安装包……\n", mirror.Label(base))
+			}
+		}
+		actx, cancel := context.WithTimeout(ctx, 4*time.Minute)
+		err := downloadWithProgress(actx, client, mirror.Rewrite(base, rawURL), destFile, out)
+		cancel()
+		if err == nil {
+			return nil
+		}
+		lastErr = err
+	}
+	return lastErr
 }
 
 // downloadWithProgress 把 url 下载到 destFile，每约 200 毫秒向 out
@@ -277,7 +337,7 @@ func selfInstall(ctx context.Context, out io.Writer) error {
 		return err
 	}
 	client := &http.Client{}
-	version, err := resolveLatestVersion(ctx, client)
+	version, err := resolveVersionViaMirrors(ctx, client)
 	if err != nil {
 		return err
 	}
@@ -288,7 +348,7 @@ func selfInstall(ctx context.Context, out io.Writer) error {
 	}
 	defer os.RemoveAll(tmp)
 	archive := filepath.Join(tmp, "cg.tar.gz")
-	if err := downloadWithProgress(ctx, client, url, archive, out); err != nil {
+	if err := downloadViaMirrors(ctx, client, url, archive, out); err != nil {
 		return err
 	}
 	dest := filepath.Join(installDir, "versions", version)

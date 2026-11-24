@@ -4103,5 +4103,5 @@ Token 口径：OpenViking 分 L0 摘要（约 100 token/份）、L1 概览（约
 
 两件用户点名一起发：① **upgrade 加进度条**——下载升级包改流式读取，每约 200ms 刷新一行「已下载 / 总大小 / 百分比」，与 CodeGraph 下载行同款式；checksums 小文件仍静默；实测真实升级打出 50%→100%。② **CodeGraph 下载改镜像优先**——用户指出 v0.5.55 是直连优先、镜像兜底，这个包 58MB、直连常态慢，先试直连等于先白等一轮；internal/mirror 新增 BasesMirrorFirst（环境变量镜像 → 内置镜像 → 直连），CodeGraph 的版本解析与下载改用它，单通道 4 分钟上限不变；upgrade/update 包小且有 checksums 校验，仍直连优先不动。实测不设环境变量时首通道即 ghfast.top，装好 v1.6.4 并建图。教程（中英）同步。
 
-发布：远端主提交 bbfceba，tag 对象 d4697bb，Release id 456317201；CI（tag 45328145062）、CI（main 45328122890）、发布（45328145050）三路 success，6 资产齐；发布包实测 version 0.5.56、upgrade --dry-run 已是最新，linux_amd64 sha256 0ae1a30d。本地全量测试 23 包绿。本版无模板变更，已装项目 sunshine upgrade 即可（这次升级本身就能看到新进度条的前置静默段之外——注：进度条在新版里，升到 0.5.56 之后的下一次升级可见），无需 update。
+发布：远端主提交 bbfceba，tag 对象 d4697bb，Release id 456317201；CI（tag 45328145062）、CI（main 45328122890）、发布（45328145050）三路 success，6 资产齐；发布包实测 version 0.5.56、upgrade --dry-run 已是最新，linux_amd64 sha256 0ae1a30d。本地全量测试 23 包绿。本版无模板变更，已装项目 sunshine upgrade 即可，无需 update（注：进度条在新版里，从 0.5.55 升上来这一次仍是旧版在下载、无进度，下一次升级起可见）。
 发版：v0.5.56 已发布（Release id 456317201）。

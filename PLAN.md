@@ -4064,3 +4064,9 @@ Token 口径：OpenViking 分 L0 摘要（约 100 token/份）、L1 概览（约
 状态：仅记录设想与边界，未立项、未实施。待用户定是否先在沙箱装一个，拿真实项目文档实测召回质量与入库成本。
 
 补充（2026-11-23）：多项目组织方式已查实 OpenViking 官方多租户模型——一台服务可开多个 account（租户边界，跨 account 默认完全隔离、检索也按 account 过滤不会越权召回），account 内 resources 默认共享、可用 ACL 按目录/文件细化到 read/write/manage（用户或组、支持继承与受限边界）。用户场景定法：同一产品线（如多个 OA 项目）共用一个 account，各项目放 `viking://resources/projects/<项目>/` 目录，线内全共享；非同线项目另开 account 硬隔离，不用部署多套服务。Sunshine 侧每个项目配置自己的 account 凭证与项目目录，同步层只写本项目目录，检索默认覆盖本 account。
+
+## v0.5.51 发布记录（2026-11-24）
+
+本版内容：① 修 CodeGraph 供给静默卡死（2026-11-24 demo21 实测报障：已 init 项目二次 init 在增量模式「Claude Code 已安装，跳过」后长时间无输出、退不出，也没提示装 CodeGraph）。根因：供给三步（装工具 ≤5 分钟、接线 ≤2 分钟、建图 ≤10 分钟）全程 CombinedOutput 吞输出、结果行全部结束才打印。修法按类落地：Provision 加 Progress 预告（每步开始前先打印并注明可 Ctrl+C 取消），init 三路与 `sunshine codegraph install` 都接 signal.NotifyContext，取消后杀外部命令、打印「已取消，跳过（之后可运行 sunshine codegraph install 补上）」干净收尾；新增 3 个单测（提示先于命令、两处取消点）+ pty 端到端实测（假 codegraph 睡 60 秒建图，提示先出、Ctrl+C 0 秒退出码 0），全量 23 包测试绿；覆盖审计：init 其余长步骤本就有提示，静默的只有这一处。教程「代码地图：存量项目的 CodeGraph」专节同步补进度提示与取消口径（中英）。② init --help 产品设计文案修正（上一节，随本版发出；v0.5.50 发布记录里的该遗留就此关闭）。③ README 六张配图（中英严格分开、小工程师分角色分动作）+ 版权声明与仓库根 LICENSE + 「六个场景」对齐教程 9.1–9.6。另：本节之前的「企业知识库接入设想：OpenViking」一节随本版一并推送（仅记录，未立项）。
+
+远端主提交 14c02bc（tree 1d57fda；本地两笔 cb62c62、7d1a346 由推送脚本按工作树合成一笔远端提交，提交信息取后一笔），tag 对象 e836518，Release id 456233838；CI（tag 45311993666）、CI（main 45311939032）、发布（45311993728）三路均 success；6 资产齐；linux_amd64 sha256 657bea8173dfe07ececfde3ef13705d5ce67b36e74ec88e1a37714664b0a4d36；发布包实测：version 报 0.5.51、upgrade --dry-run 显示已是最新。已装项目 sunshine upgrade 即可（本版无模板变更，无需 sunshine update）。

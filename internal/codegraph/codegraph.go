@@ -150,6 +150,11 @@ type Options struct {
 	Platforms          []string // 本次 init 选中的 Sunshine 平台 ID
 	PlatformsInstalled int      // 本次 init 实际新装的平台数
 	Force              bool     // 手动触发（sunshine codegraph install）：无条件接线
+	// Progress 在每个耗时步骤开始前收到一行进度提示（可为 nil）。
+	// 供给全程要跑外部命令（装工具最长 5 分钟、建图最长 10 分钟），
+	// 结果行只在全部结束后才汇总返回；没有这条预告，用户只会看到
+	// 终端长时间无输出、以为卡死（2026-11-24 demo21 实测报障）。
+	Progress func(string)
 }
 
 // Result 是 Provision 的结果：Lines 给用户看，Acted 表示是否动过外部状态。
@@ -159,37 +164,65 @@ type Result struct {
 	Lines      []string
 }
 
+// cancelledLine 是用户取消（Ctrl+C）后的统一收尾行。
+const cancelledLine = "  ○ 代码地图：已取消，跳过（之后可运行 sunshine codegraph install 补上）"
+
 // Provision 按“缺什么补什么”供给 CodeGraph：
 // 工具缺了装、项目图缺了建、接线只在刚装工具 / 刚建图 / 本次新装平台时补。
 // 任何一步失败都只记警告行并体面收尾，绝不返回错误。
+// ctx 被取消（如调用方接了 Ctrl+C 信号）时，正在跑的外部命令会被
+// CommandContext 杀掉，本函数在下一步开始前收尾返回取消行，
+// 不让用户只能强杀终端、还看不到卡在哪一步。
 func Provision(ctx context.Context, opts Options, r Runner) Result {
 	var res Result
 	if !opts.Legacy || opts.Disabled {
 		return res
 	}
 	res.Applicable = true
+	progress := func(line string) {
+		if opts.Progress != nil {
+			opts.Progress(line)
+		}
+	}
+	cancelled := func() bool {
+		if ctx.Err() != nil {
+			res.Lines = append(res.Lines, cancelledLine)
+			return true
+		}
+		return false
+	}
 
 	bin, cliOK := r.LookPath("codegraph")
 	graphOK := dirExists(filepath.Join(opts.Dir, ".codegraph"))
 
 	installedCLI := false
 	if !cliOK {
+		progress("  … 代码地图：本机还没有 CodeGraph，正在用官方脚本安装（可能要几分钟；按 Ctrl+C 可取消，取消不影响 init 其余结果）……")
 		if p, ok := installCLI(ctx, opts.Dir, r); ok {
 			bin, cliOK, installedCLI = p, true, true
 			res.Acted = true
 			res.Lines = append(res.Lines, "  ✓ 代码地图：已安装 CodeGraph（官方安装脚本）")
+		} else if cancelled() {
+			return res
 		} else {
 			res.Lines = append(res.Lines, "  ○ 代码地图：CodeGraph 安装失败，已跳过（可手动安装：curl -fsSL https://raw.githubusercontent.com/colbymchenry/codegraph/main/install.sh | sh）")
 			return res
 		}
 	}
+	if cancelled() {
+		return res
+	}
 
 	needWire := opts.Force || installedCLI || !graphOK || opts.PlatformsInstalled > 0
 	if targets := TargetsFor(opts.Platforms); len(targets) > 0 && needWire {
+		progress("  … 代码地图：正在把 CodeGraph 查询接进所选平台（按 Ctrl+C 可取消）……")
 		wctx, cancel := context.WithTimeout(ctx, 2*time.Minute)
 		_, err := r.Run(wctx, opts.Dir, bin, "install", "--target="+strings.Join(targets, ","), "--yes")
 		cancel()
 		res.Acted = true
+		if cancelled() {
+			return res
+		}
 		if err != nil {
 			res.Lines = append(res.Lines, "  ○ 代码地图：平台接线失败，已跳过（可手动执行 codegraph install）")
 		} else {
@@ -198,10 +231,17 @@ func Provision(ctx context.Context, opts Options, r Runner) Result {
 	}
 
 	if !graphOK {
+		if cancelled() {
+			return res
+		}
+		progress("  … 代码地图：正在为本项目建代码图谱（项目越大越久；按 Ctrl+C 可取消）……")
 		gctx, cancel := context.WithTimeout(ctx, 10*time.Minute)
 		_, err := r.Run(gctx, opts.Dir, bin, "init", "--yes")
 		cancel()
 		res.Acted = true
+		if cancelled() {
+			return res
+		}
 		if err != nil {
 			res.Lines = append(res.Lines, "  ○ 代码地图：建图失败，已跳过（可手动执行 codegraph init）")
 		} else {

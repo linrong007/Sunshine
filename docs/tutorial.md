@@ -468,7 +468,7 @@ agent 先读现有的 spec 树（全是模板），再分析仓库：顶层结�
 2. 项目里没有 `.codegraph/`，就建图；
 3. 把查询接进这次选的平台（支持的平台走 MCP，其余平台用等价的命令行查询）。
 
-任何一步失败都只警告并给出手动命令，不挡 init。想关掉：`sunshine init --no-codegraph`，或设环境变量 `SUNSHINE_NO_CODEGRAPH=1`。
+任何一步失败都只警告并给出手动命令，不挡 init。想关掉：`sunshine init --no-codegraph`，或设环境变量 `SUNSHINE_NO_CODEGRAPH=1`。装工具、建图可能要几分钟，每步开始前终端会先出进度提示；等不及按 Ctrl+C 只取消代码地图这一段，init 其余照常完成，之后跑 `sunshine codegraph install` 补上即可。
 
 **手动触发**：不用等 init——`sunshine codegraph install` 随时可装工具、接线、建图（手动执行不受存量判定限制，每次都会重新接线），`sunshine codegraph status` 只看状态不动手。
 

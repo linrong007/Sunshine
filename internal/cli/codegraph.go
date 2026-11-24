@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"strings"
 
@@ -52,9 +53,12 @@ SUNSHINE_NO_CODEGRAPH=1 时本命令同样停用。`,
 				return nil
 			}
 			platforms := installedPlatformIDs(cwd)
-			res := codegraph.Provision(context.Background(), codegraph.Options{
+			ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+			defer stop()
+			res := codegraph.Provision(ctx, codegraph.Options{
 				Dir: cwd, Legacy: true, Force: true,
 				Platforms: platforms, PlatformsInstalled: len(platforms),
+				Progress: func(line string) { fmt.Println(line) },
 			}, codegraph.DefaultRunner())
 			for _, line := range res.Lines {
 				fmt.Println(line)

@@ -514,7 +514,7 @@ The hard part of an existing project is not writing new code; it is helping the 
 2. No `.codegraph/` in the project — build the graph;
 3. Wire the queries into the platforms selected in this init (MCP where the platform supports it, equivalent CLI queries elsewhere).
 
-Any failed step only warns and prints the manual command; it never blocks init. To opt out: `sunshine init --no-codegraph`, or set `SUNSHINE_NO_CODEGRAPH=1`.
+Any failed step only warns and prints the manual command; it never blocks init. To opt out: `sunshine init --no-codegraph`, or set `SUNSHINE_NO_CODEGRAPH=1`. Installing the tool and building the graph can take a few minutes, and the terminal prints a progress line before each step; if you do not want to wait, Ctrl+C cancels only the code map part — the rest of init still completes, and you can fill the gap later with `sunshine codegraph install`.
 
 **Manual trigger**: no need to wait for init — `sunshine codegraph install` installs the tool, wires it, and builds the graph at any time (manual runs are not gated on the existing-code check and re-wire on every run); `sunshine codegraph status` only reports state and changes nothing.
 

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"os/signal"
 	"path/filepath"
 	"strings"
 
@@ -344,10 +345,16 @@ func codegraphDisabled() bool {
 
 // provisionCodegraph 为存量项目供给 CodeGraph 代码地图并打印结果行，
 // 返回是否执行过外部动作。失败只体现在结果行里，绝不阻断 init。
+// 供给要跑最长数分钟的外部命令：进度提示在每步开始前先打印，
+// 并把 Ctrl+C 接成上下文取消——用户随时能退出这一段、init 干净收尾，
+// 而不是对着无输出的终端干等（2026-11-24 demo21 实测报障）。
 func provisionCodegraph(cwd string, legacy bool, selected []string, installedCount int) bool {
-	res := codegraph.Provision(context.Background(), codegraph.Options{
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+	defer stop()
+	res := codegraph.Provision(ctx, codegraph.Options{
 		Dir: cwd, Legacy: legacy, Disabled: codegraphDisabled(),
 		Platforms: selected, PlatformsInstalled: installedCount,
+		Progress: func(line string) { fmt.Println(line) },
 	}, codegraph.DefaultRunner())
 	for _, line := range res.Lines {
 		fmt.Println(line)

@@ -80,6 +80,8 @@ type fakeRunner struct {
 	graphAt string            // Provision 后应存在的图目录（由 init 动作创建）
 	calls   []string
 	failOn  string // 名字含该子串的 Run 返回错误
+	events  *[]string
+	onRun   func(call string)
 }
 
 func (f *fakeRunner) LookPath(name string) (string, bool) {
@@ -88,7 +90,14 @@ func (f *fakeRunner) LookPath(name string) (string, bool) {
 }
 
 func (f *fakeRunner) Run(_ context.Context, dir, name string, args ...string) (string, error) {
-	f.calls = append(f.calls, name+" "+strings.Join(args, " "))
+	call := name + " " + strings.Join(args, " ")
+	f.calls = append(f.calls, call)
+	if f.events != nil {
+		*f.events = append(*f.events, "R:"+call)
+	}
+	if f.onRun != nil {
+		f.onRun(call)
+	}
 	if f.failOn != "" && strings.Contains(name+" "+strings.Join(args, " "), f.failOn) {
 		return "", errors.New("boom")
 	}
@@ -219,5 +228,95 @@ func TestProvisionForceWires(t *testing.T) {
 	res := Provision(context.Background(), o, r)
 	if !res.Acted || len(r.calls) != 1 || !strings.Contains(r.calls[0], "install --target=claude,codex") {
 		t.Errorf("Force 应只接线一次: %+v calls=%v", res, r.calls)
+	}
+}
+
+// TestProvisionProgressBeforeSteps 每步开始前必须先有进度提示：
+// 提示与外部命令调用交错记录，断言每类命令之前都出现过对应提示。
+func TestProvisionProgressBeforeSteps(t *testing.T) {
+	dir := t.TempDir()
+	var events []string
+	r := &fakeRunner{
+		paths:   map[string]string{"sh": "/bin/sh"},
+		graphAt: filepath.Join(dir, ".codegraph"),
+		events:  &events,
+	}
+	o := legacyOpts(dir)
+	o.Progress = func(line string) { events = append(events, "P:"+line) }
+	res := Provision(context.Background(), o, r)
+	if !res.Acted {
+		t.Fatalf("应有动作: %+v", res)
+	}
+	sawInstallHint, sawWireHint, sawBuildHint := false, false, false
+	for _, ev := range events {
+		switch {
+		case strings.HasPrefix(ev, "P:") && strings.Contains(ev, "安装"):
+			sawInstallHint = true
+		case strings.HasPrefix(ev, "P:") && strings.Contains(ev, "接进所选平台"):
+			sawWireHint = true
+		case strings.HasPrefix(ev, "P:") && strings.Contains(ev, "建代码图谱"):
+			sawBuildHint = true
+		case strings.HasPrefix(ev, "R:") && strings.Contains(ev, "install.sh"):
+			if !sawInstallHint {
+				t.Errorf("跑安装脚本前应先出安装提示，事件序：%v", events)
+			}
+		case strings.HasPrefix(ev, "R:") && strings.Contains(ev, "install --target="):
+			if !sawWireHint {
+				t.Errorf("接线前应先出接线提示，事件序：%v", events)
+			}
+		case strings.HasPrefix(ev, "R:") && strings.Contains(ev, "init --yes"):
+			if !sawBuildHint {
+				t.Errorf("建图前应先出建图提示，事件序：%v", events)
+			}
+		}
+	}
+	if !sawInstallHint || !sawWireHint || !sawBuildHint {
+		t.Errorf("三步提示应齐全：install=%v wire=%v build=%v，事件：%v", sawInstallHint, sawWireHint, sawBuildHint, events)
+	}
+}
+
+// TestProvisionCancelAfterInstall 装工具途中被取消：不再接线、不建图，
+// 结果行里有取消说明。
+func TestProvisionCancelAfterInstall(t *testing.T) {
+	dir := t.TempDir()
+	ctx, cancel := context.WithCancel(context.Background())
+	r := &fakeRunner{
+		paths:   map[string]string{"sh": "/bin/sh"},
+		graphAt: filepath.Join(dir, ".codegraph"),
+		onRun: func(call string) {
+			if strings.Contains(call, "install.sh") {
+				cancel()
+			}
+		},
+	}
+	res := Provision(ctx, legacyOpts(dir), r)
+	if len(r.calls) != 1 {
+		t.Errorf("取消后应只跑过安装脚本，calls=%v", r.calls)
+	}
+	if !strings.Contains(strings.Join(res.Lines, ""), "已取消") {
+		t.Errorf("应给出取消行：%v", res.Lines)
+	}
+}
+
+// TestProvisionCancelDuringWire 接线途中被取消：不再建图。
+func TestProvisionCancelDuringWire(t *testing.T) {
+	dir := t.TempDir()
+	ctx, cancel := context.WithCancel(context.Background())
+	r := &fakeRunner{
+		paths:   map[string]string{"codegraph": "/bin/codegraph", "sh": "/bin/sh"},
+		graphAt: filepath.Join(dir, ".codegraph"),
+		onRun: func(call string) {
+			if strings.Contains(call, "install --target=") {
+				cancel()
+			}
+		},
+	}
+	res := Provision(ctx, legacyOpts(dir), r)
+	joined := strings.Join(r.calls, "\n")
+	if strings.Contains(joined, "init --yes") {
+		t.Errorf("取消后不应再建图：%v", r.calls)
+	}
+	if !strings.Contains(strings.Join(res.Lines, ""), "已取消") {
+		t.Errorf("应给出取消行：%v", res.Lines)
 	}
 }

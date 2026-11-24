@@ -4091,3 +4091,10 @@ Token 口径：OpenViking 分 L0 摘要（约 100 token/份）、L1 概览（约
 
 发布：远端主提交 9037077（tree 71e4365），tag 对象 58883b0，Release id 456292762；CI（tag 45323448518）、CI（main 45323417490）、发布（45323448533）三路 success，6 资产齐；发布包实测 version 0.5.54、upgrade --dry-run 已是最新，linux_amd64 sha256 993997c4。本地全量测试 23 包绿。本版无模板变更，已装项目 sunshine upgrade 即可，无需 update。
 发版：v0.5.54 已发布（Release id 456292762）。
+
+### v0.5.55（2026-11-24）
+
+用户在 Mac 实测 v0.5.53 自带下载跑通但很慢（截图 3.2/58.2MB），问能不能按 upgrade/update 的镜像方式下载。已实现：CodeGraph 版本解析与安装包下载都改走 internal/mirror 的通道候选（环境变量 SUNSHINE_DOWNLOAD_MIRROR → 直连 → 内置镜像 ghfast.top、gh-proxy.com），逐个试、首成即用，与 upgrade 的 getJSON 回退同口径；单通道最多 4 分钟，直连慢到下不完也切镜像，换通道时报一行原因。新增 TestSelfInstallMirrorFailover（解析与下载各失败一把、换通道装成）。沙箱实测两条内置镜像拉真实包：ghfast 19 秒、gh-proxy 10 秒装好 v1.6.4 并建图。教程（中英）与 init --help 同步。
+
+发布：远端主提交 b095d74，tag 对象 8d55d5c，Release id 456304326；CI（tag 45325667305）、CI（main 45325642534）、发布（45325667343）三路 success，6 资产齐；发布包实测 version 0.5.55、upgrade --dry-run 已是最新，linux_amd64 sha256 a84dd5e5。本地全量测试 23 包绿。本版无模板变更，已装项目 sunshine upgrade 即可，无需 update。
+发版：v0.5.55 已发布（Release id 456304326）。

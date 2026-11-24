@@ -1,5 +1,5 @@
 // Package cli 的 sunshine codegraph 命令：手动管理 CodeGraph 代码地图。
-// init 只对存量项目自动供给；本命令给用户一个随时手动触发的入口：
+// init 只对存量项目供给（装工具先经同意）；本命令给用户一个随时手动触发的入口：
 // install 装工具、接线、建图（缺什么补什么），status 只看状态不动手。
 package cli
 
@@ -25,7 +25,7 @@ func RegisterCodegraphCommand(root *cobra.Command) {
 供 agent 查“谁调用了这个函数、改一处波及哪里”。图由 CodeGraph 自己
 维护（文件变化自动同步），Sunshine 只负责装工具、接线和建图。
 
-sunshine init 只对存量项目自动供给；本命令可随时手动触发。
+sunshine init 只对存量项目供给（装工具先经同意）；本命令可随时手动触发。
 在非 Sunshine 项目目录里也能用（只建图，不接线）。`,
 	}
 
@@ -38,7 +38,7 @@ sunshine init 只对存量项目自动供给；本命令可随时手动触发。
   2. 把 CodeGraph 查询接进本项目已安装的 Sunshine 平台；
   3. 没有 .codegraph/ 时为当前项目建图。
 
-与 init 的自动供给不同，手动执行不受“存量项目”判定限制，
+与 init 的供给不同，手动执行不受“存量项目”判定限制、也不再询问，
 且每次都会重新接线。任何一步失败只提示并跳过，不影响其余步骤。
 SUNSHINE_NO_CODEGRAPH=1 时本命令同样停用。`,
 		Example: `  sunshine codegraph install`,
@@ -56,10 +56,10 @@ SUNSHINE_NO_CODEGRAPH=1 时本命令同样停用。`,
 			ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 			defer stop()
 			res := codegraph.Provision(ctx, codegraph.Options{
-				Dir: cwd, Legacy: true, Force: true,
+				Dir: cwd, Legacy: true, Force: true, AllowInstall: true,
 				Platforms: platforms, PlatformsInstalled: len(platforms),
 				Progress: func(line string) { fmt.Println(line) },
-			}, codegraph.DefaultRunner())
+			}, codegraph.StreamingRunner(os.Stdout))
 			for _, line := range res.Lines {
 				fmt.Println(line)
 			}
@@ -89,9 +89,9 @@ SUNSHINE_NO_CODEGRAPH=1 时本命令同样停用。`,
 				fmt.Println("  项目图：未建（运行 sunshine codegraph install 建图）")
 			}
 			if codegraph.HasExistingCode(cwd) {
-				fmt.Println("  存量代码：检测到（init 会自动供给）")
+				fmt.Println("  存量代码：检测到（init 会供给代码地图，未装工具时先问）")
 			} else {
-				fmt.Println("  存量代码：未检测到（init 不自动供给，手动 install 不受此限）")
+				fmt.Println("  存量代码：未检测到（init 不供给，手动 install 不受此限）")
 			}
 			platforms := installedPlatformIDs(cwd)
 			if targets := codegraph.TargetsFor(platforms); len(targets) > 0 {

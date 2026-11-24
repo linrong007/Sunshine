@@ -510,11 +510,11 @@ The hard part of an existing project is not writing new code; it is helping the 
 
 **When it is installed**: only when `sunshine init` finds existing code in the project; a brand-new project gets neither the tool nor a graph. Each of the three layers fills in only what is missing:
 
-1. No CodeGraph on the machine — install it with its official script (onto your machine, not into Sunshine's packages);
-2. No `.codegraph/` in the project — build the graph;
+1. No CodeGraph on the machine — installing a tool touches your machine and the network, so init never does it unasked: interactive mode asks first and installs with the official script only if you agree (onto your machine, not into Sunshine's packages); with `-y` or a non-interactive terminal it does not install at all and just prints a hint to run `sunshine codegraph install` later;
+2. Tool present but no `.codegraph/` in the project — build the graph (it only writes inside the project and can be deleted any time);
 3. Wire the queries into the platforms selected in this init (MCP where the platform supports it, equivalent CLI queries elsewhere).
 
-Any failed step only warns and prints the manual command; it never blocks init. To opt out: `sunshine init --no-codegraph`, or set `SUNSHINE_NO_CODEGRAPH=1`. Installing the tool and building the graph can take a few minutes, and the terminal prints a progress line before each step; if you do not want to wait, Ctrl+C cancels only the code map part — the rest of init still completes, and you can fill the gap later with `sunshine codegraph install`.
+Any failed step only warns and prints the manual command; it never blocks init. To opt out: `sunshine init --no-codegraph`, or set `SUNSHINE_NO_CODEGRAPH=1`. Installing the tool and building the graph can take a few minutes; the terminal prints a progress line before each step, and the install script's and CodeGraph's own output streams to the terminal live, so you can watch how far the install and the graph build have got. If you do not want to wait, Ctrl+C cancels only the code map part — the rest of init still completes, and you can fill the gap later with `sunshine codegraph install`.
 
 **Manual trigger**: no need to wait for init — `sunshine codegraph install` installs the tool, wires it, and builds the graph at any time (manual runs are not gated on the existing-code check and re-wire on every run); `sunshine codegraph status` only reports state and changes nothing.
 
@@ -529,7 +529,7 @@ $ sunshine codegraph status
 代码地图（CodeGraph）状态：
   工具：已安装（/usr/bin/codegraph）
   项目图：已建（.codegraph/）
-  存量代码：检测到（init 会自动供给）
+  存量代码：检测到（init 会供给代码地图，未装工具时先问）
   已装平台：无（非 Sunshine 项目或尚未 init）
 ```
 
@@ -968,7 +968,7 @@ This case runs the whole development-first flow: questions (answers recorded on 
 
 This admin system is already live, written by someone else, and you have just taken it over. Products, Orders, Inventory, and Customers all have pages and APIs; the trouble is that the conventions were never written down: two are in the README, some lived only in the original author's head, and the rest are in the code. Adopting an existing project runs in reverse — do not touch features first; land the conventions in the spec first, or the agent can only guess when it writes new code. And do not reverse the order either: init first, then speak in the agent UI; state a requirement before init and the agent has no workflow to follow.
 
-**Step one: init — put the skeleton in.** Run `sunshine init` once in the project directory (in a terminal, or have the agent run it): it only adds files and does not change a single line of existing code. It recognizes a full-stack project (pages and APIs both), generates the three spec templates, and — because the project already has code — also installs CodeGraph and builds the graph (`.codegraph/`), which the digging below will use. The acceptance check is one line: `git status` shows only additions, no modified old files:
+**Step one: init — put the skeleton in.** Run `sunshine init` once in the project directory (in a terminal, or have the agent run it): it only adds files and does not change a single line of existing code. It recognizes a full-stack project (pages and APIs both), generates the three spec templates, and — because the project already has code — the terminal also asks whether to install CodeGraph; on a yes it installs the tool and builds the graph (`.codegraph/`), which the digging below will use. The acceptance check is one line: `git status` shows only additions, no modified old files:
 
 ```text
 ?? .claude/
@@ -1325,5 +1325,5 @@ sunshine platforms
 | Multi-agent work | `sunshine channel list` / `sunshine channel messages <name>` | Inspect channels and their event timelines ([section 7](#7-multi-agent-collaboration)) |
 | Update the CLI itself | `sunshine upgrade --dry-run` (drop `--dry-run` to apply) | Upgrade the `sunshine` binary ([section 8](#8-maintenance-update-and-upgrade)) |
 | See what is configured | `sunshine platforms` | Show the platforms configured for this project |
-| Install / build the code map manually | `sunshine codegraph install` / `sunshine codegraph status` | init provisions CodeGraph only for existing projects; a manual run is not gated on that check and re-wires on every run |
+| Install / build the code map manually | `sunshine codegraph install` / `sunshine codegraph status` | init provisions CodeGraph only for existing projects (installing the tool asks first); a manual run is not gated on that check and re-wires on every run |
 | Remove Sunshine from a project | `sunshine uninstall` / `sunshine ablate` / `sunshine restore` | Delete all Sunshine files, temporarily remove them (reversible), or restore exactly what `ablate` saved |

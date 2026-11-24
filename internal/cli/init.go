@@ -110,9 +110,11 @@ GitHub Copilot、Factory Droid）。
 不动已有平台文件与 .sunshine/ 骨架。
 
 存量项目（目录里已有代码）还会顺带供给 CodeGraph 代码地图：
-机器上没装 CodeGraph 就用官方脚本装上，项目里没建图就建图，
-并把查询接进所选平台；三层都是缺什么补什么、在就不动，
-任何一步失败都只警告不阻断 init。--no-codegraph 可整体跳过。
+机器上没装 CodeGraph 时，交互模式先问一句、同意才用官方脚本装
+（-y 与非交互不自动装，只提示手动运行 sunshine codegraph install）；
+工具已装的前提下，项目里没建图就建图，并把查询接进所选平台；
+三层都是缺什么补什么、在就不动，任何一步失败都只警告不阻断
+init。--no-codegraph 可整体跳过。
 
 --registry 从模板市场安装规范模板：
   - 有 index.json 的来源是模板市场；市场里恰好一个 spec 模板时
@@ -343,19 +345,52 @@ func codegraphDisabled() bool {
 	return false
 }
 
+// promptInstallCodegraph 追问是否现在安装 CodeGraph 工具（默认实现用 survey；
+// 测试可替换）。默认 No：装工具是走网络、改机器的全局动作，不明确同意不装。
+var promptInstallCodegraph = func() (bool, error) {
+	var answer bool
+	err := survey.AskOne(&survey.Confirm{
+		Message: "检测到存量项目，本机还没有 CodeGraph（查代码调用关系的代码地图工具）。现在用官方脚本安装，并为本项目建图吗？",
+		Default: false,
+	}, &answer)
+	return answer, err
+}
+
+// codegraphInstallConsent 决定本次 init 能否安装 CodeGraph 工具本体：
+// 用不上装（非存量 / 已禁用 / 工具已在）时无所谓同意；需要装时只有
+// 交互模式问过用户才算同意，-y 与非交互永远不自动装（只出提示行）。
+// 提问出错（如在提问处 Ctrl+C）按不同意处理，init 其余照常完成。
+func codegraphInstallConsent(needsInstall, yes, isTTY bool, ask func() (bool, error)) bool {
+	if !needsInstall {
+		return false
+	}
+	if yes || !isTTY {
+		return false
+	}
+	ok, err := ask()
+	return err == nil && ok
+}
+
 // provisionCodegraph 为存量项目供给 CodeGraph 代码地图并打印结果行，
 // 返回是否执行过外部动作。失败只体现在结果行里，绝不阻断 init。
 // 供给要跑最长数分钟的外部命令：进度提示在每步开始前先打印，
 // 并把 Ctrl+C 接成上下文取消——用户随时能退出这一段、init 干净收尾，
 // 而不是对着无输出的终端干等（2026-11-24 demo21 实测报障）。
+// 装工具本体须先有同意（见 codegraphInstallConsent），建图与接线
+// 只写项目内和平台配置、照旧自动。
 func provisionCodegraph(cwd string, legacy bool, selected []string, installedCount int) bool {
+	_, cliPresent := codegraph.DefaultRunner().LookPath("codegraph")
+	allowInstall := codegraphInstallConsent(
+		legacy && !codegraphDisabled() && !cliPresent,
+		initYes, stdinIsTTY(), promptInstallCodegraph)
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()
 	res := codegraph.Provision(ctx, codegraph.Options{
 		Dir: cwd, Legacy: legacy, Disabled: codegraphDisabled(),
 		Platforms: selected, PlatformsInstalled: installedCount,
-		Progress: func(line string) { fmt.Println(line) },
-	}, codegraph.DefaultRunner())
+		AllowInstall: allowInstall,
+		Progress:     func(line string) { fmt.Println(line) },
+	}, codegraph.StreamingRunner(os.Stdout))
 	for _, line := range res.Lines {
 		fmt.Println(line)
 	}

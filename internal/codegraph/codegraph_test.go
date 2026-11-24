@@ -1,10 +1,12 @@
 package codegraph
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -115,7 +117,7 @@ func (f *fakeRunner) Run(_ context.Context, dir, name string, args ...string) (s
 }
 
 func legacyOpts(dir string) Options {
-	return Options{Dir: dir, Legacy: true, Platforms: []string{"claude-code", "codex"}}
+	return Options{Dir: dir, Legacy: true, AllowInstall: true, Platforms: []string{"claude-code", "codex"}}
 }
 
 func TestProvisionNotApplicable(t *testing.T) {
@@ -318,5 +320,77 @@ func TestProvisionCancelDuringWire(t *testing.T) {
 	}
 	if !strings.Contains(strings.Join(res.Lines, ""), "已取消") {
 		t.Errorf("应给出取消行：%v", res.Lines)
+	}
+}
+
+// TestStreamingRunnerPassesOutputThrough 流式 Runner 把子进程的
+// stdout 与 stderr 都实时直通给定的写入端，返回值不再带输出。
+func TestStreamingRunnerPassesOutputThrough(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("用 sh 模拟子进程，Windows 跳过")
+	}
+	var buf bytes.Buffer
+	out, err := StreamingRunner(&buf).Run(context.Background(), t.TempDir(), "sh", "-c", "echo out-line; echo err-line 1>&2")
+	if err != nil {
+		t.Fatalf("Run 出错：%v", err)
+	}
+	if out != "" {
+		t.Errorf("流式模式返回值应为空，实际 %q", out)
+	}
+	if !strings.Contains(buf.String(), "out-line") || !strings.Contains(buf.String(), "err-line") {
+		t.Errorf("stdout/stderr 都应直通，实际 %q", buf.String())
+	}
+}
+
+// TestDefaultRunnerCaptures 默认 Runner 仍捕获输出、不直通。
+func TestDefaultRunnerCaptures(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("用 sh 模拟子进程，Windows 跳过")
+	}
+	out, err := DefaultRunner().Run(context.Background(), t.TempDir(), "sh", "-c", "echo captured-line")
+	if err != nil {
+		t.Fatalf("Run 出错：%v", err)
+	}
+	if !strings.Contains(out, "captured-line") {
+		t.Errorf("默认模式应返回捕获的输出，实际 %q", out)
+	}
+}
+
+// TestProvisionNoConsentNoInstall 未同意装工具时：零外部调用、
+// 不动手，只留一行指向手动命令的提示（A 方案）。
+func TestProvisionNoConsentNoInstall(t *testing.T) {
+	dir := t.TempDir()
+	r := &fakeRunner{paths: map[string]string{"sh": "/bin/sh"}}
+	o := legacyOpts(dir)
+	o.AllowInstall = false
+	res := Provision(context.Background(), o, r)
+	if len(r.calls) != 0 {
+		t.Errorf("未同意不应跑任何外部命令，calls=%v", r.calls)
+	}
+	if res.Acted {
+		t.Error("未同意不应有动作")
+	}
+	if !strings.Contains(strings.Join(res.Lines, ""), "sunshine codegraph install") {
+		t.Errorf("应给出手动安装提示行：%v", res.Lines)
+	}
+}
+
+// TestProvisionBuildWithoutInstallConsent 工具已装时建图与接线
+// 不受装工具同意限制，照旧自动（只写项目内与平台配置）。
+func TestProvisionBuildWithoutInstallConsent(t *testing.T) {
+	dir := t.TempDir()
+	r := &fakeRunner{
+		paths:   map[string]string{"codegraph": "/bin/codegraph", "sh": "/bin/sh"},
+		graphAt: filepath.Join(dir, ".codegraph"),
+	}
+	o := legacyOpts(dir)
+	o.AllowInstall = false
+	res := Provision(context.Background(), o, r)
+	joined := strings.Join(r.calls, "\n")
+	if !strings.Contains(joined, "install --target=") || !strings.Contains(joined, "init --yes") {
+		t.Errorf("工具已装时应自动接线并建图：%v", r.calls)
+	}
+	if !res.Acted {
+		t.Error("应有动作")
 	}
 }

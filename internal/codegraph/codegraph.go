@@ -6,6 +6,7 @@ package codegraph
 
 import (
 	"context"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -20,19 +21,35 @@ type Runner interface {
 	Run(ctx context.Context, dir, name string, args ...string) (string, error)
 }
 
-type execRunner struct{}
+type execRunner struct {
+	// live 非 nil 时子进程输出直通该写入端（实时可见），
+	// 否则捕获后返回（静默，调用方通常直接丢弃）。
+	live io.Writer
+}
 
-// DefaultRunner 返回真实执行外部命令的 Runner。
+// DefaultRunner 返回真实执行外部命令的 Runner（输出捕获、不直通）。
 func DefaultRunner() Runner { return execRunner{} }
+
+// StreamingRunner 返回输出直通 w 的 Runner：装工具、建图这类
+// 可能跑几分钟的外部命令，把子进程自己的进度（下载、索引文件数）
+// 实时打到终端上，用户能看见它在动，而不是只等一句开始提示
+// （2026-11-24 用户在 Mac 实测 v0.5.51 后追问「能不能看安装的进度」）。
+func StreamingRunner(w io.Writer) Runner { return execRunner{live: w} }
 
 func (execRunner) LookPath(name string) (string, bool) {
 	p, err := exec.LookPath(name)
 	return p, err == nil
 }
 
-func (execRunner) Run(ctx context.Context, dir, name string, args ...string) (string, error) {
+func (r execRunner) Run(ctx context.Context, dir, name string, args ...string) (string, error) {
 	cmd := exec.CommandContext(ctx, name, args...)
 	cmd.Dir = dir
+	if r.live != nil {
+		cmd.Stdout = r.live
+		cmd.Stderr = r.live
+		err := cmd.Run()
+		return "", err
+	}
 	out, err := cmd.CombinedOutput()
 	return string(out), err
 }
@@ -150,6 +167,12 @@ type Options struct {
 	Platforms          []string // 本次 init 选中的 Sunshine 平台 ID
 	PlatformsInstalled int      // 本次 init 实际新装的平台数
 	Force              bool     // 手动触发（sunshine codegraph install）：无条件接线
+	// AllowInstall 是否允许在本机安装 CodeGraph 工具本体。装工具是
+	// 走网络、改用户机器的全局动作，必须有明确同意才做：手动命令
+	// 本身即同意；init 由调用方在交互模式问过用户后传入，-y 与
+	// 非交互一律 false（只提示不装）。建图与接线只写项目内与平台
+	// 配置，不在此限、照旧自动（2026-11-24 用户点选 A 方案）。
+	AllowInstall bool
 	// Progress 在每个耗时步骤开始前收到一行进度提示（可为 nil）。
 	// 供给全程要跑外部命令（装工具最长 5 分钟、建图最长 10 分钟），
 	// 结果行只在全部结束后才汇总返回；没有这条预告，用户只会看到
@@ -196,6 +219,10 @@ func Provision(ctx context.Context, opts Options, r Runner) Result {
 	graphOK := dirExists(filepath.Join(opts.Dir, ".codegraph"))
 
 	installedCLI := false
+	if !cliOK && !opts.AllowInstall {
+		res.Lines = append(res.Lines, "  ○ 代码地图：本机未装 CodeGraph，已跳过（要装请运行 sunshine codegraph install）")
+		return res
+	}
 	if !cliOK {
 		progress("  … 代码地图：本机还没有 CodeGraph，正在用官方脚本安装（可能要几分钟；按 Ctrl+C 可取消，取消不影响 init 其余结果）……")
 		if p, ok := installCLI(ctx, opts.Dir, r); ok {

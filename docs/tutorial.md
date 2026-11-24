@@ -464,11 +464,11 @@ agent 先读现有的 spec 树（全是模板），再分析仓库：顶层结�
 
 **什么时候装**：`sunshine init` 时项目里已经有代码才会触发，纯新建项目不装不建。三层都是缺什么补什么、装过建过的都不动：
 
-1. 机器上没有 CodeGraph，用它的官方脚本装上（装到你的机器上，不进 Sunshine 的安装包）；
-2. 项目里没有 `.codegraph/`，就建图；
+1. 机器上没有 CodeGraph：装工具是走网络、动你机器的事，init 不擅自做——交互模式会先问一句，你同意才用官方脚本装上（装到你的机器上，不进 Sunshine 的安装包）；带 `-y` 或非交互时不自动装，只留一行提示，让你之后跑 `sunshine codegraph install`；
+2. 工具已装、项目里没有 `.codegraph/`，就建图（只写项目里，可随时删）；
 3. 把查询接进这次选的平台（支持的平台走 MCP，其余平台用等价的命令行查询）。
 
-任何一步失败都只警告并给出手动命令，不挡 init。想关掉：`sunshine init --no-codegraph`，或设环境变量 `SUNSHINE_NO_CODEGRAPH=1`。装工具、建图可能要几分钟，每步开始前终端会先出进度提示；等不及按 Ctrl+C 只取消代码地图这一段，init 其余照常完成，之后跑 `sunshine codegraph install` 补上即可。
+任何一步失败都只警告并给出手动命令，不挡 init。想关掉：`sunshine init --no-codegraph`，或设环境变量 `SUNSHINE_NO_CODEGRAPH=1`。装工具、建图可能要几分钟，每步开始前终端会先出进度提示，安装脚本和 CodeGraph 自己的输出也会实时打在终端上，能看见装到哪、图建到哪；等不及按 Ctrl+C 只取消代码地图这一段，init 其余照常完成，之后跑 `sunshine codegraph install` 补上即可。
 
 **手动触发**：不用等 init——`sunshine codegraph install` 随时可装工具、接线、建图（手动执行不受存量判定限制，每次都会重新接线），`sunshine codegraph status` 只看状态不动手。
 
@@ -483,7 +483,7 @@ $ sunshine codegraph status
 代码地图（CodeGraph）状态：
   工具：已安装（/usr/bin/codegraph）
   项目图：已建（.codegraph/）
-  存量代码：检测到（init 会自动供给）
+  存量代码：检测到（init 会供给代码地图，未装工具时先问）
   已装平台：无（非 Sunshine 项目或尚未 init）
 ```
 
@@ -887,7 +887,7 @@ sunshine upgrade --dry-run
 
 这个后台已经在跑了，别人写的，你刚接手。商品、订单、库存、客户四个模块都有页面和接口；麻烦的是约定没落过盘：README 里记了两条，有的只在原作者脑子里，剩下的全在代码里。存量项目接入的顺序是反的——先别碰功能，先把约定落进 spec，不然 agent 写新代码只能靠猜。顺序也别弄反：先 init，再进 agent 界面说话；没 init 就提需求，agent 手里没有工作流可跟。
 
-**第一步：init，先把骨架装上。** 在项目目录里跑一次 `sunshine init`（终端里跑，或让 agent 帮你跑）：只加文件，不动一行旧代码。它认出这是全栈项目（有页面也有接口），三份 spec 先生成模板；因为项目里已经有代码，还顺带把 CodeGraph 装好、图建好（`.codegraph/`），后面挖约定要用。验收就一条——`git status` 里只有新增，没有被改过的旧文件：
+**第一步：init，先把骨架装上。** 在项目目录里跑一次 `sunshine init`（终端里跑，或让 agent 帮你跑）：只加文件，不动一行旧代码。它认出这是全栈项目（有页面也有接口），三份 spec 先生成模板；因为项目里已经有代码，终端里还会问一句要不要装 CodeGraph，同意后装好、图建好（`.codegraph/`），后面挖约定要用。验收就一条——`git status` 里只有新增，没有被改过的旧文件：
 
 ```text
 ?? .claude/
@@ -1224,6 +1224,6 @@ init 生成了 115 个文件（不含 `.git`），其中给 agent 读的是这�
 | 看 channel | `sunshine channel list` / `sunshine channel messages <名字>` | 事件时间线；`wait` 等某个 worker 的 `done` 事件 |
 | 升级 CLI 自身 | `sunshine upgrade --dry-run` / `sunshine upgrade` | 与 `update`（更新项目模板文件）是两回事 |
 | 看已配置平台 | `sunshine platforms` | 按哈希清单判断，避免误判原生平台目录 |
-| 手动装 / 建代码地图 | `sunshine codegraph install` / `sunshine codegraph status` | init 只对存量项目自动供给；手动触发不受存量判定限制，install 每次都会重新接线 |
+| 手动装 / 建代码地图 | `sunshine codegraph install` / `sunshine codegraph status` | init 只对存量项目供给（装工具先经同意）；手动触发不受存量判定限制，install 每次都会重新接线 |
 | 临时移除全部 Sunshine 表面（可逆） | `sunshine ablate` / `sunshine restore` | 切除内容存入项目外的恢复事务，`restore` 精确恢复 |
 | 删除项目内全部 Sunshine 文件 | `sunshine uninstall` | 只删哈希清单列出的托管内容，再移除整个 `.sunshine/` |

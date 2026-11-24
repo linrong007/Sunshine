@@ -163,7 +163,7 @@ func TargetsFor(platformIDs []string) []string {
 // Options 是 Provision 的输入。
 type Options struct {
 	Dir                string   // 项目目录
-	Legacy             bool     // 存量项目（init 写文件之前判定）
+	Legacy             bool     // 存量项目（init 写文件之前判定）；只决定建图与接线，装工具对新老项目一视同仁
 	Disabled           bool     // --no-codegraph 或 SUNSHINE_NO_CODEGRAPH
 	Platforms          []string // 本次 init 选中的 Sunshine 平台 ID
 	PlatformsInstalled int      // 本次 init 实际新装的平台数
@@ -198,17 +198,17 @@ type Result struct {
 const cancelledLine = "  ○ 代码地图：已取消，跳过（之后可运行 sunshine codegraph install 补上）"
 
 // Provision 按“缺什么补什么”供给 CodeGraph：
-// 工具缺了装、项目图缺了建、接线只在刚装工具 / 刚建图 / 本次新装平台时补。
+// 工具是整台机器一次性的事，任何项目（新 / 存量）缺工具都先处理装工具；
+// 项目图与接线只对存量项目（已有代码）做，新项目等有代码后下次 init 再补。
 // 任何一步失败都只记警告行并体面收尾，绝不返回错误。
 // ctx 被取消（如调用方接了 Ctrl+C 信号）时，正在跑的外部命令会被
 // CommandContext 杀掉，本函数在下一步开始前收尾返回取消行，
 // 不让用户只能强杀终端、还看不到卡在哪一步。
 func Provision(ctx context.Context, opts Options, r Runner) Result {
 	var res Result
-	if !opts.Legacy || opts.Disabled {
+	if opts.Disabled {
 		return res
 	}
-	res.Applicable = true
 	progress := func(line string) {
 		if opts.Progress != nil {
 			opts.Progress(line)
@@ -222,17 +222,17 @@ func Provision(ctx context.Context, opts Options, r Runner) Result {
 		return false
 	}
 
-	bin, cliOK := r.LookPath("codegraph")
-	graphOK := dirExists(filepath.Join(opts.Dir, ".codegraph"))
+	bin, cliOK := findInstalled(r)
 
 	installedCLI := false
-	if !cliOK && !opts.AllowInstall {
-		if !opts.InstallDeclined {
-			res.Lines = append(res.Lines, "  ○ 代码地图：本机未装 CodeGraph，已跳过（要装请运行 sunshine codegraph install）")
-		}
-		return res
-	}
 	if !cliOK {
+		res.Applicable = true
+		if !opts.AllowInstall {
+			if !opts.InstallDeclined {
+				res.Lines = append(res.Lines, "  ○ 代码地图：本机未装 CodeGraph，已跳过（要装请运行 sunshine codegraph install）")
+			}
+			return res
+		}
 		progress("  … 代码地图：本机还没有 CodeGraph，正在下载安装（下载带进度显示；按 Ctrl+C 可取消，取消不影响 init 其余结果）……")
 		// 先走自带安装：下载带真实进度；走不通再回退官方脚本、npm。
 		var selfErr error
@@ -263,11 +263,21 @@ func Provision(ctx context.Context, opts Options, r Runner) Result {
 			return res
 		}
 		res.Acted = true
+		if !opts.Legacy {
+			// 新项目没代码可建图：只装工具，图等有代码后下次 init 自动补。
+			res.Lines = append(res.Lines, "  ✓ 代码地图：已安装 CodeGraph（本项目有代码后，重跑 init 会自动建图）")
+			return res
+		}
 		res.Lines = append(res.Lines, "  ✓ 代码地图：已安装 CodeGraph")
 	}
+	if !opts.Legacy {
+		return res
+	}
+	res.Applicable = true
 	if cancelled() {
 		return res
 	}
+	graphOK := dirExists(filepath.Join(opts.Dir, ".codegraph"))
 
 	needWire := opts.Force || installedCLI || !graphOK || opts.PlatformsInstalled > 0
 	if targets := TargetsFor(opts.Platforms); len(targets) > 0 && needWire {
@@ -309,6 +319,14 @@ func Provision(ctx context.Context, opts Options, r Runner) Result {
 		res.Lines = append(res.Lines, "  ○ 代码地图（CodeGraph）已就绪，跳过")
 	}
 	return res
+}
+
+// InstalledPath 是判定「CodeGraph 工具是否已装」的唯一口径：
+// PATH 里找不到不等于没装——安装位置 ~/.local/bin 常不在当前进程的
+// PATH 里（GUI 启动的终端、agent 拉起的 shell 都可能缺），只看 PATH
+// 会把已装误判成没装、反复发问重装。所有判定点都走这里。
+func InstalledPath(r Runner) (string, bool) {
+	return findInstalled(r)
 }
 
 // findInstalled 在 PATH 与常见安装位置里找已装好的 codegraph 二进制。

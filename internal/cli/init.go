@@ -110,12 +110,13 @@ GitHub Copilot、Factory Droid）。
 重复执行 init 时进入增量模式：只追加新选的平台，
 不动已有平台文件与 .sunshine/ 骨架。
 
-存量项目（目录里已有代码）还会顺带供给 CodeGraph 代码地图：
-机器上没装 CodeGraph 时，交互模式先问一句（只问一次，拒绝会
-记进 .sunshine/config.yaml、之后不再问），同意才下载安装
-（Sunshine 自带下载、带进度，失败回退官方脚本；-y 与非交互
-不自动装，只提示手动运行 sunshine codegraph install）；
-工具已装的前提下，项目里没建图就建图，并把查询接进所选平台；
+还会顺带供给 CodeGraph 代码地图（装工具是整台机器一次性的事，
+新老项目一视同仁）：机器上没装 CodeGraph 时，交互模式先问一句
+（只问一次，拒绝会记进 .sunshine/config.yaml、之后不再问），
+同意才下载安装（Sunshine 自带下载、带进度，失败回退官方脚本；
+-y 与非交互不自动装，只提示手动运行 sunshine codegraph install）。
+新项目没代码，只装工具不建图；存量项目（目录里已有代码）在工具
+已装的前提下，项目里没建图就建图，并把查询接进所选平台；
 三层都是缺什么补什么、在就不动，任何一步失败都只警告不阻断
 init。--no-codegraph 可整体跳过。
 
@@ -375,9 +376,11 @@ func codegraphShouldAsk(needsInstall, declined, yes, isTTY bool) bool {
 // 装工具本体须先有同意（见 codegraphInstallConsent），建图与接线
 // 只写项目内和平台配置、照旧自动。
 func provisionCodegraph(cwd string, legacy bool, selected []string, installedCount int) bool {
-	_, cliPresent := codegraph.DefaultRunner().LookPath("codegraph")
+	_, cliPresent := codegraph.InstalledPath(codegraph.DefaultRunner())
 	declined := config.CodegraphDeclined(cwd)
-	needsInstall := legacy && !codegraphDisabled() && !cliPresent
+	// 装工具是整台机器一次性的事：新老项目缺工具都问（只问一次），
+	// 不等项目变存量才问、免得用户日后还要手动补装或重跑 init。
+	needsInstall := !codegraphDisabled() && !cliPresent
 	allowInstall := false
 	if codegraphShouldAsk(needsInstall, declined, initYes, stdinIsTTY()) {
 		if ok, err := promptInstallCodegraph(); err == nil {

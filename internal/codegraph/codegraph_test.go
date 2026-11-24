@@ -123,13 +123,73 @@ func legacyOpts(dir string) Options {
 
 func TestProvisionNotApplicable(t *testing.T) {
 	r := &fakeRunner{}
-	if res := Provision(context.Background(), Options{Dir: t.TempDir()}, r); res.Applicable || len(r.calls) != 0 {
-		t.Errorf("非存量不应供给: %+v calls=%v", res, r.calls)
-	}
 	o := legacyOpts(t.TempDir())
 	o.Disabled = true
 	if res := Provision(context.Background(), o, r); res.Applicable || len(r.calls) != 0 {
 		t.Errorf("禁用时不应供给: %+v calls=%v", res, r.calls)
+	}
+	// 工具已在 + 新项目：无事可做（图等有代码后再说）。
+	r2 := &fakeRunner{paths: map[string]string{"codegraph": "/bin/codegraph"}}
+	if res := Provision(context.Background(), Options{Dir: t.TempDir()}, r2); res.Applicable || len(r2.calls) != 0 || len(res.Lines) != 0 {
+		t.Errorf("工具已在的新项目应零动作: %+v calls=%v", res, r2.calls)
+	}
+}
+
+// TestProvisionFindsToolOutsidePATH 工具装在 ~/.local/bin 但不在 PATH 里时
+// 必须认出已装：只看 PATH 会误判没装、每次 init 重问重下（真实报障）。
+func TestProvisionFindsToolOutsidePATH(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	binDir := filepath.Join(home, ".local", "bin")
+	if err := os.MkdirAll(binDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(binDir, "codegraph"), []byte("#!/bin/sh\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	// 存量项目、图已在、接线按 PlatformsInstalled=0/Force=false 不触发：
+	// 认出已装就应是“已就绪跳过”，而不是走安装问询路径留提示行。
+	dir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(dir, ".codegraph"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	r := &fakeRunner{paths: map[string]string{}} // PATH 里没有 codegraph
+	res := Provision(context.Background(), legacyOpts(dir), r)
+	joined := strings.Join(res.Lines, "")
+	if strings.Contains(joined, "未装") || strings.Contains(joined, "安装失败") {
+		t.Errorf("PATH 外的已装工具被误判：%v", res.Lines)
+	}
+	if len(r.calls) != 0 {
+		t.Errorf("已装已建图不应有外部调用：%v", r.calls)
+	}
+}
+
+// TestProvisionNewProjectInstallsToolOnly 新项目同意装工具时只装工具：
+// 不接线、不建图（没代码可建），留一行说明图等有代码后自动补。
+func TestProvisionNewProjectInstallsToolOnly(t *testing.T) {
+	dir := t.TempDir()
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	old := selfInstallImpl
+	defer func() { selfInstallImpl = old }()
+	selfInstallImpl = func(context.Context, io.Writer) error {
+		binDir := filepath.Join(home, ".local", "bin")
+		if err := os.MkdirAll(binDir, 0o755); err != nil {
+			return err
+		}
+		return os.WriteFile(filepath.Join(binDir, "codegraph"), []byte("#!/bin/sh\n"), 0o755)
+	}
+	r := &fakeRunner{paths: map[string]string{"sh": "/bin/sh"}}
+	o := Options{Dir: dir, Legacy: false, AllowInstall: true, Platforms: []string{"claude-code"}}
+	res := Provision(context.Background(), o, r)
+	if len(r.calls) != 0 {
+		t.Errorf("新项目装完工具不应接线/建图：%v", r.calls)
+	}
+	if !res.Acted {
+		t.Error("装工具应算动作")
+	}
+	if !strings.Contains(strings.Join(res.Lines, ""), "有代码后") {
+		t.Errorf("应说明图等有代码后自动补：%v", res.Lines)
 	}
 }
 

@@ -1,5 +1,5 @@
 // Package cli 的 sunshine codegraph 命令：手动管理 CodeGraph 代码地图。
-// init 只对存量项目供给（装工具先经同意）；本命令给用户一个随时手动触发的入口：
+// init 首次会问是否装工具、只有存量项目才建图；本命令给用户一个随时手动触发的入口：
 // install 装工具、接线、建图（缺什么补什么），status 只看状态不动手。
 package cli
 
@@ -26,7 +26,7 @@ func RegisterCodegraphCommand(root *cobra.Command) {
 供 agent 查“谁调用了这个函数、改一处波及哪里”。图由 CodeGraph 自己
 维护（文件变化自动同步），Sunshine 只负责装工具、接线和建图。
 
-sunshine init 只对存量项目供给（装工具先经同意）；本命令可随时手动触发。
+sunshine init 首次会问是否装工具、只有存量项目才建图；本命令可随时手动触发。
 在非 Sunshine 项目目录里也能用（只建图，不接线）。`,
 	}
 
@@ -82,7 +82,7 @@ SUNSHINE_NO_CODEGRAPH=1 时本命令同样停用。`,
 				return err
 			}
 			fmt.Println("代码地图（CodeGraph）状态：")
-			if bin, ok := codegraph.DefaultRunner().LookPath("codegraph"); ok {
+			if bin, ok := codegraph.InstalledPath(codegraph.DefaultRunner()); ok {
 				fmt.Printf("  工具：已安装（%s）\n", bin)
 			} else {
 				fmt.Println("  工具：未安装（运行 sunshine codegraph install 安装）")
@@ -95,7 +95,7 @@ SUNSHINE_NO_CODEGRAPH=1 时本命令同样停用。`,
 			if codegraph.HasExistingCode(cwd) {
 				fmt.Println("  存量代码：检测到（init 会供给代码地图，未装工具时先问）")
 			} else {
-				fmt.Println("  存量代码：未检测到（init 不供给，手动 install 不受此限）")
+				fmt.Println("  存量代码：未检测到（init 不建图，手动 install 不受此限）")
 			}
 			platforms := installedPlatformIDs(cwd)
 			if targets := codegraph.TargetsFor(platforms); len(targets) > 0 {

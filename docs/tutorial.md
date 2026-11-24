@@ -462,15 +462,15 @@ agent 先读现有的 spec 树（全是模板），再分析仓库：顶层结�
 
 存量项目最难的不是写新代码，是让 agent 找准旧代码：一个函数被谁调用、改一处波及哪里，靠逐个文件翻既慢又容易漏。Sunshine 给存量项目借了一份现成的代码地图——CodeGraph（开源工具，把代码解析成符号与调用关系图；建图是确定性解析，不经大模型、不耗 token，文件改动后自动同步）。
 
-**什么时候装**：`sunshine init` 时项目里已经有代码才会触发，纯新建项目不装不建。三层都是缺什么补什么、装过建过的都不动：
+**什么时候装**：装工具是整台机器一次性的事，所以**任何项目第一次 `sunshine init` 都会问**，不分新老；建图只对已有代码的项目做。三层都是缺什么补什么、装过建过的都不动：
 
-1. 机器上没有 CodeGraph：装工具是走网络、动你机器的事，init 不擅自做——交互模式会先问一句（**只问一次**：你选不安，这个选择会记进 `.sunshine/config.yaml`，之后重跑 init 不再问；想装时随时跑 `sunshine codegraph install`）。同意后由 Sunshine 自己下载安装包（约 50MB，带百分比进度，装到你的机器上、不进 Sunshine 的安装包），下载走不通才回退官方脚本；带 `-y` 或非交互时不自动装，只留一行提示；
-2. 工具已装、项目里没有 `.codegraph/`，就建图（只写项目里，可随时删）；
+1. 机器上没有 CodeGraph：装工具是走网络、动你机器的事，init 不擅自做——交互模式会先问一句（**只问一次**：你选不安，这个选择会记进 `.sunshine/config.yaml`，之后重跑 init 不再问；想装时随时跑 `sunshine codegraph install`）。同意后由 Sunshine 自己下载安装包（约 58MB，带百分比进度，装到你的机器上、不进 Sunshine 的安装包），下载走不通才回退官方脚本；带 `-y` 或非交互时不自动装，只留一行提示。工具只要装过一次，之后任何项目都不再问；
+2. 项目里已经有代码、且没有 `.codegraph/`，就建图（只写项目里，可随时删）；纯新建项目没代码，这一步跳过，等有代码后重跑 init 自动补上；
 3. 把查询接进这次选的平台（支持的平台走 MCP，其余平台用等价的命令行查询）。
 
 任何一步失败都只警告并给出手动命令，不挡 init。想关掉：`sunshine init --no-codegraph`，或设环境变量 `SUNSHINE_NO_CODEGRAPH=1`。装工具、建图可能要几分钟：下载安装包时终端会实时显示百分比和 MB 数，建图时 CodeGraph 自己的输出也实时直通，能看见装到哪、图建到哪；等不及按 Ctrl+C 只取消代码地图这一段，init 其余照常完成，之后跑 `sunshine codegraph install` 补上即可。
 
-**`.codegraph/` 什么时候生成**：就在上面第 2 步——init 时工具已就位（本来就装了，或你刚同意装好）、项目里还没有 `.codegraph/`，当场建出来；手动跑 `sunshine codegraph install` 时同理。已经有了就不再重建，之后的增量同步由 CodeGraph 自己负责（文件改动后自动更新），Sunshine 不重复建图。想从零重建：删掉 `.codegraph/` 再跑一次 init 或 `sunshine codegraph install`。纯新建项目一开始没有代码、不建图；等写出代码后重跑一次 init（或手动 install），才会补上。
+**`.codegraph/` 什么时候生成**：就在上面第 2 步——init 时工具已就位（本来就装了，或你在第一次 init 时同意装好）、项目里已经有代码、还没有 `.codegraph/`，当场建出来；手动跑 `sunshine codegraph install` 时同理。已经有了就不再重建，之后的增量同步由 CodeGraph 自己负责（文件改动后自动更新），Sunshine 不重复建图。想从零重建：删掉 `.codegraph/` 再跑一次 init 或 `sunshine codegraph install`。纯新建项目一开始没有代码、不建图（工具会在第一次 init 时先问、先装好）；等写出代码后重跑一次 init，就会自动把图补上，全程不用手动敲命令。
 
 **手动触发**：不用等 init——`sunshine codegraph install` 随时可装工具、接线、建图（手动执行不受存量判定限制，每次都会重新接线），`sunshine codegraph status` 只看状态不动手。
 
@@ -1226,6 +1226,6 @@ init 生成了 115 个文件（不含 `.git`），其中给 agent 读的是这�
 | 看 channel | `sunshine channel list` / `sunshine channel messages <名字>` | 事件时间线；`wait` 等某个 worker 的 `done` 事件 |
 | 升级 CLI 自身 | `sunshine upgrade --dry-run` / `sunshine upgrade` | 与 `update`（更新项目模板文件）是两回事 |
 | 看已配置平台 | `sunshine platforms` | 按哈希清单判断，避免误判原生平台目录 |
-| 手动装 / 建代码地图 | `sunshine codegraph install` / `sunshine codegraph status` | init 只对存量项目供给（装工具先经同意）；手动触发不受存量判定限制，install 每次都会重新接线 |
+| 手动装 / 建代码地图 | `sunshine codegraph install` / `sunshine codegraph status` | init 首次问装工具、只有存量项目才建图；手动触发不受存量判定限制，install 每次都会重新接线 |
 | 临时移除全部 Sunshine 表面（可逆） | `sunshine ablate` / `sunshine restore` | 切除内容存入项目外的恢复事务，`restore` 精确恢复 |
 | 删除项目内全部 Sunshine 文件 | `sunshine uninstall` | 只删哈希清单列出的托管内容，再移除整个 `.sunshine/` |

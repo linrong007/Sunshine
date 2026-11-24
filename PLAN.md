@@ -4082,3 +4082,12 @@ Token 口径：OpenViking 分 L0 摘要（约 100 token/份）、L1 概览（约
 本版接着 v0.5.52 的 Mac 实测：用户同意安装后，官方脚本卡在「Installing CodeGraph v1.6.4...」长时间无输出、最终还安装失败（脚本内 curl -s 静默下载约 50MB 包、失败原因也无从看）。用户点选 B 方案并定「只问一次」口径，本版三件事：① **自带安装**：Sunshine 照官方脚本布局自己装——读 releases/latest 重定向解析版本、下载带真实进度（百分比 + MB 数，每 200ms 刷新）、解压剥顶层目录到 ~/.codegraph/versions/<版本>、软链 current 与 ~/.local/bin/codegraph、清理旧版本，布局与脚本装的完全一致；任何一步走不通自动回退官方脚本、再退 npm；全失败时提示行带上失败原因，不再只有「安装失败」四个字。沙箱实测：真下载 v1.6.4 全程 12.5 秒装好、--version 正常、接线建图全通。② **只问一次**：init 时拒绝安装会被行级记入 .sunshine/config.yaml 的 codegraph.install_declined（保注释排版），之后 init 不再问、也不再出提示行；手动 sunshine codegraph install 清除记录；-y/非交互仍不落记录（留待交互时问）。pty 实测：首次问、拒绝落盘、二次 init 完全静默。③ 教程补「.codegraph/ 什么时候生成」一段（中英）：init 时工具就位且图缺失当场建、已有不重建、增量同步归 CodeGraph、删掉重跑可重建、新建项目等有代码后补建。新增单测：自带安装对本地 HTTP 服务器全流程（版本解析/进度/布局/包内软链/坏包回退）、拒绝记录读写幂等、发问判定五组合、已拒绝静默。全量 23 包测试绿（其间 TestChannelWaitAll 在全量并行下曾 5 秒超时失败一次，单独重跑即过，属时序抖动、与本版改动无关）。
 
 远端主提交 593701b（tree 5d4ddbc；本地两笔 626270c、5720a46 合成一笔），tag 对象 b48e32c，Release id 456265892；CI（tag 45318371207）、CI（main 45318343491）、发布（45318371057）三路均 success；6 资产齐；linux_amd64 sha256 0f4dcdaa8bf1a960b0f430a3231efc213dc9dbb941102853879f80514837c54d；发布包实测：version 报 0.5.53、upgrade --dry-run 显示已是最新。已装项目 sunshine upgrade 即可（无模板变更，无需 update）。
+
+### v0.5.54（2026-11-24）
+
+用户提议并点选：装 CodeGraph 工具是整台机器一次性的事，应在任何项目第一次 init 就问掉，不要等项目变存量才问，免得日后还要手动 sunshine codegraph install 或重跑 init。已实现：问询门去掉存量条件，缺工具时新老项目都问（仍只问一次、拒绝落盘）；Provision 拆分——装工具对新老项目一视同仁，新项目只装工具不建图、留一行「有代码后重跑 init 会自动建图」，建图与接线仍只对存量项目。端到端实测（pty+真下载）：空项目同意→装好工具无图；写入代码后重跑→不问不重下、自动接线建图。
+
+端到端另查出一类既有误判并按类修复：工具装在 ~/.local/bin 但该目录不在当前进程 PATH 里时（GUI 终端、agent 拉起的 shell 常见），问询门、Provision 入口、codegraph status 三处判定只看 PATH，把已装误判成没装——会反复发问、重复下载 58MB。三处统一改走 codegraph.InstalledPath（PATH+候选位置），新增回归测试 TestProvisionFindsToolOutsidePATH；另补新项目装工具不建图、工具已在时新项目零动作两条测试。教程（中英）「什么时候装」与 .codegraph 生成时机、init --help、命令速查口径同步，包大小按实测改约 58MB。
+
+发布：远端主提交 9037077（tree 71e4365），tag 对象 58883b0，Release id 456292762；CI（tag 45323448518）、CI（main 45323417490）、发布（45323448533）三路 success，6 资产齐；发布包实测 version 0.5.54、upgrade --dry-run 已是最新，linux_amd64 sha256 993997c4。本地全量测试 23 包绿。本版无模板变更，已装项目 sunshine upgrade 即可，无需 update。
+发版：v0.5.54 已发布（Release id 456292762）。

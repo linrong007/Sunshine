@@ -1,6 +1,7 @@
 package upgrade
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"io"
@@ -8,6 +9,46 @@ import (
 	"strings"
 	"testing"
 )
+
+// progressTransport 应答一个带 ContentLength 的固定包体。
+type progressTransport struct{ body []byte }
+
+func (t *progressTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	return &http.Response{
+		StatusCode:    200,
+		Body:          io.NopCloser(bytes.NewReader(t.body)),
+		Header:        make(http.Header),
+		ContentLength: int64(len(t.body)),
+		Request:       req,
+	}, nil
+}
+
+// TestDownloadWithProgress 下载升级包要报进度：输出里有下载行与 100%。
+func TestDownloadWithProgress(t *testing.T) {
+	payload := bytes.Repeat([]byte("x"), 3<<20) // 3MB
+	var prog bytes.Buffer
+	c := &Client{
+		Repo:       "linrong007/Sunshine",
+		HTTPClient: &http.Client{Transport: &progressTransport{body: payload}},
+		Bases:      []string{""},
+		Progress:   &prog,
+	}
+	data, err := c.downloadWithProgress(context.Background(), "https://github.com/linrong007/Sunshine/releases/download/v9.9.9/pkg.tar.gz")
+	if err != nil {
+		t.Fatalf("带进度下载失败：%v", err)
+	}
+	if !bytes.Equal(data, payload) {
+		t.Fatalf("下载内容不对：%d 字节", len(data))
+	}
+	if s := prog.String(); !strings.Contains(s, "正在下载升级包") || !strings.Contains(s, "100%") {
+		t.Fatalf("进度输出不对：%q", s)
+	}
+	// 静默路径（Progress 为 nil 的 download）不应 panic 且内容一致。
+	c2 := &Client{Repo: "linrong007/Sunshine", HTTPClient: &http.Client{Transport: &progressTransport{body: payload}}, Bases: []string{""}}
+	if data2, err := c2.downloadWithProgress(context.Background(), "https://github.com/x/y"); err != nil || !bytes.Equal(data2, payload) {
+		t.Fatalf("Progress 为 nil 时应静默下载成功：%v", err)
+	}
+}
 
 // mirrorTransport 模拟「直连不通、镜像可通」的网络：直连
 // api.github.com / github.com 一律连接失败；经

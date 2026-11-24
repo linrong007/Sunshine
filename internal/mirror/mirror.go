@@ -42,6 +42,21 @@ func Bases() []string {
 	return out
 }
 
+// BasesMirrorFirst 与 Bases 同一组通道，但把直连放到最后：
+// 环境变量镜像 → 内置镜像 → 直连。给「包大、直连常态慢」的下载用
+// （CodeGraph 安装包约 58MB，国内直连 GitHub 发布下载常态是
+// 几十 KB/s，先试直连等于先白等一轮）；Sunshine 自身的升级包小
+// 且有 checksums 校验，仍用 Bases 的直连优先。
+func BasesMirrorFirst() []string {
+	var out []string
+	if v := strings.TrimSuffix(strings.TrimSpace(os.Getenv(EnvVar)), "/"); v != "" {
+		out = append(out, v)
+	}
+	out = append(out, builtin...)
+	out = append(out, "")
+	return out
+}
+
 // Rewrite 把原始 URL 改写为经指定前缀通道的 URL。前缀为空、
 // 或 URL 不是 GitHub 系主机（如本地测试服务器、自建实例）时
 // 原样返回——镜像只碰 GitHub 的地址。

@@ -130,6 +130,10 @@ type Client struct {
 	// UsedBase 记录最近一次成功请求实际走的通道前缀（空串为直连），
 	// 供调用方提示用户本次是否走了镜像。
 	UsedBase string
+	// Progress 是下载进度输出（downloadWithProgress 用）：每约
+	// 200 毫秒刷新一行「已下载 / 总大小 / 百分比」，与 CodeGraph
+	// 自带安装同款式。为 nil 时静默下载。
+	Progress io.Writer
 }
 
 // bases 返回通道候选：显式设置优先，否则用 mirror 的默认顺序。
@@ -344,9 +348,21 @@ func SelectAsset(rel *release, version, goos, goarch string) (*releaseAsset, err
 // download 与 getJSON 同口径：按通道候选逐个尝试，
 // 成功时把实际通道记进 UsedBase。
 func (c *Client) download(ctx context.Context, rawURL string) ([]byte, error) {
+	return c.downloadMode(ctx, rawURL, nil)
+}
+
+// downloadWithProgress 与 download 相同，但下载过程向 c.Progress
+// 报进度（升级包这种十几 MB 的下载在慢网络上要几分钟，全程静默
+// 用户只能干等——2026-11-24 用户要求加进度条）。c.Progress 为 nil
+// 时与 download 无异。
+func (c *Client) downloadWithProgress(ctx context.Context, rawURL string) ([]byte, error) {
+	return c.downloadMode(ctx, rawURL, c.Progress)
+}
+
+func (c *Client) downloadMode(ctx context.Context, rawURL string, progress io.Writer) ([]byte, error) {
 	var lastErr error
 	for _, base := range c.bases() {
-		data, err := c.downloadOnce(ctx, mirror.Rewrite(base, rawURL))
+		data, err := c.downloadOnce(ctx, mirror.Rewrite(base, rawURL), progress)
 		if err == nil {
 			c.UsedBase = base
 			return data, nil
@@ -356,7 +372,7 @@ func (c *Client) download(ctx context.Context, rawURL string) ([]byte, error) {
 	return nil, lastErr
 }
 
-func (c *Client) downloadOnce(ctx context.Context, rawURL string) ([]byte, error) {
+func (c *Client) downloadOnce(ctx context.Context, rawURL string, progress io.Writer) ([]byte, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, rawURL, nil)
 	if err != nil {
 		return nil, err
@@ -370,7 +386,52 @@ func (c *Client) downloadOnce(ctx context.Context, rawURL string) ([]byte, error
 		return nil, fmt.Errorf("下载失败：服务器返回 %s", resp.Status)
 	}
 	// 上限 256MB，避免异常响应耗尽内存。
-	return io.ReadAll(io.LimitReader(resp.Body, 256<<20))
+	body := io.LimitReader(resp.Body, 256<<20)
+	if progress == nil {
+		return io.ReadAll(body)
+	}
+	return readAllWithProgress(body, resp.ContentLength, progress)
+}
+
+// readAllWithProgress 流式读完 body 并周期报进度：回车覆盖同一行，
+// 已下载 / 总大小 / 百分比（与 CodeGraph 自带安装的下载行同款式）；
+// 服务端不给总大小时只报已下载量。读完补一行换行收尾。
+func readAllWithProgress(body io.Reader, total int64, out io.Writer) ([]byte, error) {
+	var buf bytes.Buffer
+	chunk := make([]byte, 64*1024)
+	var written int64
+	last := time.Now()
+	report := func(final bool) {
+		if total > 0 {
+			fmt.Fprintf(out, "\r  ... 正在下载升级包：%.1f / %.1f MB（%d%%）",
+				float64(written)/1048576, float64(total)/1048576, written*100/total)
+		} else {
+			fmt.Fprintf(out, "\r  ... 正在下载升级包：已下载 %.1f MB", float64(written)/1048576)
+		}
+		if final {
+			fmt.Fprint(out, "\n")
+		}
+	}
+	for {
+		n, rerr := body.Read(chunk)
+		if n > 0 {
+			buf.Write(chunk[:n])
+			written += int64(n)
+			if time.Since(last) > 200*time.Millisecond {
+				report(false)
+				last = time.Now()
+			}
+		}
+		if rerr == io.EOF {
+			break
+		}
+		if rerr != nil {
+			fmt.Fprint(out, "\n")
+			return nil, fmt.Errorf("下载中断（已下载 %.1f MB）：%w", float64(written)/1048576, rerr)
+		}
+	}
+	report(true)
+	return buf.Bytes(), nil
 }
 
 // parseChecksums 解析 checksums.txt（每行：<sha256>  <文件名>）。
@@ -536,7 +597,7 @@ func Run(ctx context.Context, opts Options) (*Result, error) {
 		return nil, errors.New("未传入当前版本（内部错误）")
 	}
 	goos, goarch := opts.goos(), opts.goarch()
-	client := &Client{Repo: opts.Repo, APIBase: opts.APIBase, HTTPClient: opts.HTTPClient}
+	client := &Client{Repo: opts.Repo, APIBase: opts.APIBase, HTTPClient: opts.HTTPClient, Progress: w}
 
 	tag, err := ResolveTag(opts.CurrentVersion, opts.Tag)
 	if err != nil {
@@ -577,7 +638,7 @@ func Run(ctx context.Context, opts Options) (*Result, error) {
 		return &Result{CurrentVersion: opts.CurrentVersion, TargetVersion: target, Tag: tag, AssetName: asset.Name}, nil
 	}
 
-	data, err := client.download(ctx, asset.BrowserDownloadURL)
+	data, err := client.downloadWithProgress(ctx, asset.BrowserDownloadURL)
 	if err != nil {
 		return nil, fmt.Errorf("%w%s", err, Troubleshooting(client.ManualURL(), goos))
 	}

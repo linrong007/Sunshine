@@ -38,3 +38,26 @@ func TestRewrite(t *testing.T) {
 		t.Errorf("Label 不对")
 	}
 }
+
+// TestBasesMirrorFirstOrder 镜像优先的顺序：环境变量镜像 →
+// 内置镜像 → 直连（空串）在最后。
+func TestBasesMirrorFirstOrder(t *testing.T) {
+	t.Setenv(EnvVar, "")
+	got := BasesMirrorFirst()
+	if len(got) < 2 || got[len(got)-1] != "" {
+		t.Fatalf("直连应在最后：%v", got)
+	}
+	for _, b := range got[:len(got)-1] {
+		if b == "" {
+			t.Fatalf("内置镜像段里不应有直连：%v", got)
+		}
+	}
+	t.Setenv(EnvVar, "https://example.com/mirror/")
+	if got := BasesMirrorFirst(); got[0] != "https://example.com/mirror" {
+		t.Fatalf("环境变量镜像应排第一（且去掉尾斜杠）：%v", got)
+	}
+	// Bases 保持直连优先不变：环境变量 → 直连 → 内置。
+	if got := Bases(); len(got) < 2 || got[0] != "https://example.com/mirror" || got[1] != "" {
+		t.Fatalf("Bases 顺序被改动：%v", got)
+	}
+}

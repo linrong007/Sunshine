@@ -42,8 +42,9 @@ func RegisterUpgradeCommand(root *cobra.Command) {
   - sunshine update：更新项目内的模板文件（.sunshine/ 与各平台配置）。
 
 流程：查最新版 → 已是最新则提示退出 → 按当前系统与架构选资产 →
-下载 → 按 checksums.txt 校验 sha256 → 备份当前二进制（同目录 .bak，
-权限保留）→ 替换 → 运行新版 --version 校验 → 失败回滚备份并报错。
+下载（带进度显示）→ 按 checksums.txt 校验 sha256 → 备份当前二进制
+（同目录 .bak，权限保留）→ 替换 → 运行新版 --version 校验 →
+失败回滚备份并报错。
 
 不传 --tag 时按当前版本推断通道：含 -beta 走 beta，含 -rc 走 rc，
 否则走 latest。仓库地址未配置或离线时报错说明，不静默跳过。

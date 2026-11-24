@@ -6,9 +6,11 @@ package codegraph
 // 「Installing CodeGraph v1.6.4...」无任何输出，最后还失败了，
 // 失败原因也看不到）。任何一步走不通，调用方回退官方脚本。
 //
-// 下载通道与 upgrade / update 同口径（internal/mirror）：环境变量
-// SUNSHINE_DOWNLOAD_MIRROR 指定的镜像 → 直连 → 内置镜像，逐个试；
-// 单个通道最多 4 分钟，直连慢到下不完也会切镜像，不再干等。
+// 下载通道用 internal/mirror 的同一批镜像，但顺序是镜像优先：
+// 环境变量 SUNSHINE_DOWNLOAD_MIRROR 指定的镜像 → 内置镜像 → 直连，
+// 逐个试；单个通道最多 4 分钟，慢到下不完就换下一个，不再干等。
+// （upgrade/update 的包小，仍直连优先；这个包 58MB 且国内直连
+// 常态慢，先试直连等于先白等一轮——2026-11-24 用户点名改优先。）
 
 import (
 	"archive/tar"
@@ -109,7 +111,7 @@ func resolveLatestVersion(ctx context.Context, client *http.Client, latestURL st
 // 第一个解析成功的通道即用；全失败返回最后一次的错误。
 func resolveVersionViaMirrors(ctx context.Context, client *http.Client) (string, error) {
 	var lastErr error
-	for _, base := range mirror.Bases() {
+	for _, base := range mirror.BasesMirrorFirst() {
 		v, err := resolveLatestVersion(ctx, client, mirror.Rewrite(base, releaseBase+"/releases/latest"))
 		if err == nil {
 			return v, nil
@@ -137,7 +139,7 @@ func shortErr(err error) string {
 // 每次换通道向 out 报一行原因。全失败返回最后一次的错误。
 func downloadViaMirrors(ctx context.Context, client *http.Client, rawURL, destFile string, out io.Writer) error {
 	var lastErr error
-	for i, base := range mirror.Bases() {
+	for i, base := range mirror.BasesMirrorFirst() {
 		if ctx.Err() != nil {
 			return ctx.Err()
 		}

@@ -151,30 +151,25 @@ func TestInitCodegraphProvisioning(t *testing.T) {
 	})
 }
 
-// TestCodegraphInstallConsent 装工具同意判定：只有「需要装 + 交互 +
-// 用户点头」才同意；-y、非交互、用不上装、提问出错都不装。
-func TestCodegraphInstallConsent(t *testing.T) {
-	yes := func() (bool, error) { return true, nil }
-	no := func() (bool, error) { return false, nil }
-	boom := func() (bool, error) { return false, errors.New("interrupt") }
-	never := func() (bool, error) { t.Error("不该提问"); return false, nil }
+// TestCodegraphShouldAsk 发问判定：只在「需要装 + 没拒绝过 +
+// 交互 + 没带 -y」时才问；拒绝过就永不再问（问一次口径）。
+func TestCodegraphShouldAsk(t *testing.T) {
 	cases := []struct {
 		name         string
 		needsInstall bool
+		declined     bool
 		yesFlag      bool
 		isTTY        bool
-		ask          func() (bool, error)
 		want         bool
 	}{
-		{"交互点头", true, false, true, yes, true},
-		{"交互摇头", true, false, true, no, false},
-		{"提问出错按不同意", true, false, true, boom, false},
-		{"-y 不问不装", true, true, true, never, false},
-		{"非交互不问不装", true, false, false, never, false},
-		{"用不上装不问", false, false, true, never, false},
+		{"首次交互要问", true, false, false, true, true},
+		{"拒绝过不再问", true, true, false, true, false},
+		{"-y 不问", true, false, true, true, false},
+		{"非交互不问", true, false, false, false, false},
+		{"用不上装不问", false, false, false, true, false},
 	}
 	for _, c := range cases {
-		if got := codegraphInstallConsent(c.needsInstall, c.yesFlag, c.isTTY, c.ask); got != c.want {
+		if got := codegraphShouldAsk(c.needsInstall, c.declined, c.yesFlag, c.isTTY); got != c.want {
 			t.Errorf("%s：got %v, want %v", c.name, got, c.want)
 		}
 	}

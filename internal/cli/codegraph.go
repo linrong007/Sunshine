@@ -14,6 +14,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/linrong007/Sunshine/internal/codegraph"
+	"github.com/linrong007/Sunshine/internal/config"
 )
 
 // RegisterCodegraphCommand 把 `sunshine codegraph` 接到根命令上。
@@ -55,9 +56,12 @@ SUNSHINE_NO_CODEGRAPH=1 时本命令同样停用。`,
 			platforms := installedPlatformIDs(cwd)
 			ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 			defer stop()
+			// 手动命令本身即同意：清掉此前的拒绝记录，之后 init 不再受它影响。
+			_ = config.SetCodegraphDeclined(cwd, false)
 			res := codegraph.Provision(ctx, codegraph.Options{
 				Dir: cwd, Legacy: true, Force: true, AllowInstall: true,
 				Platforms: platforms, PlatformsInstalled: len(platforms),
+				Out:      os.Stdout,
 				Progress: func(line string) { fmt.Println(line) },
 			}, codegraph.StreamingRunner(os.Stdout))
 			for _, line := range res.Lines {

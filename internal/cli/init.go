@@ -13,6 +13,7 @@ import (
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/AlecAivazis/survey/v2/terminal"
 	"github.com/linrong007/Sunshine/internal/codegraph"
+	"github.com/linrong007/Sunshine/internal/config"
 	"github.com/linrong007/Sunshine/internal/platforms"
 	"github.com/linrong007/Sunshine/internal/projecttype"
 	"github.com/linrong007/Sunshine/internal/registry"
@@ -110,8 +111,10 @@ GitHub Copilot、Factory Droid）。
 不动已有平台文件与 .sunshine/ 骨架。
 
 存量项目（目录里已有代码）还会顺带供给 CodeGraph 代码地图：
-机器上没装 CodeGraph 时，交互模式先问一句、同意才用官方脚本装
-（-y 与非交互不自动装，只提示手动运行 sunshine codegraph install）；
+机器上没装 CodeGraph 时，交互模式先问一句（只问一次，拒绝会
+记进 .sunshine/config.yaml、之后不再问），同意才下载安装
+（Sunshine 自带下载、带进度，失败回退官方脚本；-y 与非交互
+不自动装，只提示手动运行 sunshine codegraph install）；
 工具已装的前提下，项目里没建图就建图，并把查询接进所选平台；
 三层都是缺什么补什么、在就不动，任何一步失败都只警告不阻断
 init。--no-codegraph 可整体跳过。
@@ -350,25 +353,18 @@ func codegraphDisabled() bool {
 var promptInstallCodegraph = func() (bool, error) {
 	var answer bool
 	err := survey.AskOne(&survey.Confirm{
-		Message: "检测到存量项目，本机还没有 CodeGraph（查代码调用关系的代码地图工具）。现在用官方脚本安装，并为本项目建图吗？",
+		Message: "检测到存量项目，本机还没有 CodeGraph（查代码调用关系的代码地图工具）。现在下载安装，并为本项目建图吗？不安也行，之后可跑 sunshine codegraph install 补装",
 		Default: false,
 	}, &answer)
 	return answer, err
 }
 
-// codegraphInstallConsent 决定本次 init 能否安装 CodeGraph 工具本体：
-// 用不上装（非存量 / 已禁用 / 工具已在）时无所谓同意；需要装时只有
-// 交互模式问过用户才算同意，-y 与非交互永远不自动装（只出提示行）。
-// 提问出错（如在提问处 Ctrl+C）按不同意处理，init 其余照常完成。
-func codegraphInstallConsent(needsInstall, yes, isTTY bool, ask func() (bool, error)) bool {
-	if !needsInstall {
-		return false
-	}
-	if yes || !isTTY {
-		return false
-	}
-	ok, err := ask()
-	return err == nil && ok
+// codegraphShouldAsk 决定本次 init 是否向用户发问装不装 CodeGraph：
+// 只在「需要装 + 此前没拒绝过 + 交互模式 + 没带 -y」时问。只问一次：
+// 拒绝会被记进 .sunshine/config.yaml，之后 init 不再问、也不再提示；
+// -y 与非交互不问也不装（只出一次提示行，不落记录，留待交互时再问）。
+func codegraphShouldAsk(needsInstall, declined, yes, isTTY bool) bool {
+	return needsInstall && !declined && !yes && isTTY
 }
 
 // provisionCodegraph 为存量项目供给 CodeGraph 代码地图并打印结果行，
@@ -380,16 +376,29 @@ func codegraphInstallConsent(needsInstall, yes, isTTY bool, ask func() (bool, er
 // 只写项目内和平台配置、照旧自动。
 func provisionCodegraph(cwd string, legacy bool, selected []string, installedCount int) bool {
 	_, cliPresent := codegraph.DefaultRunner().LookPath("codegraph")
-	allowInstall := codegraphInstallConsent(
-		legacy && !codegraphDisabled() && !cliPresent,
-		initYes, stdinIsTTY(), promptInstallCodegraph)
+	declined := config.CodegraphDeclined(cwd)
+	needsInstall := legacy && !codegraphDisabled() && !cliPresent
+	allowInstall := false
+	if codegraphShouldAsk(needsInstall, declined, initYes, stdinIsTTY()) {
+		if ok, err := promptInstallCodegraph(); err == nil {
+			if ok {
+				allowInstall = true
+			} else {
+				// 记住这次拒绝，之后不再问；记录失败不阻断 init。
+				_ = config.SetCodegraphDeclined(cwd, true)
+				declined = true
+			}
+		}
+	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()
 	res := codegraph.Provision(ctx, codegraph.Options{
 		Dir: cwd, Legacy: legacy, Disabled: codegraphDisabled(),
 		Platforms: selected, PlatformsInstalled: installedCount,
-		AllowInstall: allowInstall,
-		Progress:     func(line string) { fmt.Println(line) },
+		AllowInstall:    allowInstall,
+		InstallDeclined: declined,
+		Out:             os.Stdout,
+		Progress:        func(line string) { fmt.Println(line) },
 	}, codegraph.StreamingRunner(os.Stdout))
 	for _, line := range res.Lines {
 		fmt.Println(line)

@@ -6,6 +6,7 @@ package codegraph
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"os"
 	"os/exec"
@@ -173,6 +174,12 @@ type Options struct {
 	// 非交互一律 false（只提示不装）。建图与接线只写项目内与平台
 	// 配置，不在此限、照旧自动（2026-11-24 用户点选 A 方案）。
 	AllowInstall bool
+	// InstallDeclined 表示用户此前已明确拒绝过安装：不再问、
+	// 也不再出提示行，静默跳过（问一次口径，2026-11-24 用户定）。
+	InstallDeclined bool
+	// Out 是实时输出端：自带安装的下载进度往这里写
+	// （CLI 传 os.Stdout，nil 表示丢弃）。
+	Out io.Writer
 	// Progress 在每个耗时步骤开始前收到一行进度提示（可为 nil）。
 	// 供给全程要跑外部命令（装工具最长 5 分钟、建图最长 10 分钟），
 	// 结果行只在全部结束后才汇总返回；没有这条预告，用户只会看到
@@ -220,21 +227,43 @@ func Provision(ctx context.Context, opts Options, r Runner) Result {
 
 	installedCLI := false
 	if !cliOK && !opts.AllowInstall {
-		res.Lines = append(res.Lines, "  ○ 代码地图：本机未装 CodeGraph，已跳过（要装请运行 sunshine codegraph install）")
+		if !opts.InstallDeclined {
+			res.Lines = append(res.Lines, "  ○ 代码地图：本机未装 CodeGraph，已跳过（要装请运行 sunshine codegraph install）")
+		}
 		return res
 	}
 	if !cliOK {
-		progress("  … 代码地图：本机还没有 CodeGraph，正在用官方脚本安装（可能要几分钟；按 Ctrl+C 可取消，取消不影响 init 其余结果）……")
-		if p, ok := installCLI(ctx, opts.Dir, r); ok {
-			bin, cliOK, installedCLI = p, true, true
-			res.Acted = true
-			res.Lines = append(res.Lines, "  ✓ 代码地图：已安装 CodeGraph（官方安装脚本）")
-		} else if cancelled() {
-			return res
-		} else {
-			res.Lines = append(res.Lines, "  ○ 代码地图：CodeGraph 安装失败，已跳过（可手动安装：curl -fsSL https://raw.githubusercontent.com/colbymchenry/codegraph/main/install.sh | sh）")
+		progress("  … 代码地图：本机还没有 CodeGraph，正在下载安装（下载带进度显示；按 Ctrl+C 可取消，取消不影响 init 其余结果）……")
+		// 先走自带安装：下载带真实进度；走不通再回退官方脚本、npm。
+		var selfErr error
+		if err := selfInstallImpl(ctx, opts.Out); err != nil {
+			selfErr = err
+		}
+		if selfErr == nil {
+			if p, ok := findInstalled(r); ok {
+				bin, cliOK, installedCLI = p, true, true
+			} else {
+				selfErr = fmt.Errorf("装完未在预期位置找到 codegraph")
+			}
+		}
+		if selfErr != nil && ctx.Err() == nil {
+			progress(fmt.Sprintf("  … 代码地图：自带安装没走通（%v），改用官方脚本安装……", selfErr))
+		}
+		if !cliOK && ctx.Err() == nil {
+			if p, ierr := installCLI(ctx, opts.Dir, r); ierr == nil {
+				bin, cliOK, installedCLI = p, true, true
+			} else if cancelled() {
+				return res
+			} else {
+				res.Lines = append(res.Lines, fmt.Sprintf("  ○ 代码地图：CodeGraph 安装失败，已跳过（原因：%v；可手动安装：curl -fsSL https://raw.githubusercontent.com/colbymchenry/codegraph/main/install.sh | sh）", ierr))
+				return res
+			}
+		}
+		if cancelled() {
 			return res
 		}
+		res.Acted = true
+		res.Lines = append(res.Lines, "  ✓ 代码地图：已安装 CodeGraph")
 	}
 	if cancelled() {
 		return res
@@ -282,48 +311,69 @@ func Provision(ctx context.Context, opts Options, r Runner) Result {
 	return res
 }
 
+// findInstalled 在 PATH 与常见安装位置里找已装好的 codegraph 二进制。
+// 安装脚本可能装到当前进程 PATH 之外的位置（如 ~/.local/bin），
+// 本次供给先用绝对路径把后续步骤走完。
+func findInstalled(r Runner) (string, bool) {
+	if p, ok := r.LookPath("codegraph"); ok {
+		return p, true
+	}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", false
+	}
+	for _, cand := range []string{
+		filepath.Join(home, ".local", "bin", "codegraph"),
+		filepath.Join(home, "bin", "codegraph"),
+		filepath.Join(home, ".codegraph", "bin", "codegraph"),
+	} {
+		if fileExists(cand) {
+			return cand, true
+		}
+	}
+	return "", false
+}
+
 // installCLI 用官方安装脚本安装 CodeGraph，失败再退 npm 全局安装；
-// 装完在 PATH 与常见安装位置里找二进制，返回可用路径。
-func installCLI(ctx context.Context, dir string, r Runner) (string, bool) {
+// 装完返回可用路径，全失败时返回最后一次失败的原因（要给用户看，
+// 此前只报「安装失败」四个字，用户无从判断是网络还是别的问题）。
+func installCLI(ctx context.Context, dir string, r Runner) (string, error) {
 	ictx, cancel := context.WithTimeout(ctx, 5*time.Minute)
 	defer cancel()
+	var lastErr error
 	installed := false
 	if runtime.GOOS == "windows" {
 		_, err := r.Run(ictx, dir, "powershell", "-NoProfile", "-ExecutionPolicy", "Bypass",
 			"-Command", "irm https://raw.githubusercontent.com/colbymchenry/codegraph/main/install.ps1 | iex")
 		installed = err == nil
+		lastErr = err
 	} else if _, ok := r.LookPath("sh"); ok {
 		_, err := r.Run(ictx, dir, "sh", "-c",
 			"curl -fsSL https://raw.githubusercontent.com/colbymchenry/codegraph/main/install.sh | sh")
 		installed = err == nil
+		lastErr = err
+	} else {
+		lastErr = fmt.Errorf("本机没有 sh，无法运行官方安装脚本")
 	}
 	if !installed {
 		if _, ok := r.LookPath("npm"); ok {
 			_, err := r.Run(ictx, dir, "npm", "install", "-g", "@colbymchenry/codegraph")
 			installed = err == nil
-		}
-	}
-	if !installed {
-		return "", false
-	}
-	if p, ok := r.LookPath("codegraph"); ok {
-		return p, true
-	}
-	// 安装脚本可能装到当前进程 PATH 之外的位置（如 ~/.local/bin），
-	// 本次供给先用绝对路径把后续步骤走完。
-	home, err := os.UserHomeDir()
-	if err == nil {
-		for _, cand := range []string{
-			filepath.Join(home, ".local", "bin", "codegraph"),
-			filepath.Join(home, "bin", "codegraph"),
-			filepath.Join(home, ".codegraph", "bin", "codegraph"),
-		} {
-			if fileExists(cand) {
-				return cand, true
+			if err != nil {
+				lastErr = err
 			}
 		}
 	}
-	return "", false
+	if !installed {
+		if lastErr == nil {
+			lastErr = fmt.Errorf("官方脚本与 npm 都未能安装")
+		}
+		return "", lastErr
+	}
+	if p, ok := findInstalled(r); ok {
+		return p, nil
+	}
+	return "", fmt.Errorf("安装命令已执行，但未在预期位置找到 codegraph")
 }
 
 func dirExists(path string) bool {

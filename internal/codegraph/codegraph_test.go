@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"io"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -392,5 +393,59 @@ func TestProvisionBuildWithoutInstallConsent(t *testing.T) {
 	}
 	if !res.Acted {
 		t.Error("应有动作")
+	}
+}
+
+// 单测默认禁用自带安装（它会真走网络与真实主目录），
+// 需要测自带安装本身的用例在 install_test.go 里单独恢复真实实现。
+func init() {
+	selfInstallImpl = func(context.Context, io.Writer) error {
+		return errors.New("单测桩：自带安装不可用")
+	}
+}
+
+// TestProvisionSelfInstallSuccess 自带安装走通时不再跑官方脚本，
+// 直接用装好的二进制继续接线、建图。
+func TestProvisionSelfInstallSuccess(t *testing.T) {
+	dir := t.TempDir()
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	old := selfInstallImpl
+	defer func() { selfInstallImpl = old }()
+	selfInstallImpl = func(context.Context, io.Writer) error {
+		binDir := filepath.Join(home, ".local", "bin")
+		if err := os.MkdirAll(binDir, 0o755); err != nil {
+			return err
+		}
+		return os.WriteFile(filepath.Join(binDir, "codegraph"), []byte("#!/bin/sh\n"), 0o755)
+	}
+	r := &fakeRunner{
+		paths:   map[string]string{"sh": "/bin/sh"},
+		graphAt: filepath.Join(dir, ".codegraph"),
+	}
+	res := Provision(context.Background(), legacyOpts(dir), r)
+	joined := strings.Join(r.calls, "\n")
+	if strings.Contains(joined, "install.sh") {
+		t.Errorf("自带安装成功后不应再跑官方脚本：%v", r.calls)
+	}
+	if !strings.Contains(strings.Join(res.Lines, ""), "已安装 CodeGraph") {
+		t.Errorf("应报告已安装：%v", res.Lines)
+	}
+	if !strings.Contains(joined, "init --yes") {
+		t.Errorf("装完应继续建图：%v", r.calls)
+	}
+}
+
+// TestProvisionDeclinedSilent 已拒绝过的项目：静默跳过，
+// 不出提示行、不跑任何命令（问一次口径）。
+func TestProvisionDeclinedSilent(t *testing.T) {
+	dir := t.TempDir()
+	r := &fakeRunner{paths: map[string]string{"sh": "/bin/sh"}}
+	o := legacyOpts(dir)
+	o.AllowInstall = false
+	o.InstallDeclined = true
+	res := Provision(context.Background(), o, r)
+	if len(res.Lines) != 0 || res.Acted || len(r.calls) != 0 {
+		t.Errorf("已拒绝应完全静默：lines=%v acted=%v calls=%v", res.Lines, res.Acted, r.calls)
 	}
 }

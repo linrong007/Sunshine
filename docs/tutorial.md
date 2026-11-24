@@ -464,11 +464,13 @@ agent 先读现有的 spec 树（全是模板），再分析仓库：顶层结�
 
 **什么时候装**：`sunshine init` 时项目里已经有代码才会触发，纯新建项目不装不建。三层都是缺什么补什么、装过建过的都不动：
 
-1. 机器上没有 CodeGraph：装工具是走网络、动你机器的事，init 不擅自做——交互模式会先问一句，你同意才用官方脚本装上（装到你的机器上，不进 Sunshine 的安装包）；带 `-y` 或非交互时不自动装，只留一行提示，让你之后跑 `sunshine codegraph install`；
+1. 机器上没有 CodeGraph：装工具是走网络、动你机器的事，init 不擅自做——交互模式会先问一句（**只问一次**：你选不安，这个选择会记进 `.sunshine/config.yaml`，之后重跑 init 不再问；想装时随时跑 `sunshine codegraph install`）。同意后由 Sunshine 自己下载安装包（约 50MB，带百分比进度，装到你的机器上、不进 Sunshine 的安装包），下载走不通才回退官方脚本；带 `-y` 或非交互时不自动装，只留一行提示；
 2. 工具已装、项目里没有 `.codegraph/`，就建图（只写项目里，可随时删）；
 3. 把查询接进这次选的平台（支持的平台走 MCP，其余平台用等价的命令行查询）。
 
-任何一步失败都只警告并给出手动命令，不挡 init。想关掉：`sunshine init --no-codegraph`，或设环境变量 `SUNSHINE_NO_CODEGRAPH=1`。装工具、建图可能要几分钟，每步开始前终端会先出进度提示，安装脚本和 CodeGraph 自己的输出也会实时打在终端上，能看见装到哪、图建到哪；等不及按 Ctrl+C 只取消代码地图这一段，init 其余照常完成，之后跑 `sunshine codegraph install` 补上即可。
+任何一步失败都只警告并给出手动命令，不挡 init。想关掉：`sunshine init --no-codegraph`，或设环境变量 `SUNSHINE_NO_CODEGRAPH=1`。装工具、建图可能要几分钟：下载安装包时终端会实时显示百分比和 MB 数，建图时 CodeGraph 自己的输出也实时直通，能看见装到哪、图建到哪；等不及按 Ctrl+C 只取消代码地图这一段，init 其余照常完成，之后跑 `sunshine codegraph install` 补上即可。
+
+**`.codegraph/` 什么时候生成**：就在上面第 2 步——init 时工具已就位（本来就装了，或你刚同意装好）、项目里还没有 `.codegraph/`，当场建出来；手动跑 `sunshine codegraph install` 时同理。已经有了就不再重建，之后的增量同步由 CodeGraph 自己负责（文件改动后自动更新），Sunshine 不重复建图。想从零重建：删掉 `.codegraph/` 再跑一次 init 或 `sunshine codegraph install`。纯新建项目一开始没有代码、不建图；等写出代码后重跑一次 init（或手动 install），才会补上。
 
 **手动触发**：不用等 init——`sunshine codegraph install` 随时可装工具、接线、建图（手动执行不受存量判定限制，每次都会重新接线），`sunshine codegraph status` 只看状态不动手。
 

@@ -11,10 +11,10 @@ func TestAnalyzeChangesTriState(t *testing.T) {
 	dir := setupProject(t)
 	// 模板集合：取真实模板中的三个文件。
 	templates := map[string]string{
-		".sunshine/workflow.md":                  readFile(t, dir, ".sunshine/workflow.md"),
-		".sunshine/agents/check.md":              readFile(t, dir, ".sunshine/agents/check.md"),
+		".sunshine/workflow.md":                          readFile(t, dir, ".sunshine/workflow.md"),
+		".sunshine/agents/check.md":                      readFile(t, dir, ".sunshine/agents/check.md"),
 		".claude/skills/sunshine-quality-check/SKILL.md": readFile(t, dir, ".claude/skills/sunshine-quality-check/SKILL.md"),
-		".sunshine/agents/plan.md":               readFile(t, dir, ".sunshine/agents/plan.md"),
+		".sunshine/agents/plan.md":                       readFile(t, dir, ".sunshine/agents/plan.md"),
 	}
 	hashes := LoadHashes(dir)
 

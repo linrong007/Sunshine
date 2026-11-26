@@ -203,7 +203,7 @@ When the requirement needs exploring first, or a design has to be shown to peopl
 
 ### Design-first
 
-The order: create one parent task, never start it → the per-requirement loop (1.1: one requirement per round — ask it clear, record it in the requirements list, dispatch a prototype sub-agent to build or update its page; the design phase never asks about the tech stack) → at the end of the loop, ask only "shall we enter the review", never about splitting → split (1.2, one sub-task per requirement, the first being stack choice and scaffolding) only after the review (1.5) passes → each sub-task runs implement → check → spec write-back → commit → archive in turn, and the parent task closes with a final integration review.
+The order: create one parent task, never start it → the per-requirement loop (1.1: one requirement per round — ask it clear, record it in the requirements list, dispatch a prototype sub-agent to build or update its page (page files carry the requirement ID, e.g. `R-001-product-list.html`, using the requirement's name verbatim — no invented shorthand); the design phase never asks about the tech stack) → at the end of the loop, ask only "shall we enter the review", never about splitting → split (1.2, one sub-task per requirement, the first being stack choice and scaffolding) only after the review (1.5) passes → each sub-task runs implement → check → spec write-back → commit → archive in turn, and the parent task closes with a final integration review.
 
 The review examines the design package: prd, requirements list, design documents, and prototype must all line up. A requirement change does not re-run the whole flow: edit the design documents and the affected prototype pages first, record a [变更] in the parent prd, and the review covers only the change. Record: 9.6.
 
@@ -217,7 +217,11 @@ The review sits right before start: first check the planning products are self-c
 
 Besides the main session's own check, the 1.5 review dispatches a read-only audit sub-agent to scan: it only reports items that were never confirmed and changes no files, and its findings land in the task directory's `audit.md` — no such file, and the review counts as not done. Answers go back into prd.md; anything undecided is marked `[待定]`.
 
+Each audit item also carries a kind: business decision (money and judgement rules, business rules, permissions, external commitments, whether data gets deleted) or technical. When the review wraps up, every item gets an outcome, written back into audit.md as its disposition: what you decided on the spot is recorded as "user-decided", a suggested option you picked is "user-accepted", and anything else stays `[待定]`; conclusions copied into prd.md carry the same source tag. An item you were never asked about may not be written up as a conclusion — business decisions above all: without a source from you it does not count as decided, and when development reaches one it must stop and ask you, never silently follow the audit's suggestion.
+
 Tasks carry one of two risk tiers. A light-tier task runs the flow as is; a standard-tier task switches the review to deep interrogation — round after round of questions from both the business and the technical angle (the technical side has eight must-ask categories: stack and dependencies, interface contracts, data definitions, concurrency and consistency, performance and scale, security, failure recovery, environment constraints), until a round adds nothing new, at most 4 rounds. The tier is set on each sub-task at split time (on the task itself for a single task), chosen by blast radius and uncertainty.
+
+A light-tier task takes the **fast lane**: display-only changes, copy, styling, config defaults — small stuff like that (in dev-first the tier can be set when the task is created; saying "small change" works too). In the fast lane the requirement is clarified in one line into the PRD and work starts — no context assembly, no review, the main session edits directly; but check is still dispatched as usual, and verification slips still apply. If halfway through it turns out to touch standard-tier ground (data, judgement logic), it upgrades on the spot and the skipped steps are made up.
 
 ### Switching workflow templates
 
@@ -290,6 +294,8 @@ Real output (excerpt):
 ```
 
 (The warning says the default branch could not be resolved — no remote or offline — so `base_branch` is recorded as the current checkout branch `master` for now, overridable with `--base-branch`. The "next steps" say: write requirements and acceptance criteria in `prd.md`; a light task can have only a PRD; a complex task should add `design.md` and `implement.md` before `task start`; organize `implement.jsonl` / `check.jsonl` — one JSON object per line, `{"file": "<path>", "reason": "<reason>"}`, spec/research docs only.)
+
+Give the task name a word that tells it apart — put the distinguishing word from the title into the name itself rather than differing from a sibling by one root word. When a new name is too close to an existing task (one contains the other, or they differ only by generic words like management or list), `task create` warns you on the spot and names the look-alike; heed it and rename, so references stay unambiguous later. And when you refer to something by a short spoken name ("change the order detail page"), the agent checks it against the task list and the requirements list first; if several candidates match, it lists them and asks you to pick — it never guesses.
 
 `create` prepends the `MM-DD-` date to the task name automatically — you never type the date yourself. `--description` is required; omitting it fails immediately:
 
@@ -465,6 +471,38 @@ Real output (excerpt):
 ("Session appended to `journal-1.md`; session 1 added successfully; auto-committed: `chore: record journal`, updating `journal-1.md` and `index.md`.")
 
 One environment note, recorded as it happened: the auto-commit needs a configured git identity. In the first demo run the sandbox had none, so archiving and `add-session` printed `[警告] 自动提交失败：Author identity unknown` while still writing the files, and re-running the exact same `add-session` command resumed from the commit step instead of appending a second session. Set `git config user.email` / `user.name` once and the `[OK] 已自动提交` lines above are what you get.
+
+### Verification slips: don't archive foundation tasks yet
+
+Some tasks are done, and their checks pass, but whether they are actually right only becomes clear once a later feature plugs into them. Foundations are the classic case: you build the login base first (sessions, tokens, interception), but there is no login page yet, so items like "session survives a refresh after login" and "anonymous users get intercepted" simply cannot be verified. Tasks like this used to be archived as soon as their checks passed, and the problems only surfaced during integration — long after the task was closed.
+
+The check reconciliation now has one more verdict: **pending integration verification**. If what needs verifying is not in this task but belongs to a later task's deliverable, it gets this verdict, with two things spelled out: what it is waiting for, and what counts as passing. When the main session wraps up, it opens a **verification slip** from those items, and the task moves into a "verifying" state instead of being archived:
+
+```sh
+sunshine task verify-open 11-26-地基脚手架 --item "登录后会话保持" --standard "真实登录后刷新仍保持登录" --verifier 11-26-登录页
+# 已立单：地基脚手架 转待验（verifying），新增 1 条（共 1 条未销）。单子见 verify.md。
+```
+
+("Slip opened: the foundation task moved to verifying, 1 new item, 1 open in total. See verify.md.") The slip lives in the task directory (`verify.md`, generated by the command — don't hand-edit it); `task list` shows the task with a `[待验：未销 n 条]` tag, and every new session reminds you. Archiving is refused by the command itself, with no way around it:
+
+```text
+错误：拒绝归档 11-26-地基脚手架：待验单未清零
+  - 本任务待验单未销：V-1 登录后会话保持（待验）
+```
+
+("Error: refusing to archive — the verification slip is not cleared: V-1, session persistence after login, still pending.") Once the login page is built, its check verifies the item along the way (integration-level verification: actually run the flow end to end and use the real output as evidence, not "the code looks right"), and the main session signs it off from the check report:
+
+```sh
+sunshine task verify-sign 11-26-地基脚手架 V-1 --result 验通 --by 11-26-登录页 --evidence "真实登录后刷新仍保持登录，集成测试通过"
+```
+
+A sign-off has only three outcomes: passed, failed, or still unverifiable. Failed means the foundation task goes back to work in place (it was never archived, so `task start` just resumes it) and gets verified again after the fix; still unverifiable means the item stays open. Once the slip is fully signed, archive the foundation task first and the verifying task right after. If a requirement change kills the feature, its item can be waived with your approval (`verify-waive`, a reason is required) — that also closes it.
+
+Both flows work the same way: in design-first, who-waits-for-whom is planned during review and decomposition; in dev-first there is no pre-assignment, so whichever new task can verify an item gets it when its context is assembled. A task with nothing downstream to verify it may not open a slip at all — its acceptance must include an end-to-end path it can run on the spot.
+
+### Stopping mid-list: the checklist progress is not lost
+
+Design-first sub-tasks run one at a time, and the progress lives on disk if you get pulled away mid-list or close the session and come back tomorrow. A reopened session shows an "unfinished checklists" line in its opening state; and when you resume with `/sunshine:continue`, the agent reports the checklist first — for each parent task: how many sub-tasks were split out, how many are archived, in progress, or awaiting verification, and which one is next — and asks whether to continue the current one or move to the next, proceeding only on your say-so. It reports; it never silently resumes — side-tracked work is neither quietly picked up nor forgotten.
 
 ## 4. Specs: the project contract
 
@@ -1207,7 +1245,7 @@ Here is how the session continues (illustrative dialogue).
 ```text
 doc/design/requirements list.md   # R-001 to R-005, each with acceptance criteria
 doc/prototype/index.html           # the navigation shell
-doc/prototype/product list page.html, order list page.html, order detail page.html …
+doc/prototype/R-001-product list page.html, R-003-order list page.html, R-003-order detail page.html …
 ```
 
 **The wrap-up asks only about entering the review.** The design loop stops, and the agent does not ask about breakdown, let alone development — it asks one thing:
@@ -1319,6 +1357,7 @@ sunshine platforms
 | When | Command | What it does |
 | --- | --- | --- |
 | Where did we get to? | `sunshine task list` / `sunshine task current` / `sunshine task context` | Show active tasks, the current task, and the full session context |
+| Check a verification slip | `sunshine task verify <task>` | Who still owes integration verification and how far sign-off has got; the same family covers opening (`verify-open`), signing (`verify-sign`), waiving (`verify-waive`) and reassigning (`verify-assign`) |
 | Check the next step | `sunshine task list-archive` | Show archived tasks by month |
 | Switch how the agent works | `sunshine workflow --list` / `sunshine workflow --template tdd` | List or switch workflow templates ([section 2](#switching-workflow-templates)) |
 | Refresh project templates | `sunshine update --dry-run` (drop `--dry-run` to apply) | Sync template files; user data is never touched ([section 8](#8-maintenance-update-and-upgrade)) |

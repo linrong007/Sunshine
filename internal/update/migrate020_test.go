@@ -88,7 +88,9 @@ func setupMigration020Project(t *testing.T) string {
 	// 删掉改名目标（文件与哈希条目一起删），否则它们会被当成
 	// “用户已删除”而不写新版模板。
 	for _, target := range rename020Targets {
-		if err := os.Remove(filepath.Join(dir, filepath.FromSlash(target))); err != nil {
+		// 目标不存在正合模拟意图（如 check 目标自 0.5.57 改名后
+		// init 不再生成），只容忍不存在、其余错误照常失败。
+		if err := os.Remove(filepath.Join(dir, filepath.FromSlash(target))); err != nil && !os.IsNotExist(err) {
 			t.Fatalf("删除改名目标 %s 失败：%v", target, err)
 		}
 		delete(hashes, target)
@@ -177,6 +179,15 @@ func TestRunMigration020MigrateForce(t *testing.T) {
 	}
 	for _, target := range rename020Targets {
 		content := readFile(t, dir, target)
+		// check 目标自 0.5.57 起已改名 quality-check、不在当前模板集里，
+		// 停在 0.2.0 这一跳时保留迁移搬来的旧内容（真实升级会同批继续
+		// 执行 0.5.57 清单搬走并写新版）；其余目标由模板写盘刷新。
+		if strings.Contains(target, "sunshine-check") {
+			if !strings.Contains(content, "旧版") {
+				t.Errorf("0.2.0 这一跳的 check 目标应为迁移搬来的内容：%s", target)
+			}
+			continue
+		}
 		if strings.Contains(content, "旧版命令") || strings.Contains(content, "旧版 skill") {
 			t.Errorf("改名目标应为新版模板内容：%s", target)
 		}
@@ -272,9 +283,10 @@ func TestRunMigration020MigrateNonInteractive(t *testing.T) {
 			t.Errorf("改名源应已搬走：%s", src)
 		}
 	}
-	// 被跳过的改名目标仍按新文件写盘（分析时它不在盘上）。
-	if got := readFile(t, dir, ".cursor/skills/sunshine-check/SKILL.md"); strings.Contains(got, "旧版命令") {
-		t.Error("被跳过的改名目标仍应由模板写盘，不应是旧内容")
+	// 被跳过的改名：旧内容不得出现在目标路径。该路径自 0.5.57 起
+	// 已改名 quality-check、不在当前模板集里，目标根本不会被写出。
+	if _, err := os.Stat(filepath.Join(dir, ".cursor", "skills", "sunshine-check", "SKILL.md")); !os.IsNotExist(err) {
+		t.Error("被跳过的改名目标不应存在（旧内容不应被搬过去）")
 	}
 	if _, err := os.Stat(filepath.Join(dir, ".claude", "commands", "sunshine", "onboard.md")); !os.IsNotExist(err) {
 		t.Error("未改动的退役文件应被清理")

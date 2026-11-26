@@ -12,7 +12,7 @@
 按当前平台的派发方式（见 `.sunshine/workflow.md` 的派发协议）派发 `sunshine-prototype` 子代理，prompt 填四项：
 
 1. **需求条目**：`doc/design/需求列表.md` 里本轮条目的编号与全文（prd 对应节一并给）。
-2. **本轮页面**：要新建或改版的页面文件（`doc/prototype/` 下路径），只做这一条需求的页；附共用文件（`assets/tokens.css`、`assets/components.css`、`assets/components-index.md`、`assets/mock-common.js`、本轮的 `assets/mock-Rxxx.js`，如已有），不给整个 `doc/prototype/` 目录。
+2. **本轮页面**：要新建或改版的页面文件（`doc/prototype/` 下路径），只做这一条需求的页；新建页的文件名在派发时就定死为 `R-<编号>-<需求名>.html`（需求名取需求列表原文），不让子代理自创简称；附共用文件（`assets/tokens.css`、`assets/components.css`、`assets/components-index.md`、`assets/mock-common.js`、本轮的 `assets/mock-Rxxx.js`，如已有），不给整个 `doc/prototype/` 目录。
 3. **规范约束**：`.sunshine/spec/` 里前端组的路径；有设计约束时把约束原文摘进 prompt。子代理只读 spec，不改 spec。
 4. **汇报落盘**：干完把汇报（页数、mock 记录数、文件路径）写进当前父任务目录的 `prototype-<需求编号>.md`，对话汇报给同一份内容。
 
@@ -21,4 +21,5 @@
 ## 收到汇报后
 
 - 先核对父任务目录里 `prototype-<需求编号>.md` 已落盘、内容与对话汇报一致；缺文件视为派发未完成，补派。
+- 核对新页名：没按 `R-<编号>-<需求名>.html` 命名的、或与已有页名互为子串、只差一两个字的，打回改名后再记回。
 - 把本轮结论记回 prd 与需求列表，再进入下一条需求的循环。

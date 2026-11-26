@@ -645,9 +645,10 @@ func TestLoadEmbeddedRegistry020(t *testing.T) {
 	if len(warnings) != 0 {
 		t.Fatalf("内嵌清单集应无警告，得到 %v", warnings)
 	}
-	// 第一份真实清单：0.2.0（蓝本 Trellis 0.5.0-beta.0 的 Skill-first 迁移）。
-	if got := reg.Versions(); len(got) != 1 || got[0] != "0.2.0" {
-		t.Fatalf("内嵌清单集应只有 0.2.0，得到 %v", got)
+	// 真实清单：0.2.0（蓝本 Trellis 0.5.0-beta.0 的 Skill-first 迁移）
+	// 与 0.5.57（skill 改名与同名子代理区分）。
+	if got := reg.Versions(); len(got) != 2 || got[0] != "0.2.0" || got[1] != "0.5.57" {
+		t.Fatalf("内嵌清单集应为 [0.2.0 0.5.57]，得到 %v", got)
 	}
 	items := reg.MigrationsForVersion("0.1.0", "0.2.0")
 	var renames, safeDeletes int
@@ -686,5 +687,42 @@ func TestLoadEmbeddedRegistry020(t *testing.T) {
 	}
 	if reg.HasPendingMigrations("0.2.0", "0.2.0") {
 		t.Error("同版本之间不应有待执行迁移")
+	}
+}
+
+// 0.5.57 清单：两个 skill 改名与同名子代理区分——18 个 skills 目录 ×
+// 2 条 rename；装子代理内容的同名路径（.kimi-code / .reasonix）不在内。
+func TestLoadEmbeddedRegistry057(t *testing.T) {
+	reg, warnings := LoadEmbeddedRegistry()
+	if reg == nil || len(warnings) != 0 {
+		t.Fatalf("内嵌清单集加载失败：%v", warnings)
+	}
+	items := reg.MigrationsForVersion("0.5.56", "0.5.57")
+	if len(items) != 36 {
+		t.Fatalf("0.5.57 应有 36 条改名，得到 %d", len(items))
+	}
+	for _, item := range items {
+		if item.Type != MigrationTypeRename {
+			t.Errorf("0.5.57 只应有 rename 项：%s", item.From)
+		}
+		if strings.Contains(item.From, ".kimi-code") || strings.Contains(item.From, ".reasonix") {
+			t.Errorf("子代理内容路径不应迁移：%s", item.From)
+		}
+		switch {
+		case strings.Contains(item.From, "sunshine-check/SKILL.md"):
+			if !strings.Contains(item.To, "sunshine-quality-check/SKILL.md") {
+				t.Errorf("check 改名目标不对：%s → %s", item.From, item.To)
+			}
+		case strings.Contains(item.From, "sunshine-prototype/SKILL.md"):
+			if !strings.Contains(item.To, "sunshine-prototype-dispatch/SKILL.md") {
+				t.Errorf("prototype 改名目标不对：%s → %s", item.From, item.To)
+			}
+		default:
+			t.Errorf("意外的改名源：%s", item.From)
+		}
+	}
+	meta := reg.Metadata("0.5.56", "0.5.57")
+	if !meta.Breaking || !meta.RecommendMigrate {
+		t.Errorf("0.5.57 应为破坏性版本且建议 --migrate，得到 Breaking=%v RecommendMigrate=%v", meta.Breaking, meta.RecommendMigrate)
 	}
 }

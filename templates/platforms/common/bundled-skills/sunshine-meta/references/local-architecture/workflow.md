@@ -68,7 +68,7 @@ Hook 按当前任务状态选择正确的块并注入对话。常见状态包括
 
 `workflow.md` 是本地工作流的语义中心，但每个平台也可以有自己的入口文件：
 
-- skill，例如 `sunshine-brainstorm` 和 `sunshine-check`。
+- skill，例如 `sunshine-brainstorm` 和 `sunshine-quality-check`。
 - 命令/提示词/工作流，例如 continue 和 finish-work。
 - hook，例如 session-start 或 workflow-state 注入。
 

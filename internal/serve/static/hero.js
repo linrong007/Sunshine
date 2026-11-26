@@ -43,6 +43,7 @@
     switch (String(status || '')) {
       case 'planning': return { pre: true, lit: [] };            // 需求/设计段
       case 'in_progress': return { pre: false, lit: [0, 1] };    // 开发段：实现/检查
+      case 'verifying': return { pre: false, lit: [1] };         // 待验：等集成验证签字
       case 'review': case 'completed': return { pre: false, lit: [2, 3] }; // 收尾段：回写规范/提交
       case 'done': case 'archived': return { pre: false, lit: [0, 1, 2, 3, 4] };
       default: return { pre: false, lit: [] };

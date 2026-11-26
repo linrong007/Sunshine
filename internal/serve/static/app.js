@@ -297,6 +297,7 @@
         statusBadgeClass: function (status) {
           switch (status) {
             case 'in_progress': return 'green';
+            case 'verifying': return 'amber';
             case 'review': return 'amber';
             case 'completed': case 'done': return 'blue';
             case 'archived': return 'gray';

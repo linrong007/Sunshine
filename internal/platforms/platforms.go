@@ -617,7 +617,7 @@ type InstallOptions struct {
 }
 
 // skill 模板的源文件名（不含 sunshine- 前缀）。
-var autoSkillNames = []string{"before-dev", "brainstorm", "break-loop", "check", "update-spec", "spec-import", "prototype"}
+var autoSkillNames = []string{"before-dev", "brainstorm", "break-loop", "quality-check", "update-spec", "spec-import", "prototype-dispatch"}
 
 // command 模板的源文件名。
 var commandNames = []string{"continue", "finish-work", "start"}
@@ -852,14 +852,14 @@ func buildFiles(cwd string, p Platform, opts InstallOptions) (map[string]string,
 
 	// 自动触发 skill：写共享目录的平台（codex、gemini、dsh、
 	// pi、kimi）用中性解析，保证多平台写同一目录时字节一致；
-	// 其余平台用平台解析。reasonix 不写 common 的 check
+	// 其余平台用平台解析。reasonix 不写 common 的 quality-check
 	// （被子代理版顶替，见 ExcludeCheckSkill）。
 	if root != "" {
 		for _, name := range autoSkillNames {
-			if name == "check" && p.ExcludeCheckSkill {
+			if name == "quality-check" && p.ExcludeCheckSkill {
 				continue
 			}
-			if name == "prototype" && p.ExcludePrototypeSkill {
+			if name == "prototype-dispatch" && p.ExcludePrototypeSkill {
 				continue
 			}
 			raw, err := templates.Platforms.ReadFile("platforms/common/skills/" + name + ".md")
@@ -1246,11 +1246,11 @@ var skillDescriptions = map[string]string{
 	"finish-work": "收尾当前会话：确认质量门已通过、提醒用户提交、归档已完成任务、把会话进展记入开发者日志。适用于编码结束、准备收尾时。",
 	"before-dev":  "在动手实现前，发现并注入 .sunshine/spec/ 中的项目专属编码规范。读取规范索引、开发前检查清单与目标包的共享思考指南。适用于开始新编码任务、写代码之前、切换到不同包，或需要刷新项目约定与标准时。",
 	"brainstorm":  "在实现前协作澄清需求。创建任务目录、生成 PRD、一次只问一个高价值问题、调研技术选型、收敛到 MVP 范围。适用于需求不清晰、有多种可行方案，或用户描述新功能、复杂任务时。",
-	"check":       "全面质量核查：规范符合性、Lint、类型检查、测试、跨层数据流、代码复用与一致性。适用于代码写完需要质量核查、提交前，或长会话中需要发现上下文漂移时。",
+	"quality-check": "全面质量核查：规范符合性、Lint、类型检查、测试、跨层数据流、代码复用与一致性。适用于代码写完需要质量核查、提交前，或长会话中需要发现上下文漂移时。",
 	"break-loop":  "深度 Bug 分析，打破“修了忘、忘了再修”的循环。分析根因类别、修复失败的原因、预防机制，并把知识沉淀进规范。适用于修完 Bug 后防止同类 Bug 再次出现。",
 	"update-spec": "把可执行的契约与编码约定沉淀进 .sunshine/spec/ 文档。适用于从调试、实现或讨论中学到值得保留的东西时。",
 	"spec-import": "把用户已有的文档（设计稿、接口文档、README、导出的 wiki）整理成 Sunshine 的规范文件，落到 .sunshine/spec/ 并配好文件头上的索引。适用于接手已有文档的项目、第一次跑 sunshine init 之后。",
-	"prototype":   "高保真原型派发协议：主会话不直接写原型文件，需要原型时加载本 skill，按填空骨架把本轮需求派给 sunshine-prototype 子代理，并收取落盘汇报。适用于设计先行流程里每条需求的原型轮次。",
+	"prototype-dispatch": "高保真原型派发协议：主会话不直接写原型文件，需要原型时加载本 skill，按填空骨架把本轮需求派给 sunshine-prototype 子代理，并收取落盘汇报。适用于设计先行流程里每条需求的原型轮次。",
 }
 
 // wrapSkillFrontmatter 给解析后的 skill 内容包上 YAML frontmatter

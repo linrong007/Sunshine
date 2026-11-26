@@ -62,6 +62,12 @@ func init() {
 	taskCmd.AddCommand(taskListArchiveCmd)
 	taskCmd.AddCommand(taskContextCmd)
 	taskCmd.AddCommand(taskAddSessionCmd)
+	taskCmd.AddCommand(taskVerifyCmd)
+	taskCmd.AddCommand(taskVerifyOpenCmd)
+	taskCmd.AddCommand(taskVerifyAssignCmd)
+	taskCmd.AddCommand(taskVerifySignCmd)
+	taskCmd.AddCommand(taskVerifyWaiveCmd)
+	taskCmd.AddCommand(taskVerifyReopenCmd)
 }
 
 var taskCreateCmd = &cobra.Command{
@@ -412,6 +418,99 @@ var taskAddSessionCmd = &cobra.Command{
 	},
 }
 
+var taskVerifyCmd = &cobra.Command{
+	Use:   "verify <任务>",
+	Short: "查看任务的待验单",
+	Long: `查看任务的待验单：check 对账时落下的、在本任务内验不了、要等
+后续任务接上才能验的集成级条目，以及每条的签字状态。
+
+--json 输出 JSON。`,
+	Example: `  sunshine task verify 11-09-地基
+  sunshine task verify 11-09-地基 --json`,
+	Args: cobra.ExactArgs(1),
+	Run: func(cmd *cobra.Command, args []string) {
+		asJSON, _ := cmd.Flags().GetBool("json")
+		runTaskCode(cmd, func(r *task.Runner) int { return r.VerifyShow(args[0], asJSON) })
+	},
+}
+
+var taskVerifyOpenCmd = &cobra.Command{
+	Use:   "verify-open <任务>",
+	Short: "给任务立待验单（转待验状态）",
+	Long: `立待验单：把 check 对账落下的「待集成验证」条目记成待验单，
+任务状态转 verifying（待验）。--item 与 --standard 按顺序配对，
+可重复多组；--verifier 给全部新条目指名验证任务（后续某个任务）。
+
+单子签满（验通或作废）之前，本任务不能归档。单子内容同步生成在
+任务目录的 verify.md（命令维护，不要手改）。`,
+	Example: `  sunshine task verify-open 11-09-地基 --item "登录后会话保持" --standard "真实登录一次后刷新页面仍保持登录" --verifier 11-09-登录页`,
+	Args:    cobra.ExactArgs(1),
+	Run: func(cmd *cobra.Command, args []string) {
+		items, _ := cmd.Flags().GetStringArray("item")
+		standards, _ := cmd.Flags().GetStringArray("standard")
+		verifier, _ := cmd.Flags().GetString("verifier")
+		runTaskCode(cmd, func(r *task.Runner) int { return r.VerifyOpen(args[0], items, standards, verifier) })
+	},
+}
+
+var taskVerifyAssignCmd = &cobra.Command{
+	Use:   "verify-assign <任务> <条目编号>",
+	Short: "给待验条目指名/改派验证任务",
+	Long: `给一条未销待验条目指名验证任务，或改派给接手任务（--to）。
+验证任务被摘除、归档都会先核这项指名：有未销条目指名等它验，
+摘除与归档都会被拒绝，先改派再动。`,
+	Example: `  sunshine task verify-assign 11-09-地基 V-1 --to 11-09-登录页`,
+	Args:    cobra.ExactArgs(2),
+	Run: func(cmd *cobra.Command, args []string) {
+		to, _ := cmd.Flags().GetString("to")
+		runTaskCode(cmd, func(r *task.Runner) int { return r.VerifyAssign(args[0], args[1], to) })
+	},
+}
+
+var taskVerifySignCmd = &cobra.Command{
+	Use:   "verify-sign <任务> <条目编号>",
+	Short: "给待验条目签字（验通/验不过/仍无法验）",
+	Long: `签字：验证任务的 check 对一条代验条目给出集成级验证结论。
+--result 只收 验通 / 验不过 / 仍无法验；--by 是签字任务（做验证的
+那个任务）；--evidence 必填，写跑通的链路、集成测试或真实输出摘要，
+不许凭读代码的感觉签字。`,
+	Example: `  sunshine task verify-sign 11-09-地基 V-1 --result 验通 --by 11-09-登录页 --evidence "真机登录后刷新仍保持登录，集成测试 AuthFlowIT 通过"`,
+	Args:    cobra.ExactArgs(2),
+	Run: func(cmd *cobra.Command, args []string) {
+		result, _ := cmd.Flags().GetString("result")
+		by, _ := cmd.Flags().GetString("by")
+		evidence, _ := cmd.Flags().GetString("evidence")
+		runTaskCode(cmd, func(r *task.Runner) int { return r.VerifySign(args[0], args[1], result, by, evidence) })
+	},
+}
+
+var taskVerifyWaiveCmd = &cobra.Command{
+	Use:   "verify-waive <任务> <条目编号>",
+	Short: "作废一条待验条目（须记原因）",
+	Long: `作废一条待验条目：需求砍掉等情形，用户批准后由主会话执行。
+--reason 必填，写清作废依据（如需求变更日期与内容）。作废是条目的
+终点之一，作废后不再挡归档，记录留在单子上可查。`,
+	Example: `  sunshine task verify-waive 11-09-地基 V-2 --reason "需求变更 2026-11-26：该功能已砍"`,
+	Args:    cobra.ExactArgs(2),
+	Run: func(cmd *cobra.Command, args []string) {
+		reason, _ := cmd.Flags().GetString("reason")
+		runTaskCode(cmd, func(r *task.Runner) int { return r.VerifyWaive(args[0], args[1], reason) })
+	},
+}
+
+var taskVerifyReopenCmd = &cobra.Command{
+	Use:   "verify-reopen <任务> <条目编号>",
+	Short: "重开一条已签/已作废的待验条目",
+	Long: `重开一条已终结（验通/作废）的条目：需求变更把它的前提改掉时用。
+状态回待验、清掉原签字，任务状态回 verifying；--reason 记重开依据。`,
+	Example: `  sunshine task verify-reopen 11-09-地基 V-1 --reason "需求变更 2026-11-26：会话时长要求改了，按新标准再验"`,
+	Args:    cobra.ExactArgs(2),
+	Run: func(cmd *cobra.Command, args []string) {
+		reason, _ := cmd.Flags().GetString("reason")
+		runTaskCode(cmd, func(r *task.Runner) int { return r.VerifyReopen(args[0], args[1], reason) })
+	},
+}
+
 func init() {
 	taskCreateCmd.Flags().StringP("slug", "s", "", "任务 slug（默认按标题生成）")
 	taskCreateCmd.Flags().StringP("assignee", "a", "", "负责人（默认当前开发者）")
@@ -454,6 +553,22 @@ func init() {
 	taskAddSessionCmd.Flags().StringArray("change", nil, "主要变更（可重复）")
 	taskAddSessionCmd.Flags().StringArray("test", nil, "测试情况（可重复）")
 	taskAddSessionCmd.Flags().StringArray("next-step", nil, "下一步（可重复）")
+	taskVerifyCmd.Flags().Bool("json", false, "以 JSON 输出")
+
+	taskVerifyOpenCmd.Flags().StringArray("item", nil, "待验条目（可重复，与 --standard 按顺序配对）")
+	taskVerifyOpenCmd.Flags().StringArray("standard", nil, "该条目的验过标准（可重复，与 --item 按顺序配对）")
+	taskVerifyOpenCmd.Flags().String("verifier", "", "给全部新条目指名验证任务")
+
+	taskVerifyAssignCmd.Flags().String("to", "", "验证任务（必填）")
+
+	taskVerifySignCmd.Flags().String("result", "", "签字结论：验通 / 验不过 / 仍无法验（必填）")
+	taskVerifySignCmd.Flags().String("by", "", "签字任务，即做验证的任务（必填）")
+	taskVerifySignCmd.Flags().String("evidence", "", "证据：跑通的链路 / 集成测试 / 真实输出摘要（必填）")
+
+	taskVerifyWaiveCmd.Flags().String("reason", "", "作废原因（必填）")
+
+	taskVerifyReopenCmd.Flags().String("reason", "", "重开原因")
+
 	taskAddSessionCmd.Flags().String("idempotency-key", "", "幂等键（1-64 个 [A-Za-z0-9._-] 字符）")
 	taskAddSessionCmd.Flags().Bool("no-commit", false, "不自动提交 journal/index")
 	taskAddSessionCmd.Flags().Bool("stdin", false, "从 stdin 读自由内容")

@@ -284,7 +284,7 @@ func TestInstallNewPlatformsSpotChecks(t *testing.T) {
 		}
 		// 网页版 Harness 只发现 .dsh/skills/：10 个工作流 skill 须
 		// 镜像到此，与 .agents/skills/ 逐字节一致（2026-11-17 demo11 实测）。
-		for _, name := range []string{"before-dev", "brainstorm", "break-loop", "check", "update-spec", "spec-import", "channel", "meta", "session-insight", "spec-bootstrap"} {
+		for _, name := range []string{"before-dev", "brainstorm", "break-loop", "quality-check", "update-spec", "spec-import", "channel", "meta", "session-insight", "spec-bootstrap"} {
 			if got, want := read(t, dir, ".dsh/skills/sunshine-"+name+"/SKILL.md"), read(t, dir, ".agents/skills/sunshine-"+name+"/SKILL.md"); got != want {
 				t.Errorf("dsh 的 .dsh/skills/sunshine-%s 与共享根目录不一致", name)
 			}

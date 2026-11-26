@@ -503,6 +503,8 @@ func InferPhase(status string) string {
 		return "plan"
 	case "in_progress":
 		return "implement"
+	case "verifying":
+		return "verify"
 	case "review":
 		return "review"
 	case "completed", "done":

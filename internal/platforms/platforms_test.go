@@ -137,11 +137,11 @@ func TestFindLeftoverPlaceholder(t *testing.T) {
 }
 
 func TestWrapSkillFrontmatter(t *testing.T) {
-	out, err := wrapSkillFrontmatter("sunshine-check", "正文")
+	out, err := wrapSkillFrontmatter("sunshine-quality-check", "正文")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.HasPrefix(out, "---\nname: sunshine-check\ndescription: \"") {
+	if !strings.HasPrefix(out, "---\nname: sunshine-quality-check\ndescription: \"") {
 		t.Errorf("frontmatter 格式不对：\n%s", out)
 	}
 	if !strings.Contains(out, "全面质量核查") {
@@ -324,7 +324,7 @@ func TestInstallClaude(t *testing.T) {
 		".claude/skills/sunshine-before-dev/SKILL.md",
 		".claude/skills/sunshine-brainstorm/SKILL.md",
 		".claude/skills/sunshine-break-loop/SKILL.md",
-		".claude/skills/sunshine-check/SKILL.md",
+		".claude/skills/sunshine-quality-check/SKILL.md",
 		".claude/skills/sunshine-update-spec/SKILL.md",
 		".claude/commands/sunshine/continue.md",
 		".claude/commands/sunshine/finish-work.md",
@@ -353,8 +353,8 @@ func TestInstallClaude(t *testing.T) {
 	if strings.Contains(settings, "statusLine") {
 		t.Error("默认不应注入 statusLine")
 	}
-	skill := tree[".claude/skills/sunshine-check/SKILL.md"]
-	if !strings.HasPrefix(skill, "---\nname: sunshine-check\n") {
+	skill := tree[".claude/skills/sunshine-quality-check/SKILL.md"]
+	if !strings.HasPrefix(skill, "---\nname: sunshine-quality-check\n") {
 		t.Errorf("skill frontmatter 不对：\n%.200s", skill)
 	}
 	if !strings.Contains(tree[".claude/commands/sunshine/continue.md"], "sunshine task context") {
@@ -386,7 +386,7 @@ func TestInstallCursor(t *testing.T) {
 		".cursor/skills/sunshine-before-dev/SKILL.md",
 		".cursor/skills/sunshine-brainstorm/SKILL.md",
 		".cursor/skills/sunshine-break-loop/SKILL.md",
-		".cursor/skills/sunshine-check/SKILL.md",
+		".cursor/skills/sunshine-quality-check/SKILL.md",
 		".cursor/skills/sunshine-update-spec/SKILL.md",
 		".cursor/commands/sunshine-continue.md",
 		".cursor/commands/sunshine-finish-work.md",
@@ -431,7 +431,7 @@ func TestInstallCodex(t *testing.T) {
 		".agents/skills/sunshine-before-dev/SKILL.md",
 		".agents/skills/sunshine-brainstorm/SKILL.md",
 		".agents/skills/sunshine-break-loop/SKILL.md",
-		".agents/skills/sunshine-check/SKILL.md",
+		".agents/skills/sunshine-quality-check/SKILL.md",
 		".agents/skills/sunshine-update-spec/SKILL.md",
 		".agents/skills/sunshine-start/SKILL.md",
 		".agents/skills/sunshine-continue/SKILL.md",
@@ -491,7 +491,7 @@ func TestInstallCodex(t *testing.T) {
 func TestInstallForceSemantics(t *testing.T) {
 	dir := t.TempDir()
 	// 先写一个用户已有的 skill 文件。
-	custom := filepath.Join(dir, ".claude", "skills", "sunshine-check", "SKILL.md")
+	custom := filepath.Join(dir, ".claude", "skills", "sunshine-quality-check", "SKILL.md")
 	if err := os.MkdirAll(filepath.Dir(custom), 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -504,7 +504,7 @@ func TestInstallForceSemantics(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, f := range files {
-		if f == ".claude/skills/sunshine-check/SKILL.md" {
+		if f == ".claude/skills/sunshine-quality-check/SKILL.md" {
 			t.Error("Force 为假时已存在的文件不应在返回列表中")
 		}
 	}
@@ -517,7 +517,7 @@ func TestInstallForceSemantics(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !containsAll(files, ".claude/skills/sunshine-check/SKILL.md") {
+	if !containsAll(files, ".claude/skills/sunshine-quality-check/SKILL.md") {
 		t.Error("Force 为真时覆盖的文件应在返回列表中")
 	}
 	data, _ = os.ReadFile(custom)

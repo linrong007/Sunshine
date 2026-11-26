@@ -58,7 +58,7 @@ cat .sunshine/spec/<package>/<layer>/index.md   # 每个相关层
 |---|---|
 | 新功能 / 需求不清晰 | `sunshine-brainstorm` |
 | 即将写代码 | `sunshine-before-dev` |
-| 写完代码 / 质量检查 | `sunshine-check` |
+| 写完代码 / 质量检查 | `sunshine-quality-check` |
 | 卡住 / 同一个 Bug 反复修 | `sunshine-break-loop` |
 | 学到值得沉淀的东西 | `sunshine-update-spec` |
 

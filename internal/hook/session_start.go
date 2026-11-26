@@ -395,6 +395,12 @@ func buildCompactCurrentState(root string, input HookInput, cfg Config, active A
 		lines = append(lines, "Current task: none.")
 	}
 	lines = append(lines, fmt.Sprintf("Active tasks: %d total. Use `sunshine task list --mine` only if needed.", CountActiveTasks(root, cfg.TasksDirAbs(root))))
+	if vs := verifyingSummary(root, cfg.TasksDirAbs(root)); vs != "" {
+		lines = append(lines, vs)
+	}
+	if cs := checklistSummary(root, cfg.TasksDirAbs(root)); cs != "" {
+		lines = append(lines, cs)
+	}
 	if journal := ActiveJournalFile(root); journal != "" {
 		lines = append(lines, fmt.Sprintf("Journal: %s, %d / %d lines.", RepoRelative(root, journal), CountLines(journal), cfg.MaxJournalLines))
 	}
@@ -402,6 +408,165 @@ func buildCompactCurrentState(root string, input HookInput, cfg Config, active A
 		lines = append(lines, fmt.Sprintf("Spec 地图：%d 个文件（按适用分组，见 guidelines）。", len(specMap)))
 	}
 	return strings.Join(lines, "\n")
+}
+
+// verifyingSummary 扫全部活动任务的待验单，生成一行显形：哪些任务
+// 还欠多少条未销条目。待验任务归档不了、每会话都摆在明面上，防遗忘。
+// 没有未销条目时返回空串（不注入）。
+func verifyingSummary(root string, tasksDir string) string {
+	if tasksDir == "" {
+		tasksDir = filepath.Join(root, ".sunshine", "tasks")
+	}
+	entries, err := os.ReadDir(tasksDir)
+	if err != nil {
+		return ""
+	}
+	type pending struct {
+		name string
+		n    int
+	}
+	var list []pending
+	total := 0
+	for _, e := range entries {
+		if !e.IsDir() || e.Name() == "archive" {
+			continue
+		}
+		data := ReadJSONFile(filepath.Join(tasksDir, e.Name(), "task.json"))
+		if data == nil {
+			continue
+		}
+		meta, _ := data["meta"].(map[string]any)
+		if meta == nil {
+			continue
+		}
+		rawItems, _ := meta["verify_items"].([]any)
+		n := 0
+		for _, ri := range rawItems {
+			item, _ := ri.(map[string]any)
+			if item == nil {
+				continue
+			}
+			if st, _ := item["state"].(string); st != "passed" && st != "waived" {
+				n++
+			}
+		}
+		if n > 0 {
+			list = append(list, pending{name: e.Name(), n: n})
+			total++
+		}
+	}
+	if total == 0 {
+		return ""
+	}
+	parts := make([]string, 0, len(list))
+	for i, p := range list {
+		if i >= 3 {
+			parts = append(parts, fmt.Sprintf("等 %d 个任务", total))
+			break
+		}
+		parts = append(parts, fmt.Sprintf("%s（未销 %d 条）", p.name, p.n))
+	}
+	return "待验：" + strings.Join(parts, "、") + "。这些任务在待验单签满（verify-sign）或作废（verify-waive）前不得归档；用 `sunshine task verify <任务>` 看单子。"
+}
+
+// checklistSummary 扫全部活动任务，生成一行显形：哪些父任务的清单
+// 还没走完、下一个是谁。口径与 task 包的 Checklist 一致（子任务不在
+// 活动集里 = 已归档 = 已完成；本包含不了 task 包，只能本地扫一遍）。
+// 清单全清零时返回空串（不注入）。
+func checklistSummary(root string, tasksDir string) string {
+	if tasksDir == "" {
+		tasksDir = filepath.Join(root, ".sunshine", "tasks")
+	}
+	entries, err := os.ReadDir(tasksDir)
+	if err != nil {
+		return ""
+	}
+	type taskScan struct {
+		status   string
+		children []string
+	}
+	scans := map[string]*taskScan{}
+	var names []string
+	for _, e := range entries {
+		if !e.IsDir() || e.Name() == "archive" {
+			continue
+		}
+		data := ReadJSONFile(filepath.Join(tasksDir, e.Name(), "task.json"))
+		if data == nil {
+			continue
+		}
+		ts := &taskScan{}
+		if s, ok := data["status"].(string); ok {
+			ts.status = s
+		}
+		if ch, ok := data["children"].([]any); ok {
+			for _, c := range ch {
+				if name, ok := c.(string); ok && name != "" {
+					ts.children = append(ts.children, name)
+				}
+			}
+		}
+		scans[e.Name()] = ts
+		names = append(names, e.Name())
+	}
+	sort.Strings(names)
+	type open struct {
+		parent     string
+		unfinished int
+		total      int
+		doing      []string
+		next       string
+	}
+	var list []open
+	for _, name := range names {
+		ts := scans[name]
+		if len(ts.children) == 0 {
+			continue
+		}
+		o := open{parent: name, total: len(ts.children)}
+		for _, child := range ts.children {
+			cs, ok := scans[child]
+			switch {
+			case !ok || cs.status == "completed" || cs.status == "done":
+				// 已完成，不计未完成。
+			case cs.status == "in_progress":
+				o.doing = append(o.doing, child)
+				o.unfinished++
+			case cs.status == "planning":
+				if o.next == "" {
+					o.next = child
+				}
+				o.unfinished++
+			default:
+				o.unfinished++
+			}
+		}
+		if o.unfinished > 0 {
+			list = append(list, o)
+		}
+	}
+	if len(list) == 0 {
+		return ""
+	}
+	parts := make([]string, 0, len(list))
+	for i, o := range list {
+		if i >= 3 {
+			parts = append(parts, fmt.Sprintf("等 %d 个父任务", len(list)))
+			break
+		}
+		seg := fmt.Sprintf("%s 还剩 %d/%d 个子任务", o.parent, o.unfinished, o.total)
+		if len(o.doing) > 0 {
+			seg += "（正在做：" + strings.Join(o.doing, "、")
+			if o.next != "" {
+				seg += "；下一个：" + o.next
+			}
+			seg += "）"
+		} else if o.next != "" {
+			seg += "（下一个：" + o.next + "）"
+		}
+		parts = append(parts, seg)
+	}
+	return "未完成清单：" + strings.Join(parts, "、") + "。续接或开新任务前先向用户报清单进度，经用户确认再启动下一个；明细用 `sunshine task context` 的「未完成清单」一节。"
 }
 
 // taskStatusBlock 生成 <task-status> 内容，对应 _get_task_status。

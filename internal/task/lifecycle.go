@@ -399,6 +399,18 @@ func (r *Runner) Create(opts CreateOptions) int {
 		fmt.Fprintln(r.errOut(), "      可用 sunshine task context --mode packages 列出可用规范")
 	}
 	fmt.Fprintln(r.errOut(), "  - 用 /sunshine:continue 或阶段上下文决定下一步")
+	// 近似名警告（只警告不拦截）：新 slug 与已有任务互为子串、或只差
+	// 通用词时提醒换名——口头指代这类名字只能靠猜。
+	if entries, err := os.ReadDir(tasksDir); err == nil {
+		for _, e := range entries {
+			if !e.IsDir() || e.Name() == DirArchive || e.Name() == dirName {
+				continue
+			}
+			if other := DirSlug(e.Name()); SimilarSlug(slug, other) {
+				r.warnf("任务名与已有任务近似，容易混淆：%s。建议换个更有区分度的 slug，或事后用 sunshine task rename 改名。", e.Name())
+			}
+		}
+	}
 	fmt.Fprintln(r.errOut())
 	fmt.Fprintln(r.out(), DirSunshine+"/"+DirTasks+"/"+dirName)
 	RunTaskHooks("after_create", filepath.Join(taskDir, FileTaskJSON), r.Root, fileWriter(r.errOut()))
@@ -467,9 +479,10 @@ func (r *Runner) recordStartState(taskJSONPath, label string) {
 		return
 	}
 	var applied []string
-	if status, _ := obj.getString("status"); status == "planning" {
+	if status, _ := obj.getString("status"); status == "planning" || status == "verifying" {
+		// verifying 是待验任务返工：重新 start 回到 in_progress。
 		obj.set("status", "in_progress")
-		applied = append(applied, fmt.Sprintf("✓ 状态：planning → in_progress%s", label))
+		applied = append(applied, fmt.Sprintf("✓ 状态：%s → in_progress%s", status, label))
 	}
 	var baseConflict string
 	if branch, ok := obj.getStringOrNull("branch"); !ok || branch == "" {
@@ -547,12 +560,13 @@ func (r *Runner) Start(dir string, allowEmptyContext bool) int {
 	if !r.requireActiveTaskDir(fullPath) {
 		return 1
 	}
-	// 状态校验：只有 planning / in_progress 的任务能 start；
+	// 状态校验：只有 planning / in_progress / verifying 的任务能 start；
 	// completed/review 等状态直接拒绝，不再只写指针不改状态地“成功”。
+	// verifying 是待验任务返工重开，start 时翻回 in_progress。
 	// task.json 缺失或损坏时不在这里拦，沿用下方 recordStartState 的告警路径。
 	if obj, _, err := readRawObject(filepath.Join(fullPath, FileTaskJSON)); err == nil {
-		if status, _ := obj.getString("status"); status != "planning" && status != "in_progress" {
-			r.errf("拒绝启动任务：当前状态为 %q，只能启动 planning 或 in_progress 的任务", status)
+		if status, _ := obj.getString("status"); status != "planning" && status != "in_progress" && status != "verifying" {
+			r.errf("拒绝启动任务：当前状态为 %q，只能启动 planning、in_progress 或 verifying（待验返工）的任务", status)
 			return 1
 		}
 	}
@@ -772,6 +786,7 @@ func (r *Runner) List(mine bool, status string, asJSON bool) int {
 			Parent        *string  `json:"parent"`
 			Children      []string `json:"children"`
 			Package       *string  `json:"package"`
+			VerifyPending int      `json:"verify_pending"`
 		}
 		var items []item
 		names := make([]string, 0, len(byName))
@@ -808,11 +823,15 @@ func (r *Runner) List(mine bool, status string, asJSON bool) int {
 			if children == nil {
 				children = []string{}
 			}
+			verifyPending := 0
+			if t.Raw != nil {
+				verifyPending = len(UnresolvedVerifyItems(verifyItemsFromRaw(t.Raw)))
+			}
 			items = append(items, item{
 				Dir: DirSunshine + "/" + DirTasks + "/" + name, ID: id, Title: t.Title,
 				Status: t.Status, DisplayStatus: displayStatus(t, allStatuses),
 				Priority: t.Priority, Assignee: assigneePtr, Parent: parentPtr,
-				Children: children, Package: pkgPtr,
+				Children: children, Package: pkgPtr, VerifyPending: verifyPending,
 			})
 		}
 		if items == nil {
@@ -870,11 +889,17 @@ func (r *Runner) List(mine bool, status string, asJSON bool) int {
 		if t.Package != "" {
 			pkgTag = " @" + t.Package
 		}
+		verifyTag := ""
+		if t.Raw != nil {
+			if n := len(UnresolvedVerifyItems(verifyItemsFromRaw(t.Raw))); n > 0 {
+				verifyTag = fmt.Sprintf(" [待验：未销 %d 条]", n)
+			}
+		}
 		prefix := strings.Repeat("  ", indent) + "  - "
 		if mine {
-			fmt.Fprintf(r.out(), "%s%s/ (%s)%s%s%s\n", prefix, name, statusLabel, pkgTag, progress, marker)
+			fmt.Fprintf(r.out(), "%s%s/ (%s)%s%s%s%s\n", prefix, name, statusLabel, pkgTag, progress, verifyTag, marker)
 		} else {
-			fmt.Fprintf(r.out(), "%s%s/ (%s)%s%s [%s]%s\n", prefix, name, statusLabel, pkgTag, progress, orDash(t.Assignee), marker)
+			fmt.Fprintf(r.out(), "%s%s/ (%s)%s%s [%s]%s%s\n", prefix, name, statusLabel, pkgTag, progress, orDash(t.Assignee), verifyTag, marker)
 		}
 		count++
 		for _, child := range t.Children {
@@ -1202,8 +1227,41 @@ func (r *Runner) linkSubtask(parentArg, childArg string, link bool) int {
 // AddSubtask 链接子任务。
 func (r *Runner) AddSubtask(parent, child string) int { return r.linkSubtask(parent, child, true) }
 
-// RemoveSubtask 解除子任务链接。
+// RemoveSubtask 解除子任务链接。摘除前先核待验单：子任务若被指名
+// 为未销条目的验证者，拒绝摘除（先 verify-assign 改派）；子任务自己
+// 有未销条目时警告（摘除后父任务集成复核不再替它兜底）。
 func (r *Runner) RemoveSubtask(parent, child string) int {
+	if childDir := r.resolveOrError(child); childDir != "" {
+		childName := filepath.Base(childDir)
+		var duties []string
+		for _, t := range IterActiveTasks(TasksDir(r.Root), fileWriter(r.errOut())) {
+			if t.DirName == childName {
+				continue
+			}
+			obj, _, err := readRawObject(filepath.Join(t.Dir, FileTaskJSON))
+			if err != nil {
+				continue
+			}
+			for _, it := range verifyItemsFromRaw(obj) {
+				if it.Verifier == childName && !it.Resolved() {
+					duties = append(duties, fmt.Sprintf("%s 的 %s（%s）", t.DirName, it.ID, it.Item))
+				}
+			}
+		}
+		if len(duties) > 0 {
+			r.errf("拒绝摘除 %s：它被指名为未销待验条目的验证者", childName)
+			for _, d := range duties {
+				fmt.Fprintf(r.errOut(), "  - %s\n", d)
+			}
+			fmt.Fprintln(r.errOut(), "先用 sunshine task verify-assign 把这些条目改派给接手任务或父任务，再摘除。")
+			return 1
+		}
+		if obj, _, err := readRawObject(filepath.Join(childDir, FileTaskJSON)); err == nil {
+			if un := UnresolvedVerifyItems(verifyItemsFromRaw(obj)); len(un) > 0 {
+				r.warnf("子任务 %s 自己还有 %d 条未销待验条目；摘除后父任务集成复核不再替它兜底，由它自己与后续任务处理。", childName, len(un))
+			}
+		}
+	}
 	return r.linkSubtask(parent, child, false)
 }
 
@@ -1768,6 +1826,7 @@ func (r *Runner) Rename(name, newSlug string, dryRun bool) int {
 		return 1
 	}
 	RepointTaskInSessions(r.Root, oldRel, newRel)
+	r.rewriteVerifyRefsAfterRename(oldName, newName)
 	fmt.Fprintf(r.errOut(), "已重命名：%s -> %s\n", oldName, newName)
 	if len(plan.reported) > 0 {
 		fmt.Fprintf(r.errOut(), "%d 处 .sunshine/ 下的其他引用仍用旧名（已在上方列出，未改写）。\n", len(plan.reported))
@@ -1900,6 +1959,11 @@ func (r *Runner) Archive(name string, noCommit, skipBranchValidation bool) int {
 		return 1
 	}
 	dirName := filepath.Base(taskDir)
+	// 待验单硬拦（动手改任何东西之前）：自己的单未销、子任务的单未销、
+	// 或有条目指名等本任务验而未签，一律拒绝归档。
+	if code := r.verifyArchiveGates(taskDir, dirName); code != 0 {
+		return code
+	}
 	taskJSONPath := filepath.Join(taskDir, FileTaskJSON)
 	var modifiedChildren []string
 	if _, err := os.Stat(taskJSONPath); err == nil {

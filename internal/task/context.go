@@ -314,6 +314,15 @@ func (r *Runner) contextText() string {
 	}
 	lines = append(lines, fmt.Sprintf("总计：%d 个活动任务", taskCount))
 	lines = append(lines, "")
+	// 未完成清单：还有子任务没做完的父任务逐个列进度与下一个，
+	// 续接时先看这一节对齐清单走到哪了，不靠主会话记性。
+	if cls := Checklists(all); len(cls) > 0 {
+		lines = append(lines, "## 未完成清单")
+		for _, c := range cls {
+			lines = append(lines, "- "+c.Line())
+		}
+		lines = append(lines, "")
+	}
 	// 我的任务。
 	lines = append(lines, "## 我的任务（分配给我）")
 	myCount := 0

@@ -414,7 +414,7 @@ func TestRunMigrationGateAndSafeDelete(t *testing.T) {
 		RecommendMigrate: true,
 		Changelog:        "旧命令改名。",
 		Migrations: []migrate.MigrationItem{
-			{Type: migrate.MigrationTypeRename, From: ".claude/skills/sunshine-check/SKILL.md", To: ".claude/skills/sunshine-check-v2/SKILL.md", Description: "改名"},
+			{Type: migrate.MigrationTypeRename, From: ".claude/skills/sunshine-quality-check/SKILL.md", To: ".claude/skills/sunshine-quality-check-v2/SKILL.md", Description: "改名"},
 			{Type: migrate.MigrationTypeSafeFileDelete, From: deprecated, Description: "删除已废弃的旧命令", AllowedHashes: []string{deprecatedHash}},
 		},
 	}); err != nil {
@@ -437,10 +437,10 @@ func TestRunMigrationGateAndSafeDelete(t *testing.T) {
 	if _, err := Run(dir, Options{CLIVersion: "0.2.0", Migrate: true, Force: true, Out: &out}); err != nil {
 		t.Fatalf("--migrate 应放行：%v", err)
 	}
-	if _, err := os.Stat(filepath.Join(dir, ".claude", "skills", "sunshine-check-v2", "SKILL.md")); err != nil {
+	if _, err := os.Stat(filepath.Join(dir, ".claude", "skills", "sunshine-quality-check-v2", "SKILL.md")); err != nil {
 		t.Error("改名迁移应执行：新路径文件不存在")
 	}
-	if _, err := os.Stat(filepath.Join(dir, ".claude", "skills", "sunshine-check", "SKILL.md")); !os.IsNotExist(err) {
+	if _, err := os.Stat(filepath.Join(dir, ".claude", "skills", "sunshine-quality-check", "SKILL.md")); !os.IsNotExist(err) {
 		t.Error("改名迁移应执行：旧路径文件应已搬走")
 	}
 	if _, err := os.Stat(filepath.Join(dir, ".claude", "skills", "sunshine-brainstorm-v2", "SKILL.md")); err != nil {

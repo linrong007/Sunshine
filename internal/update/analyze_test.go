@@ -13,7 +13,7 @@ func TestAnalyzeChangesTriState(t *testing.T) {
 	templates := map[string]string{
 		".sunshine/workflow.md":                  readFile(t, dir, ".sunshine/workflow.md"),
 		".sunshine/agents/check.md":              readFile(t, dir, ".sunshine/agents/check.md"),
-		".claude/skills/sunshine-check/SKILL.md": readFile(t, dir, ".claude/skills/sunshine-check/SKILL.md"),
+		".claude/skills/sunshine-quality-check/SKILL.md": readFile(t, dir, ".claude/skills/sunshine-quality-check/SKILL.md"),
 		".sunshine/agents/plan.md":               readFile(t, dir, ".sunshine/agents/plan.md"),
 	}
 	hashes := LoadHashes(dir)
@@ -64,13 +64,13 @@ func TestAnalyzeChangesTriState(t *testing.T) {
 	}
 
 	// 5. 用户已删除（清单有记录、磁盘不存在）→ userDeletedFiles。
-	if err := os.Remove(filepath.Join(dir, ".claude", "skills", "sunshine-check", "SKILL.md")); err != nil {
+	if err := os.Remove(filepath.Join(dir, ".claude", "skills", "sunshine-quality-check", "SKILL.md")); err != nil {
 		t.Fatal(err)
 	}
 	changes = AnalyzeChanges(dir, hashes, templates, "")
 	found = false
 	for _, f := range changes.UserDeletedFiles {
-		if f.RelativePath == ".claude/skills/sunshine-check/SKILL.md" {
+		if f.RelativePath == ".claude/skills/sunshine-quality-check/SKILL.md" {
 			found = true
 		}
 	}

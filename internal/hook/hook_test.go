@@ -130,6 +130,62 @@ func TestSessionStart_WithSunshine(t *testing.T) {
 	}
 }
 
+func TestSessionStart_VerifyingSummaryVisible(t *testing.T) {
+	root, _ := makeProject(t)
+	// 另建一个带未销待验条目的任务：current-state 应出现「待验：」行。
+	other := filepath.Join(root, ".sunshine", "tasks", "11-09-foundation")
+	mustWrite(t, filepath.Join(other, "task.json"),
+		`{"id": "11-09-foundation", "title": "地基", "status": "verifying", "priority": "P1", "meta": {"verify_items": [{"id": "V-1", "item": "会话保持", "standard": "登录后刷新仍登录", "state": "pending"}, {"id": "V-2", "item": "拦截", "standard": "未登录被重定向", "state": "passed"}]}}`+"\n")
+	out, _ := runWithInput(t, func(in *strings.Reader, o Options) error { return RunSessionStart(in, o) },
+		`{"session_id":"sess-1","cwd":`+strconv_quot(root)+`}`)
+	ctx := additionalContext(t, out)
+	if !strings.Contains(ctx, "待验：11-09-foundation（未销 1 条）") {
+		t.Errorf("session-start 应显形未销待验单，全文：\n%s", ctx)
+	}
+	// 全部签通后该行消失。
+	mustWrite(t, filepath.Join(other, "task.json"),
+		`{"id": "11-09-foundation", "title": "地基", "status": "verifying", "priority": "P1", "meta": {"verify_items": [{"id": "V-1", "item": "会话保持", "standard": "登录后刷新仍登录", "state": "passed"}]}}`+"\n")
+	out, _ = runWithInput(t, func(in *strings.Reader, o Options) error { return RunSessionStart(in, o) },
+		`{"session_id":"sess-1","cwd":`+strconv_quot(root)+`}`)
+	ctx = additionalContext(t, out)
+	if strings.Contains(ctx, "待验：") {
+		t.Errorf("待验单签满后不应再显形，全文：\n%s", ctx)
+	}
+}
+
+func TestSessionStart_ChecklistSummaryVisible(t *testing.T) {
+	root, _ := makeProject(t)
+	tasksDir := filepath.Join(root, ".sunshine", "tasks")
+	// 父任务带四个子任务：一个已归档（不建目录）、一个在做、两个排队。
+	mustWrite(t, filepath.Join(tasksDir, "11-09-parent", "task.json"),
+		`{"id": "11-09-parent", "title": "父任务", "status": "planning", "priority": "P1", "children": ["11-09-done", "11-09-doing", "11-09-next", "11-09-later"]}`+"\n")
+	mustWrite(t, filepath.Join(tasksDir, "11-09-doing", "task.json"),
+		`{"id": "11-09-doing", "title": "在做", "status": "in_progress", "priority": "P1", "parent": "11-09-parent"}`+"\n")
+	mustWrite(t, filepath.Join(tasksDir, "11-09-next", "task.json"),
+		`{"id": "11-09-next", "title": "下一个", "status": "planning", "priority": "P1", "parent": "11-09-parent"}`+"\n")
+	mustWrite(t, filepath.Join(tasksDir, "11-09-later", "task.json"),
+		`{"id": "11-09-later", "title": "再后", "status": "planning", "priority": "P1", "parent": "11-09-parent"}`+"\n")
+	out, _ := runWithInput(t, func(in *strings.Reader, o Options) error { return RunSessionStart(in, o) },
+		`{"session_id":"sess-1","cwd":`+strconv_quot(root)+`}`)
+	ctx := additionalContext(t, out)
+	want := "未完成清单：11-09-parent 还剩 3/4 个子任务（正在做：11-09-doing；下一个：11-09-next）"
+	if !strings.Contains(ctx, want) {
+		t.Errorf("session-start 应显形未完成清单 %q，全文：\n%s", want, ctx)
+	}
+	// 子任务全归档（目录都挪走）后该行消失。
+	for _, name := range []string{"11-09-doing", "11-09-next", "11-09-later"} {
+		if err := os.RemoveAll(filepath.Join(tasksDir, name)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	out, _ = runWithInput(t, func(in *strings.Reader, o Options) error { return RunSessionStart(in, o) },
+		`{"session_id":"sess-1","cwd":`+strconv_quot(root)+`}`)
+	ctx = additionalContext(t, out)
+	if strings.Contains(ctx, "未完成清单：") {
+		t.Errorf("清单走完后不应再显形，全文：\n%s", ctx)
+	}
+}
+
 func TestSessionStart_NoSunshine(t *testing.T) {
 	empty := t.TempDir()
 	// 进程 cwd 也参与项目根查找（回退）；切到空目录，避免祖先目录

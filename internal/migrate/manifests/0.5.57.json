@@ -1,0 +1,262 @@
+{
+ "breaking": true,
+ "changelog": "两个 skill 改名，与同名子代理区分：质量核查 skill sunshine-check → sunshine-quality-check，原型派发协议 skill sunshine-prototype → sunshine-prototype-dispatch。子代理名不变。未改动过的文件自动搬走，改动过会先问你。",
+ "description": "Skill 改名：check → quality-check、prototype → prototype-dispatch（与同名子代理区分）",
+ "migrations": [
+  {
+   "description": "skill 改名：质量核查（与 sunshine-check 子代理同名，改名区分）",
+   "from": ".agent/skills/sunshine-check/SKILL.md",
+   "reason": "sunshine-check 同时是子代理名，斜杠面板里同名两物分不清；核查流程 skill 改名为 sunshine-quality-check，子代理名不变。",
+   "to": ".agent/skills/sunshine-quality-check/SKILL.md",
+   "type": "rename"
+  },
+  {
+   "description": "skill 改名：原型派发协议（与 sunshine-prototype 子代理同名，改名区分）",
+   "from": ".agent/skills/sunshine-prototype/SKILL.md",
+   "reason": "sunshine-prototype 同时是子代理名，斜杠面板里同名两物分不清；派发协议 skill 改名为 sunshine-prototype-dispatch，子代理名不变。",
+   "to": ".agent/skills/sunshine-prototype-dispatch/SKILL.md",
+   "type": "rename"
+  },
+  {
+   "description": "skill 改名：质量核查（与 sunshine-check 子代理同名，改名区分）",
+   "from": ".agents/skills/sunshine-check/SKILL.md",
+   "reason": "sunshine-check 同时是子代理名，斜杠面板里同名两物分不清；核查流程 skill 改名为 sunshine-quality-check，子代理名不变。",
+   "to": ".agents/skills/sunshine-quality-check/SKILL.md",
+   "type": "rename"
+  },
+  {
+   "description": "skill 改名：原型派发协议（与 sunshine-prototype 子代理同名，改名区分）",
+   "from": ".agents/skills/sunshine-prototype/SKILL.md",
+   "reason": "sunshine-prototype 同时是子代理名，斜杠面板里同名两物分不清；派发协议 skill 改名为 sunshine-prototype-dispatch，子代理名不变。",
+   "to": ".agents/skills/sunshine-prototype-dispatch/SKILL.md",
+   "type": "rename"
+  },
+  {
+   "description": "skill 改名：质量核查（与 sunshine-check 子代理同名，改名区分）",
+   "from": ".claude/skills/sunshine-check/SKILL.md",
+   "reason": "sunshine-check 同时是子代理名，斜杠面板里同名两物分不清；核查流程 skill 改名为 sunshine-quality-check，子代理名不变。",
+   "to": ".claude/skills/sunshine-quality-check/SKILL.md",
+   "type": "rename"
+  },
+  {
+   "description": "skill 改名：原型派发协议（与 sunshine-prototype 子代理同名，改名区分）",
+   "from": ".claude/skills/sunshine-prototype/SKILL.md",
+   "reason": "sunshine-prototype 同时是子代理名，斜杠面板里同名两物分不清；派发协议 skill 改名为 sunshine-prototype-dispatch，子代理名不变。",
+   "to": ".claude/skills/sunshine-prototype-dispatch/SKILL.md",
+   "type": "rename"
+  },
+  {
+   "description": "skill 改名：质量核查（与 sunshine-check 子代理同名，改名区分）",
+   "from": ".codebuddy/skills/sunshine-check/SKILL.md",
+   "reason": "sunshine-check 同时是子代理名，斜杠面板里同名两物分不清；核查流程 skill 改名为 sunshine-quality-check，子代理名不变。",
+   "to": ".codebuddy/skills/sunshine-quality-check/SKILL.md",
+   "type": "rename"
+  },
+  {
+   "description": "skill 改名：原型派发协议（与 sunshine-prototype 子代理同名，改名区分）",
+   "from": ".codebuddy/skills/sunshine-prototype/SKILL.md",
+   "reason": "sunshine-prototype 同时是子代理名，斜杠面板里同名两物分不清；派发协议 skill 改名为 sunshine-prototype-dispatch，子代理名不变。",
+   "to": ".codebuddy/skills/sunshine-prototype-dispatch/SKILL.md",
+   "type": "rename"
+  },
+  {
+   "description": "skill 改名：质量核查（与 sunshine-check 子代理同名，改名区分）",
+   "from": ".cursor/skills/sunshine-check/SKILL.md",
+   "reason": "sunshine-check 同时是子代理名，斜杠面板里同名两物分不清；核查流程 skill 改名为 sunshine-quality-check，子代理名不变。",
+   "to": ".cursor/skills/sunshine-quality-check/SKILL.md",
+   "type": "rename"
+  },
+  {
+   "description": "skill 改名：原型派发协议（与 sunshine-prototype 子代理同名，改名区分）",
+   "from": ".cursor/skills/sunshine-prototype/SKILL.md",
+   "reason": "sunshine-prototype 同时是子代理名，斜杠面板里同名两物分不清；派发协议 skill 改名为 sunshine-prototype-dispatch，子代理名不变。",
+   "to": ".cursor/skills/sunshine-prototype-dispatch/SKILL.md",
+   "type": "rename"
+  },
+  {
+   "description": "skill 改名：质量核查（与 sunshine-check 子代理同名，改名区分）",
+   "from": ".devin/skills/sunshine-check/SKILL.md",
+   "reason": "sunshine-check 同时是子代理名，斜杠面板里同名两物分不清；核查流程 skill 改名为 sunshine-quality-check，子代理名不变。",
+   "to": ".devin/skills/sunshine-quality-check/SKILL.md",
+   "type": "rename"
+  },
+  {
+   "description": "skill 改名：原型派发协议（与 sunshine-prototype 子代理同名，改名区分）",
+   "from": ".devin/skills/sunshine-prototype/SKILL.md",
+   "reason": "sunshine-prototype 同时是子代理名，斜杠面板里同名两物分不清；派发协议 skill 改名为 sunshine-prototype-dispatch，子代理名不变。",
+   "to": ".devin/skills/sunshine-prototype-dispatch/SKILL.md",
+   "type": "rename"
+  },
+  {
+   "description": "skill 改名：质量核查（与 sunshine-check 子代理同名，改名区分）",
+   "from": ".dsh/skills/sunshine-check/SKILL.md",
+   "reason": "sunshine-check 同时是子代理名，斜杠面板里同名两物分不清；核查流程 skill 改名为 sunshine-quality-check，子代理名不变。",
+   "to": ".dsh/skills/sunshine-quality-check/SKILL.md",
+   "type": "rename"
+  },
+  {
+   "description": "skill 改名：原型派发协议（与 sunshine-prototype 子代理同名，改名区分）",
+   "from": ".dsh/skills/sunshine-prototype/SKILL.md",
+   "reason": "sunshine-prototype 同时是子代理名，斜杠面板里同名两物分不清；派发协议 skill 改名为 sunshine-prototype-dispatch，子代理名不变。",
+   "to": ".dsh/skills/sunshine-prototype-dispatch/SKILL.md",
+   "type": "rename"
+  },
+  {
+   "description": "skill 改名：质量核查（与 sunshine-check 子代理同名，改名区分）",
+   "from": ".factory/skills/sunshine-check/SKILL.md",
+   "reason": "sunshine-check 同时是子代理名，斜杠面板里同名两物分不清；核查流程 skill 改名为 sunshine-quality-check，子代理名不变。",
+   "to": ".factory/skills/sunshine-quality-check/SKILL.md",
+   "type": "rename"
+  },
+  {
+   "description": "skill 改名：原型派发协议（与 sunshine-prototype 子代理同名，改名区分）",
+   "from": ".factory/skills/sunshine-prototype/SKILL.md",
+   "reason": "sunshine-prototype 同时是子代理名，斜杠面板里同名两物分不清；派发协议 skill 改名为 sunshine-prototype-dispatch，子代理名不变。",
+   "to": ".factory/skills/sunshine-prototype-dispatch/SKILL.md",
+   "type": "rename"
+  },
+  {
+   "description": "skill 改名：质量核查（与 sunshine-check 子代理同名，改名区分）",
+   "from": ".github/skills/sunshine-check/SKILL.md",
+   "reason": "sunshine-check 同时是子代理名，斜杠面板里同名两物分不清；核查流程 skill 改名为 sunshine-quality-check，子代理名不变。",
+   "to": ".github/skills/sunshine-quality-check/SKILL.md",
+   "type": "rename"
+  },
+  {
+   "description": "skill 改名：原型派发协议（与 sunshine-prototype 子代理同名，改名区分）",
+   "from": ".github/skills/sunshine-prototype/SKILL.md",
+   "reason": "sunshine-prototype 同时是子代理名，斜杠面板里同名两物分不清；派发协议 skill 改名为 sunshine-prototype-dispatch，子代理名不变。",
+   "to": ".github/skills/sunshine-prototype-dispatch/SKILL.md",
+   "type": "rename"
+  },
+  {
+   "description": "skill 改名：质量核查（与 sunshine-check 子代理同名，改名区分）",
+   "from": ".grok/skills/sunshine-check/SKILL.md",
+   "reason": "sunshine-check 同时是子代理名，斜杠面板里同名两物分不清；核查流程 skill 改名为 sunshine-quality-check，子代理名不变。",
+   "to": ".grok/skills/sunshine-quality-check/SKILL.md",
+   "type": "rename"
+  },
+  {
+   "description": "skill 改名：原型派发协议（与 sunshine-prototype 子代理同名，改名区分）",
+   "from": ".grok/skills/sunshine-prototype/SKILL.md",
+   "reason": "sunshine-prototype 同时是子代理名，斜杠面板里同名两物分不清；派发协议 skill 改名为 sunshine-prototype-dispatch，子代理名不变。",
+   "to": ".grok/skills/sunshine-prototype-dispatch/SKILL.md",
+   "type": "rename"
+  },
+  {
+   "description": "skill 改名：质量核查（与 sunshine-check 子代理同名，改名区分）",
+   "from": ".kilocode/skills/sunshine-check/SKILL.md",
+   "reason": "sunshine-check 同时是子代理名，斜杠面板里同名两物分不清；核查流程 skill 改名为 sunshine-quality-check，子代理名不变。",
+   "to": ".kilocode/skills/sunshine-quality-check/SKILL.md",
+   "type": "rename"
+  },
+  {
+   "description": "skill 改名：原型派发协议（与 sunshine-prototype 子代理同名，改名区分）",
+   "from": ".kilocode/skills/sunshine-prototype/SKILL.md",
+   "reason": "sunshine-prototype 同时是子代理名，斜杠面板里同名两物分不清；派发协议 skill 改名为 sunshine-prototype-dispatch，子代理名不变。",
+   "to": ".kilocode/skills/sunshine-prototype-dispatch/SKILL.md",
+   "type": "rename"
+  },
+  {
+   "description": "skill 改名：质量核查（与 sunshine-check 子代理同名，改名区分）",
+   "from": ".kiro/skills/sunshine-check/SKILL.md",
+   "reason": "sunshine-check 同时是子代理名，斜杠面板里同名两物分不清；核查流程 skill 改名为 sunshine-quality-check，子代理名不变。",
+   "to": ".kiro/skills/sunshine-quality-check/SKILL.md",
+   "type": "rename"
+  },
+  {
+   "description": "skill 改名：原型派发协议（与 sunshine-prototype 子代理同名，改名区分）",
+   "from": ".kiro/skills/sunshine-prototype/SKILL.md",
+   "reason": "sunshine-prototype 同时是子代理名，斜杠面板里同名两物分不清；派发协议 skill 改名为 sunshine-prototype-dispatch，子代理名不变。",
+   "to": ".kiro/skills/sunshine-prototype-dispatch/SKILL.md",
+   "type": "rename"
+  },
+  {
+   "description": "skill 改名：质量核查（与 sunshine-check 子代理同名，改名区分）",
+   "from": ".omp/skills/sunshine-check/SKILL.md",
+   "reason": "sunshine-check 同时是子代理名，斜杠面板里同名两物分不清；核查流程 skill 改名为 sunshine-quality-check，子代理名不变。",
+   "to": ".omp/skills/sunshine-quality-check/SKILL.md",
+   "type": "rename"
+  },
+  {
+   "description": "skill 改名：原型派发协议（与 sunshine-prototype 子代理同名，改名区分）",
+   "from": ".omp/skills/sunshine-prototype/SKILL.md",
+   "reason": "sunshine-prototype 同时是子代理名，斜杠面板里同名两物分不清；派发协议 skill 改名为 sunshine-prototype-dispatch，子代理名不变。",
+   "to": ".omp/skills/sunshine-prototype-dispatch/SKILL.md",
+   "type": "rename"
+  },
+  {
+   "description": "skill 改名：质量核查（与 sunshine-check 子代理同名，改名区分）",
+   "from": ".opencode/skills/sunshine-check/SKILL.md",
+   "reason": "sunshine-check 同时是子代理名，斜杠面板里同名两物分不清；核查流程 skill 改名为 sunshine-quality-check，子代理名不变。",
+   "to": ".opencode/skills/sunshine-quality-check/SKILL.md",
+   "type": "rename"
+  },
+  {
+   "description": "skill 改名：原型派发协议（与 sunshine-prototype 子代理同名，改名区分）",
+   "from": ".opencode/skills/sunshine-prototype/SKILL.md",
+   "reason": "sunshine-prototype 同时是子代理名，斜杠面板里同名两物分不清；派发协议 skill 改名为 sunshine-prototype-dispatch，子代理名不变。",
+   "to": ".opencode/skills/sunshine-prototype-dispatch/SKILL.md",
+   "type": "rename"
+  },
+  {
+   "description": "skill 改名：质量核查（与 sunshine-check 子代理同名，改名区分）",
+   "from": ".qoder/skills/sunshine-check/SKILL.md",
+   "reason": "sunshine-check 同时是子代理名，斜杠面板里同名两物分不清；核查流程 skill 改名为 sunshine-quality-check，子代理名不变。",
+   "to": ".qoder/skills/sunshine-quality-check/SKILL.md",
+   "type": "rename"
+  },
+  {
+   "description": "skill 改名：原型派发协议（与 sunshine-prototype 子代理同名，改名区分）",
+   "from": ".qoder/skills/sunshine-prototype/SKILL.md",
+   "reason": "sunshine-prototype 同时是子代理名，斜杠面板里同名两物分不清；派发协议 skill 改名为 sunshine-prototype-dispatch，子代理名不变。",
+   "to": ".qoder/skills/sunshine-prototype-dispatch/SKILL.md",
+   "type": "rename"
+  },
+  {
+   "description": "skill 改名：质量核查（与 sunshine-check 子代理同名，改名区分）",
+   "from": ".snow/skills/sunshine-check/SKILL.md",
+   "reason": "sunshine-check 同时是子代理名，斜杠面板里同名两物分不清；核查流程 skill 改名为 sunshine-quality-check，子代理名不变。",
+   "to": ".snow/skills/sunshine-quality-check/SKILL.md",
+   "type": "rename"
+  },
+  {
+   "description": "skill 改名：原型派发协议（与 sunshine-prototype 子代理同名，改名区分）",
+   "from": ".snow/skills/sunshine-prototype/SKILL.md",
+   "reason": "sunshine-prototype 同时是子代理名，斜杠面板里同名两物分不清；派发协议 skill 改名为 sunshine-prototype-dispatch，子代理名不变。",
+   "to": ".snow/skills/sunshine-prototype-dispatch/SKILL.md",
+   "type": "rename"
+  },
+  {
+   "description": "skill 改名：质量核查（与 sunshine-check 子代理同名，改名区分）",
+   "from": ".trae/skills/sunshine-check/SKILL.md",
+   "reason": "sunshine-check 同时是子代理名，斜杠面板里同名两物分不清；核查流程 skill 改名为 sunshine-quality-check，子代理名不变。",
+   "to": ".trae/skills/sunshine-quality-check/SKILL.md",
+   "type": "rename"
+  },
+  {
+   "description": "skill 改名：原型派发协议（与 sunshine-prototype 子代理同名，改名区分）",
+   "from": ".trae/skills/sunshine-prototype/SKILL.md",
+   "reason": "sunshine-prototype 同时是子代理名，斜杠面板里同名两物分不清；派发协议 skill 改名为 sunshine-prototype-dispatch，子代理名不变。",
+   "to": ".trae/skills/sunshine-prototype-dispatch/SKILL.md",
+   "type": "rename"
+  },
+  {
+   "description": "skill 改名：质量核查（与 sunshine-check 子代理同名，改名区分）",
+   "from": ".zcode/skills/sunshine-check/SKILL.md",
+   "reason": "sunshine-check 同时是子代理名，斜杠面板里同名两物分不清；核查流程 skill 改名为 sunshine-quality-check，子代理名不变。",
+   "to": ".zcode/skills/sunshine-quality-check/SKILL.md",
+   "type": "rename"
+  },
+  {
+   "description": "skill 改名：原型派发协议（与 sunshine-prototype 子代理同名，改名区分）",
+   "from": ".zcode/skills/sunshine-prototype/SKILL.md",
+   "reason": "sunshine-prototype 同时是子代理名，斜杠面板里同名两物分不清；派发协议 skill 改名为 sunshine-prototype-dispatch，子代理名不变。",
+   "to": ".zcode/skills/sunshine-prototype-dispatch/SKILL.md",
+   "type": "rename"
+  }
+ ],
+ "notes": "起因：《Sunshine 使用问题清单》第 3 条——斜杠面板里 sunshine-check、sunshine-prototype 各出现两次（skill 与子代理同名、描述不同），用户分不清。改法是只改 skill 名、子代理名不动（子代理名牵连 hook 识别与派发接线，面太大）。路径清单取自全平台 init 实测：18 个 skills 目录各一份；Kimi 的 .kimi-code/skills 与 Reasonix 的 .reasonix/skills 下同名文件装的是子代理内容（有意同名），不在迁移范围内。共享 .agents/skills 只登记一次。",
+ "recommendMigrate": true,
+ "version": "0.5.57"
+}

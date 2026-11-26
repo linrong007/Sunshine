@@ -7,13 +7,17 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// TestTaskSubcommands 注册了全部 17 个 task.py 子命令 + context + add-session。
+// TestTaskSubcommands 注册了全部 17 个 task.py 子命令 + context + add-session
+// + 待验单 6 条（verify / verify-open / verify-assign / verify-sign /
+// verify-waive / verify-reopen）。
 func TestTaskSubcommands(t *testing.T) {
 	want := []string{
 		"create", "add-context", "validate", "list-context", "start", "current",
 		"finish", "set-branch", "set-base-branch", "set-scope", "set-meta",
 		"rename", "archive", "list", "add-subtask", "remove-subtask",
 		"list-archive", "context", "add-session",
+		"verify", "verify-open", "verify-assign", "verify-sign",
+		"verify-waive", "verify-reopen",
 	}
 	byName := map[string]*cobra.Command{}
 	for _, cmd := range taskCmd.Commands() {

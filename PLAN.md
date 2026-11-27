@@ -3910,6 +3910,7 @@ hook 19 条、CLI 与任务系统 7 条、平台与 registry 11 条、serve/chan
 - 验证：全量测试全过；三对镜像 cmp 一致；本地构建 init 临时项目，装出的 .sunshine/workflow.md 新句齐在位。遗留：教程 §12.6 叙事里「评审就是 1.5 的最终规划总结」一句与新口径（总结不算评审）有简化出入，未擅改，待用户定夺。
 - 发版：本批不发版，等用户点选。
 
+
 ### 评审顺序理顺·开发先行核查补记（2026-11-22，未发版）
 
 - 用户要求核查新口径与开发先行（直接开发）是否冲突。核查结论：audit 子代理 18 份模板本就分模式取输入（没有需求列表时只读 prd.md、开发先行另读相关 spec），无冲突；深度逼问触发②本就覆盖直接开发标准档。workflow 侧查出三处设计先行口径漏进共用文本，已修（仍为 workflow×3 + 镜像×3 同步）：
@@ -4206,3 +4207,13 @@ Token 口径：OpenViking 分 L0 摘要（约 100 token/份）、L1 概览（约
 - 与既有机制的关系：native / channel 模板一字未动，默认流程零加重；待验单零改动——外环题里本任务内验不了的条目照旧走 check 第五类结论立单，题目可作验过标准；快速通道 / 轻量档跳过外环，与既有豁免口径一致。
 - 验证：全量测试绿、gofmt 干净；沙箱真二进制实测（0.5.58-dev 盖戳，~/workspace/scratch/tdd-loop/）：init 后 `workflow --list` 显示双环新描述，`workflow --template tdd` 切换成功，项目 .sunshine/workflow.md 含「外环」19 处（先红验证 ×4、双环结构 ×2、口径不明 ×2、外环判卷 ×7），[workflow-state:in_progress] 块结构完好。
 - 发版：本批不发版，等用户点选。
+
+## 发布记录：v0.5.58（2026-11-27）
+
+内容：TDD 双环——出题子代理只按验收标准盲写外环验收题（先红验证、写完锁定、实现者只许跑不许改、题错回 1.5 改口径重出），内环原有红绿切片不变，check 新增外环判卷（观察模式：只报不单独拦归档，题红暴露的未实现仍按对账处理）；教程 TDD 内容补齐（§2 规划关卡行为切片说明、§9.4 重构场景全程对齐双环，中英同步）；`workflow --list` 的 tdd 描述换双环口径。无迁移、无 breaking 变更；native / channel 模板与待验单未动，默认流程零感知。
+
+过程：两笔推送（远端 c33588a 双环本体、db4b120 教程补齐），tag 对象 354e3f4 指向 db4b120。CI(main 两笔)、CI(tag)、发布三路终态全绿（发版前全仓 gofmt 已查干净，本地全量测试绿）。Release id 460410874，6 资产齐（checksums.txt + darwin amd64/arm64、linux amd64/arm64、windows amd64）。
+
+发布包实测（~/workspace/scratch/release-0.5.58/）：linux_amd64 sha256 与 checksums.txt 一致（7dfc9299…），二进制报 0.5.58；用发布包二进制新装项目并切 tdd，项目 workflow.md 含「外环」19 处，与模板一致。
+
+升级提示：`sunshine upgrade` 升 CLI 即可，本版不需要 --migrate。已在用 TDD 模板的项目：跑 `sunshine update` 后 workflow.md 会因模板已换被列为已修改，用 `sunshine workflow --template tdd --force` 刷新到双环版（自己改过 workflow.md 的先看 diff 再决定）。

@@ -208,7 +208,7 @@ sunshine workflow --list
 #   native（内置） — 原生 Sunshine 工作流
 #     默认的 Sunshine 规划 / 执行 / 收尾工作流，含原生子代理与 inline 平台分支
 #   tdd（内置） — TDD 工作流
-#     用一次一个红灯 / 绿灯 / 重构行为切片驱动第 2 阶段的 Sunshine 工作流变体
+#     双环 TDD 变体：出题子代理先按验收标准写外环验收题并锁定，再逐个行为走红灯 / 绿灯 / 重构切片（内环），check 含外环判卷
 #   channel-driven-subagent-dispatch（内置） — Channel 驱动的子代理派发
 #     主会话通过 sunshine channel 协调 implement/check 工作线程的工作流变体
 
@@ -232,6 +232,8 @@ sunshine workflow --template native --create-new
 规则是：未改动直接覆盖；已改动或来源未知时交互确认（覆盖 / 写 `.new` / 跳过），非交互终端下用 `--force` 覆盖或 `--create-new` 写副本。`--create-new` 只写 `.sunshine/workflow.md.new`，不动正在用的 `workflow.md`。
 
 本教程到这一步结束时 `workflow.md` 是 tdd——第 8 节的 `update --dry-run` 会把它列为“你已修改”，正好演示三态检测。
+
+TDD 模板是**双环**的。内环就是上面说的老样子：实现时逐个行为写红灯测试、绿灯实现、再重构。外环多在开工前：先派一个**没看过实现代码**的出题子代理，只按 PRD 的验收标准把整套验收题写完，先跑一遍确认它们是红的（功能还没做，题先红才说明真能测出东西），然后锁定——实现的人只许跑、不许改题，题跑不绿只能改代码。检查时外环题也一起跑，结果在检查汇报里单列一节。为什么要多这一环：出题的人没见过代码，就不会照着代码的样子出题，空、零、刚好卡边界这类情况更容易被撞出来。代价是每个任务多一趟出题的时间，所以它只在 TDD 模板里，默认的 native 不带；碰钱、权限这种错不起的活，值得切过去用。
 
 ## 3. 想看细节：agent 底下跑了什么
 

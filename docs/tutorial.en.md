@@ -235,12 +235,12 @@ sunshine workflow --list
 #   native（内置） — 原生 Sunshine 工作流
 #     默认的 Sunshine 规划 / 执行 / 收尾工作流，含原生子代理与 inline 平台分支
 #   tdd（内置） — TDD 工作流
-#     用一次一个红灯 / 绿灯 / 重构行为切片驱动第 2 阶段的 Sunshine 工作流变体
+#     双环 TDD 变体：出题子代理先按验收标准写外环验收题并锁定，再逐个行为走红灯 / 绿灯 / 重构切片（内环），check 含外环判卷
 #   channel-driven-subagent-dispatch（内置） — Channel 驱动的子代理派发
 #     主会话通过 sunshine channel 协调 implement/check 工作线程的工作流变体
 ```
 
-("Available workflow templates: `native` (built-in) — the native Sunshine workflow: the default plan / execute / wrap-up workflow with native sub-agents and inline platform branches; `tdd` (built-in) — TDD workflow: a variant that drives phase 2 with one red / green / refactor behavior slice at a time; `channel-driven-subagent-dispatch` (built-in) — channel-driven sub-agent dispatch: a variant where the main session coordinates implement/check worker threads through `sunshine channel`.")
+("Available workflow templates: `native` (built-in) — the native Sunshine workflow: the default plan / execute / wrap-up workflow with native sub-agents and inline platform branches; `tdd` (built-in) — TDD workflow: a double-loop variant — a test-writing sub-agent first writes the outer-loop acceptance tests from the acceptance criteria and locks them, then phase 2 runs one red / green / refactor behavior slice at a time (the inner loop), and check includes outer-loop judging; `channel-driven-subagent-dispatch` (built-in) — channel-driven sub-agent dispatch: a variant where the main session coordinates implement/check worker threads through `sunshine channel`.")
 
 Switch to the TDD workflow:
 
@@ -267,6 +267,8 @@ sunshine workflow --template native --create-new
 ("Error: `.sunshine/workflow.md` has local modifications; add `--force` to overwrite, or use `--create-new` to write `.sunshine/workflow.md.new`. / Switched `.sunshine/workflow.md` to `native`. / Wrote `.sunshine/workflow.md.new` (`workflow.md` untouched).")
 
 The rule: unmodified files are overwritten directly; modified or unknown-origin files ask interactively (overwrite / write a `.new` copy / skip), and in a non-interactive terminal you use `--force` to overwrite or `--create-new` to write a copy. `--create-new` only writes `.sunshine/workflow.md.new` and leaves the active `workflow.md` alone. The same three-state logic is what `update` uses in the next section — a switched workflow shows up there under "你已修改" ("modified by you").
+
+The TDD template runs **two loops**. The inner loop is the classic one described above: while implementing, each behavior gets a red test, a green implementation, then refactoring. The outer loop adds a step before implementation starts: a test-writing sub-agent that has **never seen the implementation code** writes the full acceptance test set from the PRD's acceptance criteria alone, runs it once to confirm the tests are red (the feature does not exist yet — a test that is green before anything is built proves nothing), and then the set is locked: the implementer may run the tests but never edit them, and a red outer test can only be fixed by fixing the code. During check, the outer tests run too, with their results reported in their own section. Why the extra loop: a test author who has not seen the code cannot mirror the code's assumptions, so empty inputs, zeros, and just-at-the-boundary cases are far more likely to get probed. The cost is one extra sub-agent run per task, which is why it lives only in the TDD template and not in the default native one; for work that must not go wrong — money, permissions — switching over is worth it.
 
 ## 3. Under the hood: what the agent actually ran
 

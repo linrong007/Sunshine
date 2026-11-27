@@ -57,7 +57,7 @@ var bundledTemplates = []Template{
 	{
 		ID:          "tdd",
 		Name:        "TDD 工作流",
-		Description: "用一次一个红灯 / 绿灯 / 重构行为切片驱动第 2 阶段的 Sunshine 工作流变体",
+		Description: "双环 TDD 变体：出题子代理先按验收标准写外环验收题并锁定，再逐个行为走红灯 / 绿灯 / 重构切片（内环），check 含外环判卷",
 		Path:        "bundled:workflows/tdd/workflow.md",
 		Source:      SourceBundled,
 	},

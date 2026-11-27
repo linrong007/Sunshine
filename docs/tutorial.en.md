@@ -270,6 +270,8 @@ The rule: unmodified files are overwritten directly; modified or unknown-origin 
 
 The TDD template runs **two loops**. The inner loop is the classic one described above: while implementing, each behavior gets a red test, a green implementation, then refactoring. The outer loop adds a step before implementation starts: a test-writing sub-agent that has **never seen the implementation code** writes the full acceptance test set from the PRD's acceptance criteria alone, runs it once to confirm the tests are red (the feature does not exist yet — a test that is green before anything is built proves nothing), and then the set is locked: the implementer may run the tests but never edit them, and a red outer test can only be fixed by fixing the code. During check, the outer tests run too, with their results reported in their own section. Why the extra loop: a test author who has not seen the code cannot mirror the code's assumptions, so empty inputs, zeros, and just-at-the-boundary cases are far more likely to get probed. The cost is one extra sub-agent run per task, which is why it lives only in the TDD template and not in the default native one; for work that must not go wrong — money, permissions — switching over is worth it.
 
+The TDD template also adds a planning gate: before `task start`, the **behavior slices** are written down — which behaviors this task delivers, through which public interface each one is verified, and which boundaries get mocked. The outer-loop tests are written from exactly these slices; vague slices make vague tests, so the gate cannot be skipped. Section 9.4 shows it working in a real scenario.
+
 ## 3. Under the hood: what the agent actually ran
 
 These are the commands the agent actually ran for the demo task, with real outputs captured by running the equivalent commands. You are reading them to understand the mechanism; in normal use you never type them.
@@ -1156,11 +1158,11 @@ Here is how the session continues (illustrative dialogue).
 >
 > **You:** B. And the boundary stops at the amount calculation; leave valuation alone this time.
 
-**The PRD's acceptance rests on a baseline.** The agent creates the task and writes the PRD: first a batch of characterization tests pins all three copies' actual outputs as the baseline (four scenario families: plain orders, threshold discounts, shipping fees, partial refunds); the refactor's acceptance is a single line — after the refactor, the same batch matches the baseline item by item, and only one implementation remains across the three call sites. Context is curated (implement.jsonl lists the three copies and the spec's price convention: stored in cents, divided by 100 for display).
+**The PRD's acceptance rests on a baseline.** The agent creates the task and writes the PRD: the scenarios to pin are listed first (four families: plain orders, threshold discounts, shipping fees, partial refunds); the refactor's acceptance is a single line — after the refactor, the same batch matches the baseline item by item, and only one implementation remains across the three call sites. Context is curated (implement.jsonl lists the three copies and the spec's price convention: stored in cents, divided by 100 for display). The TDD template adds its planning gate: before `task start`, the behavior slices are written down — which interface each of the three call sites uses to compute amounts, with what inputs and expected outputs; those slices are the input for the test-writing step that follows.
 
 **The review checks whether the test list is complete.** At the review (1.5), beyond checking the PRD, the audit scan finds one unpinned scenario family: orders where a coupon and a threshold discount apply together. It goes into the baseline list, you confirm, and only then `task start`.
 
-**Implementation comes in two steps; step one only pins.** implement writes the characterization tests and produces the baseline — changing no business code in this step. Midway, it stops and reports something:
+**Implementation comes in two steps; step one only pins.** After `task start`, the outer loop goes first: a test-writing sub-agent is dispatched with only the PRD and the behavior slices, and writes the characterization tests for the four scenario families (it has never seen the refactored code — that code does not exist yet); the tests then run against all three existing copies, and their outputs are the baseline. These tests pin behavior that already exists, so they count as regression guards and are exempt from the must-be-red-first rule; once run, the set is locked — nobody edits the tests from here on, and implement only measures against them. The test-writing report brings back one finding:
 
 > **Claude Code:** Baseline pinned, all four scenario families covered. But one disagreement was already there: for the same threshold-discount order, the orders copy computes 89700 cents and the product-page copy 89699 — one cent apart, a rounding difference (one sums then rounds, the other rounds per item). A refactor can't settle that; it's a rules disagreement. Which one rules?
 >
@@ -1168,9 +1170,9 @@ Here is how the session continues (illustrative dialogue).
 >
 > **Claude Code:** Recorded in the PRD as a confirmed rules correction, and the baseline pins the orders rule; everything else is pinned exactly as it behaves — nothing quietly changed under cover of the refactor.
 
-**Step two is the refactor itself.** With the baseline complete, implement extracts the shared function `src/lib/money.js` and switches the three call sites to it one by one, running the full batch after each switch. When all three are switched, the tests match the baseline item by item (except the one spot you confirmed as a correction, which the PRD records).
+**Step two is the refactor itself.** With the baseline complete, implement extracts the shared function `src/lib/money.js` and switches the three call sites to it one by one, running the full batch after each switch — the locked batch; editing tests mid-run does not count. When all three are switched, the tests match the baseline item by item (except the one spot you confirmed as a correction, which the PRD records).
 
-**Check reconciles three things.** check does not grade whether the code looks nice; it reconciles: one, the full characterization batch compared against the baseline item by item, results attached; two, a repo-wide grep — the amount algorithm exists only in `money.js`, the other two sites are calls; three, against the spec — prices in cents, divided by 100 for display, and the shared function follows both.
+**Check reconciles three things.** check does not grade whether the code looks nice; it reconciles: one, the outer-loop judging — the locked test set runs in full, reported in its own section, matching the baseline item by item (except the confirmed correction); two, a repo-wide grep — the amount algorithm exists only in `money.js`, the other two sites are calls; three, against the spec — prices in cents, divided by 100 for display, and the shared function follows both.
 
 **One anti-copy convention is written back.** This lesson is worth landing in words, or in two years there will be three copies again:
 
@@ -1178,7 +1180,7 @@ Here is how the session continues (illustrative dialogue).
 
 **Commit and archive.** The commit plan still comes to you first: one commit (the shared function + the three switches + the characterization tests + that spec line); on your confirmation it commits, archives, and logs.
 
-The refactor rules in three sentences: pin the behavior before touching the code — the baseline is the contract; when the baseline exposes a disagreement, stop and let a human decide — never quietly change the rules under cover of a refactor; and when the refactor is done, write back one convention that stops the next copy.
+The refactor rules in three sentences: pin the behavior before touching the code — the tests are written by a sub-agent that never touched the new implementation and are locked once written, and the baseline is the contract; when the baseline exposes a disagreement, stop and let a human decide — never quietly change the rules under cover of a refactor; and when the refactor is done, write back one convention that stops the next copy.
 
 ### 9.5 Fixing a bug that keeps coming back: find how it was fixed last time
 

@@ -10,7 +10,7 @@ sunshine init --registry gh:linrong007/Sunshine/marketplace --template sunshine-
 sunshine init --registry gh:linrong007/Sunshine/marketplace --template go-sdk-author -y
 
 # workflow 模板不走 --registry，用 sunshine workflow --template
-sunshine workflow --template tdd
+sunshine workflow --template channel-driven-subagent-dispatch
 ```
 
 ## 目录

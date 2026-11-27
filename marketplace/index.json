@@ -1,1 +1,52 @@
-{"templates":[{"description":"Sunshine 默认的三份中文规范（system/frontend/backend），带适用标签","id":"sunshine-fullstack","name":"Sunshine 默认全栈规范","path":"specs/sunshine-fullstack","tags":["fullstack","中文"],"type":"spec"},{"description":"设计、构建、验证并发布生产级 Go SDK 与 Go 命令行工具","id":"go-sdk-author","name":"Go SDK 编写","path":"skills/go-sdk-author","tags":["go","sdk"],"type":"skill"},{"description":"用 sunshine mem 跨平台搜索并回想过去的 AI 对话","id":"mem-recall","name":"记忆回想","path":"skills/mem-recall","tags":["mem","记忆"],"type":"skill"},{"description":"默认的 Sunshine 规划 / 执行 / 收尾工作流，含原生子代理与 inline 平台分支","id":"native","name":"原生 Sunshine 工作流","path":"workflows/native/workflow.md","type":"workflow"},{"description":"用一次一个红灯 / 绿灯 / 重构行为切片驱动第 2 阶段的 Sunshine 工作流变体","id":"tdd","name":"TDD 工作流","path":"workflows/tdd/workflow.md","type":"workflow"},{"description":"主会话通过 sunshine channel 协调 implement/check 工作线程的工作流变体","id":"channel-driven-subagent-dispatch","name":"Channel 驱动的子代理派发","path":"workflows/channel-driven-subagent-dispatch/workflow.md","type":"workflow"}],"version":1}
+{
+  "templates": [
+    {
+      "description": "Sunshine 默认的三份中文规范（system/frontend/backend），带适用标签",
+      "id": "sunshine-fullstack",
+      "name": "Sunshine 默认全栈规范",
+      "path": "specs/sunshine-fullstack",
+      "tags": [
+        "fullstack",
+        "中文"
+      ],
+      "type": "spec"
+    },
+    {
+      "description": "设计、构建、验证并发布生产级 Go SDK 与 Go 命令行工具",
+      "id": "go-sdk-author",
+      "name": "Go SDK 编写",
+      "path": "skills/go-sdk-author",
+      "tags": [
+        "go",
+        "sdk"
+      ],
+      "type": "skill"
+    },
+    {
+      "description": "用 sunshine mem 跨平台搜索并回想过去的 AI 对话",
+      "id": "mem-recall",
+      "name": "记忆回想",
+      "path": "skills/mem-recall",
+      "tags": [
+        "mem",
+        "记忆"
+      ],
+      "type": "skill"
+    },
+    {
+      "description": "默认的 Sunshine 规划 / 执行 / 收尾工作流，含原生子代理与 inline 平台分支；任务模式（快速 / 默认 / TDD 双环）按任务在建任务时选",
+      "id": "native",
+      "name": "原生 Sunshine 工作流",
+      "path": "workflows/native/workflow.md",
+      "type": "workflow"
+    },
+    {
+      "description": "主会话通过 sunshine channel 协调 implement/check 工作线程的工作流变体",
+      "id": "channel-driven-subagent-dispatch",
+      "name": "Channel 驱动的子代理派发",
+      "path": "workflows/channel-driven-subagent-dispatch/workflow.md",
+      "type": "workflow"
+    }
+  ],
+  "version": 1
+}

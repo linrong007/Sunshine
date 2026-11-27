@@ -76,8 +76,10 @@ var workflowCmd = &cobra.Command{
 
 内置模板（离线可用）：
   native                          原生 Sunshine 工作流（默认）
-  tdd                             TDD 工作流
   channel-driven-subagent-dispatch  Channel 驱动的子代理派发
+
+TDD 不再是工作流模板，已改为任务级模式：建任务时给任务选
+（sunshine task create ... --meta mode=tdd）。
 
 覆盖规则按现有 workflow.md 的哈希状态决定：
   未改动 → 直接覆盖；已改动或来源未知 → 交互确认
@@ -89,8 +91,8 @@ git@github.com:user/repo 等；不支持本地路径）。
 
 示例：
   sunshine workflow --list
-  sunshine workflow --template tdd
-  sunshine workflow --template tdd --force
+  sunshine workflow --template channel-driven-subagent-dispatch
+  sunshine workflow --template channel-driven-subagent-dispatch --force
   sunshine workflow --template native --create-new
   sunshine workflow --list --marketplace gh:myorg/marketplace`,
 	RunE: func(cmd *cobra.Command, args []string) error {
@@ -175,7 +177,7 @@ func printWorkflowListing(templates []workflow.Template) {
 }
 
 func init() {
-	workflowCmd.Flags().StringVarP(&workflowTemplate, "template", "t", "", "工作流模板 id（native、tdd、channel-driven-subagent-dispatch）")
+	workflowCmd.Flags().StringVarP(&workflowTemplate, "template", "t", "", "工作流模板 id（native、channel-driven-subagent-dispatch）")
 	workflowCmd.Flags().StringVarP(&workflowMarketplace, "marketplace", "m", "", "模板市场来源（gh:user/repo、https://github.com/user/repo 等）")
 	workflowCmd.Flags().BoolVar(&workflowList, "list", false, "列出可用的工作流模板")
 	workflowCmd.Flags().BoolVarP(&workflowForce, "force", "f", false, "已有本地修改时直接覆盖，不确认")

@@ -213,19 +213,29 @@ The order: clarify the requirement (1.1, one question at a time, each answer rec
 
 The review sits right before start: first check the planning products are self-consistent, then dispatch an audit scan, ask every must-confirm question on the spot and record the answers in prd — implementation starts only after you confirm. A single task starts right after its review; with sub-tasks, each one passes its own review before its own start, and the parent task is never reviewed as a whole and never started. Record: 9.1.
 
-### The audit in the review, and risk tiers
+### The audit in the review, and task modes
 
 Besides the main session's own check, the 1.5 review dispatches a read-only audit sub-agent to scan: it only reports items that were never confirmed and changes no files, and its findings land in the task directory's `audit.md` — no such file, and the review counts as not done. Answers go back into prd.md; anything undecided is marked `[待定]`.
 
 Each audit item also carries a kind: business decision (money and judgement rules, business rules, permissions, external commitments, whether data gets deleted) or technical. When the review wraps up, every item gets an outcome, written back into audit.md as its disposition: what you decided on the spot is recorded as "user-decided", a suggested option you picked is "user-accepted", and anything else stays `[待定]`; conclusions copied into prd.md carry the same source tag. An item you were never asked about may not be written up as a conclusion — business decisions above all: without a source from you it does not count as decided, and when development reaches one it must stop and ask you, never silently follow the audit's suggestion.
 
-Tasks carry one of two risk tiers. A light-tier task runs the flow as is; a standard-tier task switches the review to deep interrogation — round after round of questions from both the business and the technical angle (the technical side has eight must-ask categories: stack and dependencies, interface contracts, data definitions, concurrency and consistency, performance and scale, security, failure recovery, environment constraints), until a round adds nothing new, at most 4 rounds. The tier is set on each sub-task at split time (on the task itself for a single task), chosen by blast radius and uncertainty.
+Every task picks one of three **modes** when it is created:
 
-A light-tier task takes the **fast lane**: display-only changes, copy, styling, config defaults — small stuff like that (in dev-first the tier can be set when the task is created; saying "small change" works too). In the fast lane the requirement is clarified in one line into the PRD and work starts — no context assembly, no review, the main session edits directly; but check is still dispatched as usual, and verification slips still apply. If halfway through it turns out to touch standard-tier ground (data, judgement logic), it upgrades on the spot and the skipped steps are made up.
+| Mode | How it runs |
+| --- | --- |
+| Fast mode | Same as default mode, just no interrogation. For small changes you have already thought through. |
+| Default mode (recommended) | Clarify and review first, then build, then check item by item. For most tasks. |
+| TDD mode | Acceptance tests written and locked first, then code written to pass them. For complex logic — most solid, slowest. |
+
+In dev-first, the agent pops up the choice before creating the task (if you already named a mode in your opening line, it does not ask); in design-first, the mode is set per sub-task as part of the breakdown list, and you confirm them all at once. The mode is recorded on the task: `task list` tags fast tasks `[快速]` and TDD tasks `[TDD]`, and all three kinds can run side by side in one project. Before work starts you can change it freely; after start, fast can only upgrade to default — never to TDD (the tests have to come before the code) — and no mode can be downgraded.
+
+Default and TDD mode run deep interrogation in the review — round after round of questions from both the business and the technical angle (the technical side has eight must-ask categories: stack and dependencies, interface contracts, data definitions, concurrency and consistency, performance and scale, security, failure recovery, environment constraints), until a round adds nothing new, at most 4 rounds.
+
+**Fast mode** fits small changes like display-only work, copy, styling, and config defaults: its only difference from default mode is the missing interrogation — the requirement goes into the PRD in one line with no multi-round questioning, and the review round with its audit scan is skipped; context assembly, the implement subagent and the check subagent all run as usual, and verification slips still apply. If halfway through it turns out to touch data or judgement logic, it upgrades to default mode on the spot and the review is made up.
 
 ### Switching workflow templates
 
-There are three built-in workflow templates. You usually switch by asking the agent in the UI ("Switch the workflow to TDD for the next task"), and the agent runs the command; running it yourself in the terminal works the same way:
+The default workflow is native (that is what section 1 walked through). Only two workflow templates remain, and they differ only in how phase 2 dispatches sub-agents: native uses the host's native dispatch, channel-driven coordinates worker threads through Sunshine channels. To switch, ask the agent in the UI ("Switch to the channel workflow"), and the agent runs the command; running it yourself in the terminal works the same way:
 
 ```sh
 sunshine workflow --list
@@ -233,25 +243,17 @@ sunshine workflow --list
 # 可用的工作流模板：
 #
 #   native（内置） — 原生 Sunshine 工作流
-#     默认的 Sunshine 规划 / 执行 / 收尾工作流，含原生子代理与 inline 平台分支
-#   tdd（内置） — TDD 工作流
-#     双环 TDD 变体：出题子代理先按验收标准写外环验收题并锁定，再逐个行为走红灯 / 绿灯 / 重构切片（内环），check 含外环判卷
+#     默认的 Sunshine 规划 / 执行 / 收尾工作流，含原生子代理与 inline 平台分支；任务模式（快速 / 默认 / TDD 双环）按任务在建任务时选
 #   channel-driven-subagent-dispatch（内置） — Channel 驱动的子代理派发
 #     主会话通过 sunshine channel 协调 implement/check 工作线程的工作流变体
+
+sunshine workflow --template channel-driven-subagent-dispatch
+#   ✓ 已把 .sunshine/workflow.md 换成 "channel-driven-subagent-dispatch"
 ```
 
-("Available workflow templates: `native` (built-in) — the native Sunshine workflow: the default plan / execute / wrap-up workflow with native sub-agents and inline platform branches; `tdd` (built-in) — TDD workflow: a double-loop variant — a test-writing sub-agent first writes the outer-loop acceptance tests from the acceptance criteria and locks them, then phase 2 runs one red / green / refactor behavior slice at a time (the inner loop), and check includes outer-loop judging; `channel-driven-subagent-dispatch` (built-in) — channel-driven sub-agent dispatch: a variant where the main session coordinates implement/check worker threads through `sunshine channel`.")
+("Available workflow templates: `native` (built-in) — the native Sunshine workflow: the default plan / execute / wrap-up workflow with native sub-agents and inline platform branches; task modes (fast / default / TDD double-loop) are picked per task when the task is created; `channel-driven-subagent-dispatch` (built-in) — channel-driven sub-agent dispatch: a variant where the main session coordinates implement/check worker threads through `sunshine channel`." / "Switched `.sunshine/workflow.md` to `channel-driven-subagent-dispatch`.")
 
-Switch to the TDD workflow:
-
-```sh
-sunshine workflow --template tdd
-#   ✓ 已把 .sunshine/workflow.md 换成 "tdd"
-```
-
-("Switched `.sunshine/workflow.md` to `tdd`.")
-
-Switching back to native stops you first — because `workflow.md` is now the tdd version, which no longer matches the hash manifest, the CLI treats it as "locally modified":
+Switching back to native stops you first — because `workflow.md` is now the channel version, which no longer matches the hash manifest, the CLI treats it as "locally modified":
 
 ```sh
 sunshine workflow --template native
@@ -266,11 +268,13 @@ sunshine workflow --template native --create-new
 
 ("Error: `.sunshine/workflow.md` has local modifications; add `--force` to overwrite, or use `--create-new` to write `.sunshine/workflow.md.new`. / Switched `.sunshine/workflow.md` to `native`. / Wrote `.sunshine/workflow.md.new` (`workflow.md` untouched).")
 
-The rule: unmodified files are overwritten directly; modified or unknown-origin files ask interactively (overwrite / write a `.new` copy / skip), and in a non-interactive terminal you use `--force` to overwrite or `--create-new` to write a copy. `--create-new` only writes `.sunshine/workflow.md.new` and leaves the active `workflow.md` alone. The same three-state logic is what `update` uses in the next section — a switched workflow shows up there under "你已修改" ("modified by you").
+The rule: unmodified files are overwritten directly; modified or unknown-origin files ask interactively (overwrite / write a `.new` copy / skip), and in a non-interactive terminal you use `--force` to overwrite or `--create-new` to write a copy. `--create-new` only writes `.sunshine/workflow.md.new` and leaves the active `workflow.md` alone.
 
-The TDD template runs **two loops**. The inner loop is the classic one described above: while implementing, each behavior gets a red test, a green implementation, then refactoring. The outer loop adds a step before implementation starts: a test-writing sub-agent that has **never seen the implementation code** writes the full acceptance test set from the PRD's acceptance criteria alone, runs it once to confirm the tests are red (the feature does not exist yet — a test that is green before anything is built proves nothing), and then the set is locked: the implementer may run the tests but never edit them, and a red outer test can only be fixed by fixing the code. During check, the outer tests run too, with their results reported in their own section. Why the extra loop: a test author who has not seen the code cannot mirror the code's assumptions, so empty inputs, zeros, and just-at-the-boundary cases are far more likely to get probed. The cost is one extra sub-agent run per task, which is why it lives only in the TDD template and not in the default native one; for work that must not go wrong — money, permissions — switching over is worth it.
+By the end of this section of the tutorial, `workflow.md` is the channel version — section 8's `update --dry-run` will list it under "你已修改" ("modified by you"), which demonstrates the three-state detection nicely.
 
-The TDD template also adds a planning gate: before `task start`, the **behavior slices** are written down — which behaviors this task delivers, through which public interface each one is verified, and which boundaries get mocked. The outer-loop tests are written from exactly these slices; vague slices make vague tests, so the gate cannot be skipped. Section 9.4 shows it working in a real scenario.
+TDD mode runs **two loops**. The inner loop is the classic one described above: while implementing, each behavior gets a red test, a green implementation, then refactoring. The outer loop adds a step before implementation starts: a test-writing sub-agent that has **never seen the implementation code** writes the full acceptance test set from the PRD's acceptance criteria alone, runs it once to confirm the tests are red (the feature does not exist yet — a test that is green before anything is built proves nothing), and then the set is locked: the implementer may run the tests but never edit them, and a red outer test can only be fixed by fixing the code. During check, the outer tests run too, with their results reported in their own section (judging is report-only for now: a red test that exposes unimplemented work is still sent back as usual, while a test that is itself wrong is only reported). Why the extra loop: a test author who has not seen the code cannot mirror the code's assumptions, so empty inputs, zeros, and just-at-the-boundary cases are far more likely to get probed. The cost is one extra test-writing run per TDD task, which is why it is picked per task instead of switching the whole project's workflow; for work that must not go wrong — money, permissions — picking TDD for that task is worth it. The old `sunshine workflow --template tdd` is retired and now errors out with a pointer; projects that already installed the tdd template are unaffected — their `workflow.md` keeps working.
+
+A task in TDD mode also adds a planning gate: before `task start`, the **behavior slices** are written down — which behaviors this task delivers, through which public interface each one is verified, and which boundaries get mocked. The outer-loop tests are written from exactly these slices; vague slices make vague tests, so the gate cannot be skipped. Section 9.4 shows it working in a real scenario.
 
 ## 3. Under the hood: what the agent actually ran
 
@@ -609,7 +613,7 @@ Specs are user data: `sunshine update` never touches `.sunshine/spec/` — in th
 
 ### The template marketplace: install specs from a registry
 
-A template marketplace is a repository of reusable specs: specs other people already wrote (how interfaces are shaped, what the UI rules are) that you can reuse instead of writing your own from scratch. The official marketplace is `gh:linrong007/Sunshine/marketplace`. It holds one full-stack spec (`sunshine-fullstack` — the three default files `system.md`, `frontend.md`, `backend.md`), two skills (`go-sdk-author`, `mem-recall`), and three workflows (`native`, `tdd`, `channel-driven-subagent-dispatch`).
+A template marketplace is a repository of reusable specs: specs other people already wrote (how interfaces are shaped, what the UI rules are) that you can reuse instead of writing your own from scratch. The official marketplace is `gh:linrong007/Sunshine/marketplace`. It holds one full-stack spec (`sunshine-fullstack` — the three default files `system.md`, `frontend.md`, `backend.md`), two skills (`go-sdk-author`, `mem-recall`), and two workflows (`native`, `channel-driven-subagent-dispatch`).
 
 To start a new project from a marketplace spec, add `--registry` when you init:
 
@@ -654,7 +658,7 @@ Common variations:
 - **A failed install doesn't stop init**: if a template can't be pulled (say the entry points at a directory that doesn't exist), init carries on with the built-in blank specs and prints a retry command to run again later.
 - **Install a skill**: same command, different id (e.g. `--template go-sdk-author`). The skill lands in `.agents/skills/<id>/`, and the three default spec files are still generated as usual. The skill install is also recorded in `registry.spec` (the field is still called spec), and `update` refreshes it the same way.
 
-- **Workflows don't go through this command**: install a workflow template with `sunshine workflow --template tdd` (see section 2).
+- **Workflows don't go through this command**: install a workflow template with `sunshine workflow --template channel-driven-subagent-dispatch` (see section 2).
 - **Point straight at a template directory**: the source can also be one template's directory, no marketplace and no `--template` needed — the whole directory is installed into `.sunshine/spec/` as-is:
 
 ```sh
@@ -819,7 +823,7 @@ CLI 版本：0.2.1
 
 ("Scanning changes… Unchanged files (will be skipped): … / User data (kept untouched): `.sunshine/workspace/`, `.sunshine/tasks/`, `.sunshine/spec/`, `.sunshine/.developer/` / Already up to date, nothing to update.")
 
-Three states at a glance: unchanged template files are updated automatically; files you modified ask one by one (overwrite / skip / write a `.new` copy, default skip); user data (specs, tasks, workspace, developer identity) is never touched. Switch the workflow to tdd first ([section 2](#switching-workflow-templates)) and the same scan shows the third state in action:
+Three states at a glance: unchanged template files are updated automatically; files you modified ask one by one (overwrite / skip / write a `.new` copy, default skip); user data (specs, tasks, workspace, developer identity) is never touched. Switch the workflow to the channel version first ([section 2](#switching-workflow-templates)) and the same scan shows the third state in action:
 
 ```text
   你已修改（需要你决定）：
@@ -836,7 +840,7 @@ Three states at a glance: unchanged template files are updated automatically; fi
 
 ("Modified by you (needs your decision): `.sunshine/workflow.md` / User data (kept untouched): … / [Dry run] No changes made.")
 
-To actually run it, drop `--dry-run`. Before writing, it takes a full backup — verified by running it for real on the tdd-switched project (non-interactive, so the conflict file was skipped by default):
+To actually run it, drop `--dry-run`. Before writing, it takes a full backup — verified by running it for real on the channel-switched project (non-interactive, so the conflict file was skipped by default):
 
 ```text
 非交互环境，跳过统一确认（冲突文件默认跳过）。
@@ -1144,11 +1148,13 @@ Here is how the session continues (illustrative dialogue).
 
 Same clothing-store admin (the one adopted into Sunshine in 9.2). This time the target is the old order-amount code: the algorithm originally lived only in the orders API, `src/routes/orders.js`; later the product page needed an estimated price and the inventory page needed stock values, and each copied the code over — three copies, each edited separately, and one of them has already produced a wrong amount once. The refactor's goal is one shared function all three call; the rule is to pin the current behavior down first, then touch the code, and the money must not change by a single cent.
 
-Say it in Claude Code — this time, name the TDD template:
+Say it in Claude Code:
 
 Example prompt (an example, not a record of a real session):
 
-> Please follow the Sunshine workflow (the TDD template this time). Refactor the order-amount code in the clothing-store admin: one copy in the orders API, one copied into the product page, one into the inventory page, and the three no longer agree. Pin the current behavior first, then refactor; the amounts must not change by a cent.
+> Please follow the Sunshine workflow. Refactor the order-amount code in the clothing-store admin: one copy in the orders API, one copied into the product page, one into the inventory page, and the three no longer agree. Pin the current behavior first, then refactor; the amounts must not change by a cent.
+
+Before creating the task, the agent pops up the mode choice — money code that must not go wrong, so you pick **TDD mode** (acceptance tests written and locked first, then code written to pass them). The mode applies to this one task only; other tasks in the project keep running in default mode.
 
 Here is how the session continues (illustrative dialogue).
 
@@ -1158,7 +1164,7 @@ Here is how the session continues (illustrative dialogue).
 >
 > **You:** B. And the boundary stops at the amount calculation; leave valuation alone this time.
 
-**The PRD's acceptance rests on a baseline.** The agent creates the task and writes the PRD: the scenarios to pin are listed first (four families: plain orders, threshold discounts, shipping fees, partial refunds); the refactor's acceptance is a single line — after the refactor, the same batch matches the baseline item by item, and only one implementation remains across the three call sites. Context is curated (implement.jsonl lists the three copies and the spec's price convention: stored in cents, divided by 100 for display). The TDD template adds its planning gate: before `task start`, the behavior slices are written down — which interface each of the three call sites uses to compute amounts, with what inputs and expected outputs; those slices are the input for the test-writing step that follows.
+**The PRD's acceptance rests on a baseline.** The agent creates the task and writes the PRD: the scenarios to pin are listed first (four families: plain orders, threshold discounts, shipping fees, partial refunds); the refactor's acceptance is a single line — after the refactor, the same batch matches the baseline item by item, and only one implementation remains across the three call sites. Context is curated (implement.jsonl lists the three copies and the spec's price convention: stored in cents, divided by 100 for display). TDD mode adds its planning gate: before `task start`, the behavior slices are written down — which interface each of the three call sites uses to compute amounts, with what inputs and expected outputs; those slices are the input for the test-writing step that follows.
 
 **The review checks whether the test list is complete.** At the review (1.5), beyond checking the PRD, the audit scan finds one unpinned scenario family: orders where a coupon and a threshold discount apply together. It goes into the baseline list, you confirm, and only then `task start`.
 
@@ -1268,7 +1274,7 @@ doc/prototype/R-001-product list page.html, R-003-order list page.html, R-003-or
 >
 > **You:** Confirmed — review passed.
 
-**Only after the review, the breakdown.** Breakdown (1.2) makes one sub-task per requirement, with a "technical selection and scaffolding" sub-task in front: the selection items (front/back-end stack, database, cache) are marked `[To be decided]` in the PRD, left for that sub-task's own 1.1 — breakdown does not write back into the spec. The agent presents the list for your confirmation: 6 sub-tasks with their risk tiers (the order-status one is standard tier, the rest light), all in planning, none starting on its own.
+**Only after the review, the breakdown.** Breakdown (1.2) makes one sub-task per requirement, with a "technical selection and scaffolding" sub-task in front: the selection items (front/back-end stack, database, cache) are marked `[To be decided]` in the PRD, left for that sub-task's own 1.1 — breakdown does not write back into the spec. The agent presents the list for your confirmation: 6 sub-tasks with their modes (the order-status one runs in default mode, the rest in fast mode), all in planning, none starting on its own.
 
 **Development takes over, one sub-task at a time.** Starting with the first, and the next starts only when the previous one is fully done. Selection and scaffolding goes first: its own 1.1 settles the selection with you (Node + Express, SQLite for now, your confirmation), its own 1.5 passes, `task start`, a runnable skeleton goes up (page opens, APIs answer, database connected), check, spec write-back (the settled selection is only now written into system / frontend / backend), commit, archive. Then the R-001 navigation sub-task runs the same line: its own review → implement → check → write-back → commit → archive. The remaining four follow one by one.
 
@@ -1363,7 +1369,7 @@ sunshine platforms
 | Where did we get to? | `sunshine task list` / `sunshine task current` / `sunshine task context` | Show active tasks, the current task, and the full session context |
 | Check a verification slip | `sunshine task verify <task>` | Who still owes integration verification and how far sign-off has got; the same family covers opening (`verify-open`), signing (`verify-sign`), waiving (`verify-waive`) and reassigning (`verify-assign`) |
 | Check the next step | `sunshine task list-archive` | Show archived tasks by month |
-| Switch how the agent works | `sunshine workflow --list` / `sunshine workflow --template tdd` | List or switch workflow templates ([section 2](#switching-workflow-templates)) |
+| Switch how the agent works | `sunshine workflow --list` / `sunshine workflow --template channel-driven-subagent-dispatch` | List or switch workflow templates ([section 2](#switching-workflow-templates)) |
 | Refresh project templates | `sunshine update --dry-run` (drop `--dry-run` to apply) | Sync template files; user data is never touched ([section 8](#8-maintenance-update-and-upgrade)) |
 | Install a spec from a marketplace | `sunshine init --registry <source> --template <id>` | Install a spec template, refreshed by `update` afterwards ([section 8](#8-maintenance-update-and-upgrade)); in interactive mode, omit `--template` to pick from a list |
 | All init operations | `sunshine init --help` | Platforms, statusline, template picker, project type, three modes — see the init reference in this appendix |

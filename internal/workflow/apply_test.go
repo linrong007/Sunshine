@@ -70,16 +70,16 @@ func TestApplyPristineOverwrites(t *testing.T) {
 	writeWorkflow(t, cwd, current)
 	writeManifest(t, cwd, map[string]string{WorkflowRelPath: hashOf(current)})
 	var out bytes.Buffer
-	if err := Apply(cwd, mustResolve(t, "tdd"), ApplyOptions{Out: &out}); err != nil {
+	if err := Apply(cwd, mustResolve(t, "channel-driven-subagent-dispatch"), ApplyOptions{Out: &out}); err != nil {
 		t.Fatalf("Apply 失败：%v", err)
 	}
-	if got := readFile(t, filepath.Join(cwd, ".sunshine", "workflow.md")); got != mustResolve(t, "tdd").Content {
-		t.Error("未改动时应直接覆盖为 tdd")
+	if got := readFile(t, filepath.Join(cwd, ".sunshine", "workflow.md")); got != mustResolve(t, "channel-driven-subagent-dispatch").Content {
+		t.Error("未改动时应直接覆盖为 channel")
 	}
 	// 非 native 应删除哈希条目。
 	hashes, _ := loadHashes(cwd)
 	if _, ok := hashes[WorkflowRelPath]; ok {
-		t.Error("切换到 tdd 后应删除 workflow.md 的哈希条目")
+		t.Error("切换到 channel 后应删除 workflow.md 的哈希条目")
 	}
 }
 
@@ -88,7 +88,7 @@ func TestApplyModifiedNonInteractiveErrors(t *testing.T) {
 	writeWorkflow(t, cwd, "# 我改过的\n")
 	writeManifest(t, cwd, map[string]string{WorkflowRelPath: hashOf("# 原始\n")})
 	var out bytes.Buffer
-	err := Apply(cwd, mustResolve(t, "tdd"), ApplyOptions{Out: &out, Interactive: false})
+	err := Apply(cwd, mustResolve(t, "channel-driven-subagent-dispatch"), ApplyOptions{Out: &out, Interactive: false})
 	if err == nil {
 		t.Fatal("已改动且非交互、无 --force 时应报错")
 	}
@@ -105,10 +105,10 @@ func TestApplyModifiedForceOverwrites(t *testing.T) {
 	writeWorkflow(t, cwd, "# 我改过的\n")
 	writeManifest(t, cwd, map[string]string{WorkflowRelPath: hashOf("# 原始\n")})
 	var out bytes.Buffer
-	if err := Apply(cwd, mustResolve(t, "tdd"), ApplyOptions{Out: &out, Force: true}); err != nil {
+	if err := Apply(cwd, mustResolve(t, "channel-driven-subagent-dispatch"), ApplyOptions{Out: &out, Force: true}); err != nil {
 		t.Fatalf("Apply 失败：%v", err)
 	}
-	if got := readFile(t, filepath.Join(cwd, ".sunshine", "workflow.md")); got != mustResolve(t, "tdd").Content {
+	if got := readFile(t, filepath.Join(cwd, ".sunshine", "workflow.md")); got != mustResolve(t, "channel-driven-subagent-dispatch").Content {
 		t.Error("--force 时应覆盖")
 	}
 }
@@ -120,15 +120,15 @@ func TestApplyModifiedInteractiveChoices(t *testing.T) {
 		check  func(t *testing.T, cwd string)
 	}{
 		{"覆盖", ActionOverwrite, func(t *testing.T, cwd string) {
-			if got := readFile(t, filepath.Join(cwd, ".sunshine", "workflow.md")); got != mustResolve(t, "tdd").Content {
-				t.Error("选覆盖时应写入 tdd")
+			if got := readFile(t, filepath.Join(cwd, ".sunshine", "workflow.md")); got != mustResolve(t, "channel-driven-subagent-dispatch").Content {
+				t.Error("选覆盖时应写入 channel")
 			}
 		}},
 		{"写 .new", ActionCreateNew, func(t *testing.T, cwd string) {
 			if got := readFile(t, filepath.Join(cwd, ".sunshine", "workflow.md")); got != "# 我改过的\n" {
 				t.Error("选写 .new 时不应动 workflow.md")
 			}
-			if got := readFile(t, filepath.Join(cwd, ".sunshine", "workflow.md.new")); got != mustResolve(t, "tdd").Content {
+			if got := readFile(t, filepath.Join(cwd, ".sunshine", "workflow.md.new")); got != mustResolve(t, "channel-driven-subagent-dispatch").Content {
 				t.Error("选写 .new 时应写入 workflow.md.new")
 			}
 		}},
@@ -147,7 +147,7 @@ func TestApplyModifiedInteractiveChoices(t *testing.T) {
 			writeWorkflow(t, cwd, "# 我改过的\n")
 			writeManifest(t, cwd, map[string]string{WorkflowRelPath: hashOf("# 原始\n")})
 			var out bytes.Buffer
-			err := Apply(cwd, mustResolve(t, "tdd"), ApplyOptions{
+			err := Apply(cwd, mustResolve(t, "channel-driven-subagent-dispatch"), ApplyOptions{
 				Out:         &out,
 				Interactive: true,
 				Confirm:     func() (OverwriteAction, error) { return c.action, nil },
@@ -167,7 +167,7 @@ func TestApplyUnknownNeedsConfirm(t *testing.T) {
 	writeManifest(t, cwd, map[string]string{".sunshine/config.yaml": hashOf("c")})
 	var out bytes.Buffer
 	// 非交互且无 --force：报错，不写盘也不写 .new。
-	if err := Apply(cwd, mustResolve(t, "tdd"), ApplyOptions{Out: &out}); err == nil {
+	if err := Apply(cwd, mustResolve(t, "channel-driven-subagent-dispatch"), ApplyOptions{Out: &out}); err == nil {
 		t.Fatal("未知来源 + 非交互时应报错")
 	}
 	if got := readFile(t, filepath.Join(cwd, ".sunshine", "workflow.md")); got != "# 来历不明的内容\n" {
@@ -177,14 +177,14 @@ func TestApplyUnknownNeedsConfirm(t *testing.T) {
 		t.Error("未知来源 + 非交互时不应写 workflow.md.new")
 	}
 	// 交互确认选“写 .new”：写 .new，workflow.md 不动，清单不动。
-	if err := Apply(cwd, mustResolve(t, "tdd"), ApplyOptions{
+	if err := Apply(cwd, mustResolve(t, "channel-driven-subagent-dispatch"), ApplyOptions{
 		Out:         &out,
 		Interactive: true,
 		Confirm:     func() (OverwriteAction, error) { return ActionCreateNew, nil },
 	}); err != nil {
 		t.Fatalf("交互确认写 .new 失败：%v", err)
 	}
-	if got := readFile(t, filepath.Join(cwd, ".sunshine", "workflow.md.new")); got != mustResolve(t, "tdd").Content {
+	if got := readFile(t, filepath.Join(cwd, ".sunshine", "workflow.md.new")); got != mustResolve(t, "channel-driven-subagent-dispatch").Content {
 		t.Error("交互确认选写 .new 时应写 workflow.md.new")
 	}
 	hashes, _ := loadHashes(cwd)
@@ -200,10 +200,10 @@ func TestApplyUnknownForceOverwrites(t *testing.T) {
 	cwd := t.TempDir()
 	writeWorkflow(t, cwd, "# 来历不明的内容\n")
 	var out bytes.Buffer
-	if err := Apply(cwd, mustResolve(t, "tdd"), ApplyOptions{Out: &out, Force: true}); err != nil {
+	if err := Apply(cwd, mustResolve(t, "channel-driven-subagent-dispatch"), ApplyOptions{Out: &out, Force: true}); err != nil {
 		t.Fatalf("Apply 失败：%v", err)
 	}
-	if got := readFile(t, filepath.Join(cwd, ".sunshine", "workflow.md")); got != mustResolve(t, "tdd").Content {
+	if got := readFile(t, filepath.Join(cwd, ".sunshine", "workflow.md")); got != mustResolve(t, "channel-driven-subagent-dispatch").Content {
 		t.Error("未知来源 + --force 时应覆盖")
 	}
 }

@@ -112,7 +112,7 @@ func TestSessionStart_WithSunshine(t *testing.T) {
 	ctx := additionalContext(t, out)
 	for _, want := range []string{
 		"Developer: 小林",
-		"Current task: .sunshine/tasks/11-09-demo; status=planning.",
+		"Current task: .sunshine/tasks/11-09-demo; status=planning; 模式：默认.",
 		"演示任务",
 		"Status: PLANNING",
 		"Development Workflow - Session Summary",

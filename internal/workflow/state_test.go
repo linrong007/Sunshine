@@ -119,8 +119,8 @@ func TestApplyHashContract(t *testing.T) {
 	}
 
 	// 非 native：删除 workflow.md 的条目，其余条目保留。
-	if err := ApplyHashContract(cwd, "tdd"); err != nil {
-		t.Fatalf("tdd 哈希登记失败：%v", err)
+	if err := ApplyHashContract(cwd, "channel-driven-subagent-dispatch"); err != nil {
+		t.Fatalf("channel 哈希登记失败：%v", err)
 	}
 	hashes, _ = loadHashes(cwd)
 	if _, ok := hashes[WorkflowRelPath]; ok {

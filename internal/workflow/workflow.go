@@ -1,7 +1,9 @@
 // Package workflow 实现 `sunshine workflow` 的工作流模板注册与解析。
 //
-// 三个内置模板（native、tdd、channel-driven-subagent-dispatch）是 Trellis
+// 两个内置模板（native、channel-driven-subagent-dispatch）是 Trellis
 // marketplace/workflows/ 的中文翻译版，随二进制以 go:embed 发布。
+// tdd 模板已退役：TDD 改为任务级模式（meta.mode=tdd，在 native /
+// channel 模板内以双环分支实现），Resolve 对 tdd 给出指路报错。
 // 其中 channel-driven-subagent-dispatch 只安装模板文件，派发行为依赖
 // Channel（阶段 6），本阶段不实现派发能力。
 //
@@ -18,6 +20,9 @@ import (
 
 // NativeID 是内置原生工作流的 id。
 const NativeID = "native"
+
+// RetiredTDDID 是已退役的 tdd 模板 id（TDD 改为任务级模式）。
+const RetiredTDDID = "tdd"
 
 // Source 是模板的来源：bundled（随二进制内置）或 marketplace（远程拉取）。
 type Source string
@@ -44,21 +49,14 @@ type Resolved struct {
 	Content string
 }
 
-// bundledTemplates 是三个内置模板的注册表（顺序即 --list 的展示顺序）。
+// bundledTemplates 是两个内置模板的注册表（顺序即 --list 的展示顺序）。
 // 名称与描述译自 marketplace/index.json。
 var bundledTemplates = []Template{
 	{
 		ID:          NativeID,
 		Name:        "原生 Sunshine 工作流",
-		Description: "默认的 Sunshine 规划 / 执行 / 收尾工作流，含原生子代理与 inline 平台分支",
+		Description: "默认的 Sunshine 规划 / 执行 / 收尾工作流，含原生子代理与 inline 平台分支；任务模式（快速 / 默认 / TDD 双环）按任务在建任务时选",
 		Path:        "bundled:sunshine/workflow.md",
-		Source:      SourceBundled,
-	},
-	{
-		ID:          "tdd",
-		Name:        "TDD 工作流",
-		Description: "双环 TDD 变体：出题子代理先按验收标准写外环验收题并锁定，再逐个行为走红灯 / 绿灯 / 重构切片（内环），check 含外环判卷",
-		Path:        "bundled:workflows/tdd/workflow.md",
 		Source:      SourceBundled,
 	},
 	{
@@ -70,7 +68,7 @@ var bundledTemplates = []Template{
 	},
 }
 
-// ListBundled 返回三个内置模板（按注册顺序）。
+// ListBundled 返回两个内置模板（按注册顺序）。
 func ListBundled() []Template {
 	out := make([]Template, len(bundledTemplates))
 	copy(out, bundledTemplates)
@@ -121,7 +119,7 @@ func bundledTemplate(id string) (Template, bool) {
 
 // Resolve 把模板 id 解析为正文。
 //
-//   - 内置 id（native、tdd、channel-driven-subagent-dispatch）且未传
+//   - 内置 id（native、channel-driven-subagent-dispatch）且未传
 //     marketplace 来源时，直接读内置中文模板（离线可用）。
 //   - 传了 marketplace 来源时，非 native 的内置 id 也按上游行为从该市场
 //     拉取（与 Trellis resolveWorkflowTemplate 一致：只有 native 是虚拟
@@ -139,6 +137,9 @@ func Resolve(id, marketplaceSource string) (Resolved, error) {
 		return Resolved{Template: t, Content: content}, nil
 	}
 	if marketplaceSource == "" {
+		if id == RetiredTDDID {
+			return Resolved{}, fmt.Errorf("TDD 已改为任务级模式，不再是工作流模板：建任务时给任务选 TDD 模式即可（sunshine task create ... --meta mode=tdd）；已在用 tdd 模板的项目不受影响，项目里的 workflow.md 继续有效，想换回合并版用 sunshine workflow --template native --force")
+		}
 		if t, ok := bundledTemplate(id); ok {
 			content, err := BundledContent(id)
 			if err != nil {
@@ -146,12 +147,12 @@ func Resolve(id, marketplaceSource string) (Resolved, error) {
 			}
 			return Resolved{Template: t, Content: content}, nil
 		}
-		return Resolved{}, fmt.Errorf("未知工作流模板 %q，可用模板：native、tdd、channel-driven-subagent-dispatch", id)
+		return Resolved{}, fmt.Errorf("未知工作流模板 %q，可用模板：native、channel-driven-subagent-dispatch", id)
 	}
 	return ResolveFromMarketplace(id, marketplaceSource)
 }
 
-// ListTemplates 列出可用模板：内置三项在前，marketplace 来源给定时
+// ListTemplates 列出可用模板：内置两项在前，marketplace 来源给定时
 // 追加其 index.json 里的 workflow 条目。远程拉取失败时只返回内置项
 // 并附 errorMessage（与上游 listWorkflowTemplates 一致：离线仍可
 // 回落到内置 native 项）。

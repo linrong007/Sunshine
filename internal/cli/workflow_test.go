@@ -56,7 +56,7 @@ func TestPrintWorkflowListing(t *testing.T) {
 		t.Fatal(err)
 	}
 	out := buf.String()
-	for _, id := range []string{"native", "tdd", "channel-driven-subagent-dispatch"} {
+	for _, id := range []string{"native", "channel-driven-subagent-dispatch"} {
 		if !strings.Contains(out, id) {
 			t.Errorf("列表应包含 %q，实际输出：%s", id, out)
 		}
@@ -91,7 +91,7 @@ func sha256Hex(s string) string {
 
 func TestWorkflowRunESwitchTemplate(t *testing.T) {
 	resetWorkflowFlags()
-	workflowTemplate = "tdd"
+	workflowTemplate = "channel-driven-subagent-dispatch"
 	defer resetWorkflowFlags()
 	cwd, cleanup := chdirTempSunshine(t)
 	defer cleanup()
@@ -115,12 +115,12 @@ func TestWorkflowRunESwitchTemplate(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	tdd, err := workflow.BundledContent("tdd")
+	ch, err := workflow.BundledContent("channel-driven-subagent-dispatch")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if string(data) != tdd {
-		t.Error("切换后 workflow.md 应为 tdd 模板内容")
+	if string(data) != ch {
+		t.Error("切换后 workflow.md 应为 channel 模板内容")
 	}
 }
 

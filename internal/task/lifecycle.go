@@ -787,6 +787,7 @@ func (r *Runner) List(mine bool, status string, asJSON bool) int {
 			Children      []string `json:"children"`
 			Package       *string  `json:"package"`
 			VerifyPending int      `json:"verify_pending"`
+			Mode          string   `json:"mode,omitempty"`
 		}
 		var items []item
 		names := make([]string, 0, len(byName))
@@ -832,6 +833,7 @@ func (r *Runner) List(mine bool, status string, asJSON bool) int {
 				Status: t.Status, DisplayStatus: displayStatus(t, allStatuses),
 				Priority: t.Priority, Assignee: assigneePtr, Parent: parentPtr,
 				Children: children, Package: pkgPtr, VerifyPending: verifyPending,
+				Mode: taskModeOf(t),
 			})
 		}
 		if items == nil {
@@ -895,11 +897,18 @@ func (r *Runner) List(mine bool, status string, asJSON bool) int {
 				verifyTag = fmt.Sprintf(" [待验：未销 %d 条]", n)
 			}
 		}
+		modeTag := ""
+		switch taskModeOf(t) {
+		case "fast":
+			modeTag = " [快速]"
+		case "tdd":
+			modeTag = " [TDD]"
+		}
 		prefix := strings.Repeat("  ", indent) + "  - "
 		if mine {
-			fmt.Fprintf(r.out(), "%s%s/ (%s)%s%s%s%s\n", prefix, name, statusLabel, pkgTag, progress, verifyTag, marker)
+			fmt.Fprintf(r.out(), "%s%s/ (%s)%s%s%s%s%s\n", prefix, name, statusLabel, pkgTag, progress, verifyTag, modeTag, marker)
 		} else {
-			fmt.Fprintf(r.out(), "%s%s/ (%s)%s%s [%s]%s%s\n", prefix, name, statusLabel, pkgTag, progress, orDash(t.Assignee), verifyTag, marker)
+			fmt.Fprintf(r.out(), "%s%s/ (%s)%s%s [%s]%s%s%s\n", prefix, name, statusLabel, pkgTag, progress, orDash(t.Assignee), verifyTag, modeTag, marker)
 		}
 		count++
 		for _, child := range t.Children {
@@ -941,6 +950,30 @@ func (r *Runner) List(mine bool, status string, asJSON bool) int {
 	fmt.Fprintln(r.out())
 	fmt.Fprintf(r.out(), "总计：%d 个任务\n", count)
 	return 0
+}
+
+// taskModeOf 读任务的有效模式：meta.mode 优先；没有 mode 时按兼容
+// 读法，老任务的 risk=light 视为 fast。其余（standard / 未标）返回
+// "standard"。Raw 缺失时返回 ""（调用方按无标记处理）。
+func taskModeOf(t *TaskInfo) string {
+	if t.Raw == nil {
+		return ""
+	}
+	rawMeta, ok := t.Raw.vals["meta"]
+	if !ok {
+		return "standard"
+	}
+	var m map[string]any
+	if err := json.Unmarshal(rawMeta, &m); err != nil || m == nil {
+		return "standard"
+	}
+	if mode, _ := m["mode"].(string); mode == "fast" || mode == "tdd" || mode == "standard" {
+		return mode
+	}
+	if risk, _ := m["risk"].(string); risk == "light" {
+		return "fast"
+	}
+	return "standard"
 }
 
 func orDash(s string) string {

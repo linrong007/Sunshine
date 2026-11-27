@@ -7,7 +7,7 @@ import (
 
 func TestListBundled(t *testing.T) {
 	list := ListBundled()
-	want := []string{"native", "tdd", "channel-driven-subagent-dispatch"}
+	want := []string{"native", "channel-driven-subagent-dispatch"}
 	if len(list) != len(want) {
 		t.Fatalf("内置模板应为 %d 个，实际 %d 个", len(want), len(list))
 	}
@@ -25,7 +25,7 @@ func TestListBundled(t *testing.T) {
 }
 
 func TestBundledContent(t *testing.T) {
-	for _, id := range []string{"native", "tdd", "channel-driven-subagent-dispatch"} {
+	for _, id := range []string{"native", "channel-driven-subagent-dispatch"} {
 		content, err := BundledContent(id)
 		if err != nil {
 			t.Fatalf("读模板 %q 失败：%v", id, err)
@@ -51,20 +51,37 @@ func TestBundledContent(t *testing.T) {
 	}
 }
 
-func TestBundledContentTDDDiffersFromNative(t *testing.T) {
+func TestBundledContentNativeHasTaskModes(t *testing.T) {
 	native, _ := BundledContent("native")
-	tdd, _ := BundledContent("tdd")
-	if native == tdd {
-		t.Error("tdd 模板应与 native 不同")
+	channel, _ := BundledContent("channel-driven-subagent-dispatch")
+	if native == channel {
+		t.Error("channel 模板应与 native 不同")
 	}
-	if !strings.Contains(tdd, "TDD 规划关卡") {
-		t.Error("tdd 模板应包含 TDD 规划关卡")
-	}
-	if strings.Contains(tdd, "task_error") {
-		t.Error("tdd 模板原文就没有 task_error 面包屑块，翻译版也不应有")
+	// 任务级三模式并入 native / channel：模式选择、双环分支、判卷、
+	// 小修通道都必须在两份模板里。
+	for _, keep := range []string{"meta.mode", "双环分支", "外环判卷", "小修通道", "和默认模式一样，只是不逼问"} {
+		if !strings.Contains(native, keep) {
+			t.Errorf("native 模板应包含 %q", keep)
+		}
+		if !strings.Contains(channel, keep) {
+			t.Errorf("channel 模板应包含 %q", keep)
+		}
 	}
 	if !strings.Contains(native, "task_error") {
 		t.Error("native 模板应包含 task_error 面包屑块")
+	}
+}
+
+func TestResolveRetiredTDD(t *testing.T) {
+	if _, err := BundledContent("tdd"); err == nil {
+		t.Error("tdd 已退役，BundledContent 应报错")
+	}
+	_, err := Resolve("tdd", "")
+	if err == nil {
+		t.Fatal("Resolve(tdd) 应报错指路")
+	}
+	if !strings.Contains(err.Error(), "任务级模式") {
+		t.Errorf("报错应指路任务级模式，实际：%v", err)
 	}
 }
 
@@ -78,7 +95,7 @@ func TestBundledContentChannel(t *testing.T) {
 }
 
 func TestResolveBundledOffline(t *testing.T) {
-	for _, id := range []string{"native", "tdd", "channel-driven-subagent-dispatch"} {
+	for _, id := range []string{"native", "channel-driven-subagent-dispatch"} {
 		r, err := Resolve(id, "")
 		if err != nil {
 			t.Fatalf("解析 %q 失败：%v", id, err)
@@ -114,15 +131,15 @@ func TestListTemplatesWithoutMarketplace(t *testing.T) {
 	if errMsg != "" {
 		t.Errorf("无市场来源时不应有错误信息：%s", errMsg)
 	}
-	if len(list) != 3 {
-		t.Errorf("应列出 3 个内置模板，实际 %d 个", len(list))
+	if len(list) != 2 {
+		t.Errorf("应列出 2 个内置模板，实际 %d 个", len(list))
 	}
 }
 
 func TestListTemplatesBadMarketplaceFallsBack(t *testing.T) {
 	list, errMsg := ListTemplates("not-a-valid-source")
-	if len(list) != 3 {
-		t.Errorf("市场拉取失败时应回落到 3 个内置模板，实际 %d 个", len(list))
+	if len(list) != 2 {
+		t.Errorf("市场拉取失败时应回落到 2 个内置模板，实际 %d 个", len(list))
 	}
 	if errMsg == "" {
 		t.Error("市场拉取失败时应给出错误说明")

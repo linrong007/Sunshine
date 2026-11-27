@@ -383,7 +383,26 @@ func buildCompactCurrentState(root string, input HookInput, cfg Config, active A
 		if taskDir != "" {
 			rel = RepoRelative(root, taskDir)
 		}
-		lines = append(lines, fmt.Sprintf("Current task: %s; status=%s.", rel, status))
+		modeLabel := "默认"
+		if taskDir != "" {
+			if data := ReadJSONFile(filepath.Join(taskDir, "task.json")); data != nil {
+				if meta, _ := data["meta"].(map[string]any); meta != nil {
+					mode, _ := meta["mode"].(string)
+					switch mode {
+					case "tdd":
+						modeLabel = "TDD"
+					case "fast":
+						modeLabel = "快速"
+					case "":
+						// 兼容读法：老任务只有 risk=light 时按快速读。
+						if risk, _ := meta["risk"].(string); risk == "light" {
+							modeLabel = "快速"
+						}
+					}
+				}
+			}
+		}
+		lines = append(lines, fmt.Sprintf("Current task: %s; status=%s; 模式：%s.", rel, status, modeLabel))
 		// 设计循环进行中：当前任务还在 planning 且未拆解、项目里已有
 		// 需求列表——继续做下一条需求时不要新建任务，先续接当前父任务。
 		if status == "planning" && !hasChildren {

@@ -4307,3 +4307,10 @@ Token 口径：OpenViking 分 L0 摘要（约 100 token/份）、L1 概览（约
 - 教程中英同步：§2 改「评审里的 audit 与任务模式」+ 三模式表 + 模板切换节改两模板；§4/§8 的 tdd 引用改 channel；§9.4 改建任务时弹窗选 TDD；§9.6 拆解呈报改模式口径。
 - 验证：全量 go test 绿、gofmt 干净；沙箱四连全过（盖戳二进制 0.6.0-dev，项目 scratch/modes1 与 scratch/legacy-tdd）：①三任务 meta.mode 落盘、list 标记、SessionStart「模式：TDD」；②v0.5.58 存量 tdd 项目 update --dry-run 不报错、workflow.md 列「你已修改」、--template tdd 报错指路、native --force 换回；③risk=light 老任务 list 显示 [快速]、SessionStart 读「模式：快速」；④小修通道段完整装出（固定检查点 / 定性 / 增量复核 / 第三次转返工 / TDD 追加判卷 / 与待验单并存）。
 - 发版：待用户点选 v0.6.0（连同此前未推送的 46d9f7f…69f4ec9 一并）。
+
+### 发布记录：v0.6.0（2026-11-27）
+- 用户点选「推送发版」后执行：本地 15 笔经 push-initial 压成远端 a7e0195（父 c230a13d0558ed1c022ff8cb8e761bb0ba126849，tree a31f6f3 与本地一致），本地已 reset 对齐。
+- 发版前全仓扫残留：仅 templates/sunshine/AGENTS.md 一处「轻量档子任务」旧说法，改挂小修通道（70f78e6，随本版发布）。
+- tag 对象 e60719c 指向 a7e0195；Release id 460592127，6 资产齐；CI（main）、CI（tag）、发布三路全 success。
+- 发布包实测（scratch/release-0.6.0/）：linux_amd64 sha256 53b1c9de9b113f972a6a973e8ae722e8773a891847a569c251d7d0416edd24ff 与 checksums.txt 一致，二进制报 0.6.0；新装项目 workflow --list 只剩 native / channel，--template tdd 报错指路，mode=tdd 任务 list 带 [TDD]。
+- 无迁移：sunshine upgrade 即可；已装 tdd 模板的项目 workflow.md 继续有效。

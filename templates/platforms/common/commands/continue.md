@@ -29,10 +29,10 @@ sunshine task context --mode phase
 分流前先报清单：存在「未完成清单」时，先用一句话向用户报进度（哪个父任务、共几个子任务、已完成几个、正在做谁、下一个是谁），问用户是续当前任务还是转去做下一个；用户确认后再按下面的分流走。不要默默跳过清单里的下一个，也不要未经确认就启动它。
 
 - `status=planning`，且没有 `prd.md` → **1.1**（加载 `sunshine-brainstorm`）
-- `status=planning`，且只有 `prd.md` → 判断任务是轻量还是复杂。轻量可进入 **1.5** 评审；复杂回到 **1.1** 补充 `design.md` + `implement.md`。
-- `status=planning`，规划产物齐全，但任务包含多个可独立验证的交付物且尚未拆解（children 为空）→ **1.2**（任务拆解；拆完后不要继续在父任务上走 1.4/1.5，改去子任务上走 1.1→1.5）
+- `status=planning`，且只有 `prd.md` → 判断任务是轻量还是复杂。轻量直接进 **1.4** 配上下文；复杂回到 **1.1** 补充 `design.md` + `implement.md`。（1.5 评审只有设计先行父任务在拆解前走，见下。）
+- `status=planning`，是设计先行父任务、设计包已齐但尚未评审 → **1.5**（评审设计包；通过后才进 **1.2** 拆解；拆完改去子任务上走 1.1→1.4→start，子任务不走评审）
 - `status=planning`，复杂产物齐全，但子代理 jsonl 未整理（为空，或只有旧的 `_example` 占位行）→ **1.4**
-- `status=planning`，所需产物齐全，且所需 jsonl 已整理或为内联模式 → **1.5**（请用户做开始评审；只有用户确认后才运行 `sunshine task start`）
+- `status=planning`，所需产物齐全，且所需 jsonl 已整理或为内联模式 → 直接运行 `sunshine task start` 进入实现（开发先行与子任务没有开始评审这一环；设计先行父任务不在此列，它不 start，走 1.5→1.2）
 - `status=in_progress`，实现尚未开始 → **2.1**
 - `status=in_progress`，实现已完成、尚未检查 → **2.2**
 - `status=in_progress`，检查已通过 → **3.3**（更新规范）→ **3.4**（提交）

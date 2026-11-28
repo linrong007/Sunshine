@@ -101,7 +101,7 @@ func compactNextStep(root string, active ActiveTask, status string) string {
 	}
 	switch status {
 	case "planning":
-		return "完成规划评审，通过后启动实现（先读 prd.md）。"
+		return "完成规划后启动实现（先读 prd.md；设计先行父任务先过 1.5 评审，开发先行与子任务配完上下文直接 start）。"
 	case "completed":
 		return "运行收尾流程并归档。"
 	case "stale":

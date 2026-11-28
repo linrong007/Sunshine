@@ -644,9 +644,9 @@ func taskStatusBlock(root string, input HookInput, active ActiveTask) string {
 		}
 		var bits []string
 		if len(missing) > 0 {
-			bits = append(bits, "Lightweight task can request start review with PRD-only; complex task must add "+strings.Join(missing, ", ")+" before start")
+			bits = append(bits, "Lightweight task can start with PRD-only; complex task must add "+strings.Join(missing, ", ")+" before start")
 		} else {
-			bits = append(bits, "Planning artifacts are present; ask for review before `sunshine task start`")
+			bits = append(bits, "Planning artifacts are present; design-first parent tasks go through the 1.5 review before breakdown, other tasks proceed to `sunshine task start` after context curation")
 		}
 		if !jsonlReady {
 			bits = append(bits, "curate `implement.jsonl` and `check.jsonl` before sub-agent mode start")

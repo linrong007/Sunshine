@@ -48,7 +48,7 @@ cat .sunshine/spec/<package>/<layer>/index.md   # 每个相关层
   ```bash
   sunshine task context --mode phase --step 2.1 --platform {{CLI_FLAG}}
   ```
-- **没有当前任务** → 先分类。简单对话或小任务，只问本轮是否应创建一个 Sunshine 任务；复杂工作，问是否可以创建 Sunshine 任务并进入规划。如果用户说不，本会话跳过 Sunshine。
+- **没有当前任务** → 先分类。用户已在开场点名 Sunshine 工作流的，视为已同意，直接创建任务进入规划，不再问。没点名时：简单对话或小任务，只问本轮是否应创建一个 Sunshine 任务（说不就跳过本会话的 Sunshine）；复杂工作，问是否可以创建 Sunshine 任务并进入规划——只问是非，不许给「跳过流程直接写代码」的选项；用户说不，就先解释、澄清范围，或建议拆成更小的任务，不许直接写代码。
 
 ---
 

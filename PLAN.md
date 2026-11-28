@@ -4328,3 +4328,9 @@ Token 口径：OpenViking 分 L0 摘要（约 100 token/份）、L1 概览（约
 - tag 对象 900539c 指向 aadb069；Release id 461296832，6 资产齐；CI（main 两趟）、CI（tag）、发布三路全 success。
 - 发布包实测（scratch/release-0.6.1/）：linux_amd64 sha256 6a0f67476731a942231a22fc7b41cb6f3e27e03b7dcdd8dfc42e65063b063a9b 与 checksums.txt 一致，二进制报 0.6.1，含新 hook 注入文本。
 - 无迁移：upgrade 后项目里 sunshine update 刷新即可。
+
+### 发布记录：v0.6.2（2026-11-28）
+- 内容只有一项：三模式弹窗默认模式说明删去「评审」二字（211ae68，workflow 两份 + 镜像 + 教程中英共 6 处），与 v0.6.1 的开发先行口径对齐。
+- 推送：远端 e7dcd58（父 79c88b9872ed84e252d4bfb842ea6a9daa9378f3），本地已对齐；tag 对象 17f7726；Release id 461301279，6 资产齐；CI（main）、CI（tag）、发布三路全 success。
+- 发布包实测（scratch/release-0.6.2/）：linux_amd64 sha256 fabbbef14deec25e7aac51cadee15947c7a932aca56f58e1a2b157571a8cb547 与 checksums.txt 一致，二进制报 0.6.2；新装项目 workflow.md 为新文案、旧文案 0 处。
+- 无迁移：upgrade + update 刷新即可。

@@ -1,6 +1,6 @@
 # Sunshine tutorial: init once, then work in the agent UI
 
-The main flow in one line: **run `sunshine init` once in the terminal, then work entirely in the agent UI (Claude Code first, Codex / Cursor the same idea) in plain language: you state the requirement, and the agent follows `.sunshine/workflow.md` — questions first, a written plan, and implementation only after the 1.5 review passes with your confirmation (design-first splits first, then one sub-task at a time); each task runs implement, check, spec write-back, commit, and archive end to end, and you appear only to answer questions, confirm the review and the commit plan, and accept the result.**
+The main flow in one line: **run `sunshine init` once in the terminal, then work entirely in the agent UI (Claude Code first, Codex / Cursor the same idea) in plain language: you state the requirement, and the agent follows `.sunshine/workflow.md` — questions first, a written plan, and implementation only after your confirmation (design-first reviews the design pack, then splits and runs one sub-task at a time; development-first goes straight from planning to implementation); each task runs implement, check, spec write-back, commit, and archive end to end, and you appear only to answer questions, confirm the review and the commit plan, and accept the result.**
 
 How to read this tutorial: section 1 walks the main flow end to end; section 2 covers the two modes and the review; the capability sections after that (specs, memory, token saving, collaboration, maintenance) are there to look up as needed; section 9 is the record of six real scenarios, and the appendix is the command reference. Command transcripts live in section 3 and section 9; the rest is flow and capabilities.
 
@@ -27,7 +27,7 @@ The demo project is the same throughout: **refund reason required** — add a ma
 
 ## 1. Five minutes in: walk the main flow
 
-The main flow has five steps: init once → state the requirement → the agent asks questions and writes a plan → implementation after the review passes → you accept and it archives. Here it is step by step, on a small change: adding a mandatory reason field to the refund flow.
+The main flow has five steps: init once → state the requirement → the agent asks questions and writes a plan → you confirm and it implements → you accept and it archives. Here it is step by step, on a small change: adding a mandatory reason field to the refund flow.
 
 ### 1.1 Run once in the terminal: init
 
@@ -105,7 +105,7 @@ Open the project in Claude Code (Codex and Cursor work the same way — the agen
 >
 > Add a required reason field to the refund flow: when a user submits a refund, the reason must not be empty or the submission is rejected. The reason input is a dropdown — quality issue / wrong size / other — and choosing "other" reveals a text box. On the backend, `POST /refunds` requires `reason`; a missing reason returns 400 with error code `REASON_REQUIRED`. Please follow the Sunshine workflow.
 
-Note: the prompt must name the workflow explicitly ("follow the Sunshine workflow", plus the mode if there is one, e.g. development-first). The steps after that — ask first, create the task and write the PRD on confirmation, review, then implement — do not need restating: they are all in workflow.md, and the agent follows them in order once it has read it. A bare requirement on its own is not enough — in a real run the agent jumped straight to coding and skipped task creation and requirement confirmation — but the problem there was the unnamed workflow, not the unrestated steps.
+Note: the prompt must name the workflow explicitly ("follow the Sunshine workflow", plus the mode if there is one, e.g. development-first). The steps after that — ask first, create the task and write the PRD on confirmation, then implement — do not need restating: they are all in workflow.md, and the agent follows them in order once it has read it. A bare requirement on its own is not enough — in a real run the agent jumped straight to coding and skipped task creation and requirement confirmation — but the problem there was the unnamed workflow, not the unrestated steps.
 
 The designer and the developer are not two workflows — they are two phases of one workflow: the designer does 1.1 (clarify requirements), the design deliverables, 1.5 (review), and 1.2 (breakdown); the developer does phase 2 (implement and check) and phase 3 (write back and commit). They share one workflow.md, one task system, and one PRD, and the handoff runs through the requirements list and the task structure. So the prompt does not need to name a role — naming the workflow and the mode is enough, and the role follows the phase: while the task is in the design phase, the agent is the designer; once it moves into development, the agent is the developer. If the mode is unclear, the agent asks first in 1.1. The only thing to state explicitly is the scope boundary: design only, no code, or the design is done and only development remains.
 
@@ -209,13 +209,13 @@ The review examines the design package: prd, requirements list, design documents
 
 ### Development-first
 
-The order: clarify the requirement (1.1, one question at a time, each answer recorded in prd.md at once) → write the planning products (a light task has only prd.md; a complex one adds design.md and implement.md) → split only if the scope is too large → set up context (1.4) → review (1.5) → task start → development.
+The order: clarify the requirement (1.1, one question at a time, each answer recorded in prd.md at once) → write the planning products (a light task has only prd.md; a complex one adds design.md and implement.md) → set up context (1.4) → task start → development.
 
-The review sits right before start: first check the planning products are self-consistent, then dispatch an audit scan, ask every must-confirm question on the spot and record the answers in prd — implementation starts only after you confirm. A single task starts right after its review; with sub-tasks, each one passes its own review before its own start, and the parent task is never reviewed as a whole and never started. Record: 9.1.
+Development-first has no review and no breakdown: tasks are flat, one is finished before the next is created; if the scope is large, it becomes several tasks in sequence, never a parent with children. Every must-confirm question is asked during clarification and recorded in the prd; once context is set up, the task starts directly. The review (1.5) exists only in design-first — see the next section. Record: 9.1.
 
 ### The audit in the review, and task modes
 
-Besides the main session's own check, the 1.5 review dispatches a read-only audit sub-agent to scan: it only reports items that were never confirmed and changes no files, and its findings land in the task directory's `audit.md` — no such file, and the review counts as not done. Answers go back into prd.md; anything undecided is marked `[待定]`.
+The review exists only in design-first, examining the design pack before breakdown. Besides the main session's own check, the 1.5 review dispatches a read-only audit sub-agent to scan: it only reports items that were never confirmed and changes no files, and its findings land in the task directory's `audit.md` — no such file, and the review counts as not done. Answers go back into prd.md; anything undecided is marked `[待定]`.
 
 Each audit item also carries a kind: business decision (money and judgement rules, business rules, permissions, external commitments, whether data gets deleted) or technical. When the review wraps up, every item gets an outcome, written back into audit.md as its disposition: what you decided on the spot is recorded as "user-decided", a suggested option you picked is "user-accepted", and anything else stays `[待定]`; conclusions copied into prd.md carry the same source tag. An item you were never asked about may not be written up as a conclusion — business decisions above all: without a source from you it does not count as decided, and when development reaches one it must stop and ask you, never silently follow the audit's suggestion.
 
@@ -229,9 +229,9 @@ Every task picks one of three **modes** when it is created:
 
 In dev-first, the agent pops up the choice before creating the task (if you already named a mode in your opening line, it does not ask); in design-first, the mode is set per sub-task as part of the breakdown list, and you confirm them all at once. The mode is recorded on the task: `task list` tags fast tasks `[快速]` and TDD tasks `[TDD]`, and all three kinds can run side by side in one project. Before work starts you can change it freely; after start, fast can only upgrade to default — never to TDD (the tests have to come before the code) — and no mode can be downgraded.
 
-Default and TDD mode run deep interrogation in the review — round after round of questions from both the business and the technical angle (the technical side has eight must-ask categories: stack and dependencies, interface contracts, data definitions, concurrency and consistency, performance and scale, security, failure recovery, environment constraints), until a round adds nothing new, at most 4 rounds.
+Deep interrogation runs only in the design-first review — round after round of questions from both the business and the technical angle (the technical side has eight must-ask categories: stack and dependencies, interface contracts, data definitions, concurrency and consistency, performance and scale, security, failure recovery, environment constraints), until a round adds nothing new, at most 4 rounds. Development-first has no review; everything that must be asked is asked during 1.1 clarification, one question at a time.
 
-**Fast mode** fits small changes like display-only work, copy, styling, and config defaults: its only difference from default mode is the missing interrogation — the requirement goes into the PRD in one line with no multi-round questioning, and the review round with its audit scan is skipped; context assembly, the implement subagent and the check subagent all run as usual, and verification slips still apply. If halfway through it turns out to touch data or judgement logic, it upgrades to default mode on the spot and the review is made up.
+**Fast mode** fits small changes like display-only work, copy, styling, and config defaults: its only difference from default mode is the missing interrogation — the requirement goes into the PRD in one line with no multi-round questioning; context assembly, the implement subagent and the check subagent all run as usual, and verification slips still apply. If halfway through it turns out to touch data or judgement logic, it upgrades to default mode on the spot and the clarification is made up.
 
 ### Switching workflow templates
 
@@ -773,7 +773,7 @@ One clarification: metering and guardrails (limits, blocks) do not themselves sa
 
 ## 7. Multi-agent collaboration
 
-One task is not done by a single agent end to end: the main session owns clarifying the requirement, the review, and acceptance, while the actual coding, checking, research, prototyping, and review scanning are dispatched to dedicated sub-agents (implement / check / research / prototype / audit). The split is the workflow's internal business — you do not need to manage it: you appear only to answer questions, confirm the review, and accept the result, and every sub-agent's output lands back in the main session for you to see.
+One task is not done by a single agent end to end: the main session owns clarifying the requirement, gatekeeping, and acceptance, while the actual coding, checking, research, prototyping, and review scanning are dispatched to dedicated sub-agents (implement / check / research / prototype / audit). The split is the workflow's internal business — you do not need to manage it: you appear only to answer questions, confirm, and accept the result, and every sub-agent's output lands back in the main session for you to see.
 
 ### serve: watch progress
 
@@ -962,15 +962,7 @@ Here is how the session continues (illustrative dialogue):
 >
 > **You:** Confirmed, go.
 
-On confirmation the agent creates the task and writes the PRD out in full — each answer you gave was written into it on the spot, and the planning summary is what got written down; the job is small, no breakdown, one task end to end. Next, context curation (1.4): the specs implementation and checking need to read are listed into implement.jsonl and check.jsonl. Then the review (1.5):
-
-> **You:** The planning is done — please follow the Sunshine workflow and review it, and give me the final planning summary to confirm.
->
-> **Claude Code:** Sure. The review has two steps: first the check — the PRD verified line by line, goal, scope, and acceptance criteria all line up; then the audit scan — nothing that has to be decided now. The final planning summary is the one you just confirmed: one task for the product list, its three acceptance criteria all in the PRD. Your nod, and I start.
->
-> **You:** Confirmed.
-
-Only on your nod does the agent run `task start` and enter implementation. The back half — five steps, none skipped — all happens in the conversation:
+On confirmation the agent creates the task and writes the PRD out in full — each answer you gave was written into it on the spot, and the planning summary is what got written down; the job is small, one task end to end. Next, context curation (1.4): the specs implementation and checking need to read are listed into implement.jsonl and check.jsonl. Development-first has no review step — with the context curated, the agent runs `task start` and enters implementation. The back half — five steps, none skipped — all happens in the conversation:
 
 **Implement.** The main session does not write code itself; it dispatches an implement sub-agent, which reads exactly the PRD and the implement.jsonl just curated. When it finishes, it reports back and asks you to try it yourself:
 
@@ -1011,7 +1003,7 @@ Only on your nod does the agent run `task start` and enter implementation. The b
 
 > **Claude Code:** Committed. The task is archived — you'll find it under `.sunshine/tasks/archive/` — and a session entry is logged: what was done, which commit, and the acceptance results are all in there. This task is closed.
 
-This case runs the whole development-first flow: questions (answers recorded on the spot) → PRD → context curation → review → implement → check → spec write-back → commit → archive. Afterwards each requirement (order list, stock adjustments, connecting the backend…) gets its own task and repeats this line.
+This case runs the whole development-first flow: questions (answers recorded on the spot) → PRD → context curation → implement → check → spec write-back → commit → archive. Afterwards each requirement (order list, stock adjustments, connecting the backend…) gets its own task and repeats this line.
 
 ### 9.2 Adopting an existing project: a clothing-store admin system
 
@@ -1039,7 +1031,7 @@ The README has two conventions; the agent confirms them with you, and on your no
 >
 > **Claude Code:** Noted, all three.
 
-This step is itself a complete task, run on the same line as 9.1: create the task, write the PRD, review, implement writes the three conventions into the spec (the first two into `backend.md`, the role one into `system.md`), check verifies them against the code one by one (the return format looked at endpoint by endpoint, the price unit confirmed), then commit and archive.
+This step is itself a complete task, run on the same line as 9.1: create the task, write the PRD, implement writes the three conventions into the spec (the first two into `backend.md`, the role one into `system.md`), check verifies them against the code one by one (the return format looked at endpoint by endpoint, the price unit confirmed), then commit and archive.
 
 **Step three: land what nobody can state — dig it out of the code with spec-bootstrap.** The remaining conventions (how lists page, when stock is deducted, how files are layered) are ones nobody can fully state; the agent has to find them in the code itself. This step's prompt is different — it does not name the workflow; it names the skill itself:
 
@@ -1070,7 +1062,7 @@ The landed spec sits in `.sunshine/spec/`: three files, an index at the head of 
 >
 > **Claude Code:** Following the workflow, then. You don't need to explain anything this time — implement read the spec and wrote the code by it: return format `{code, data}`, 20 per page, all from the spec; check verified against the spec, format and paging both right. All acceptance items pass; committed and archived.
 
-This task's flow is exactly 9.1's — questions → PRD → review → implement → check → commit → archive — so it is not spelled out again here.
+This task's flow is exactly 9.1's — questions → PRD → implement → check → commit → archive — so it is not spelled out again here.
 
 Only when the trial runs right is the adoption complete. Three criteria: init touched no old files; the conventions are in the spec, each with a source; the trial task followed the spec and got it right. From then on, the conventions no longer live in the original author's head — people leave, the spec stays, and every new task works by it.
 
@@ -1102,11 +1094,9 @@ Here is how the session continues (illustrative dialogue).
 
 > **Claude Code:** Record first, then: a new rework task, with a `[Change 2026-11-23]` entry in its PRD — what changed, why, and who decided, all written down; the spec line "stock 0 shows Off shelf" is updated to the new wording at the same time, "Notify me registers only, no notification" goes in with it, and the rework task's context is curated (the updated spec and the product-list code listed into implement.jsonl / check.jsonl). The archived product-list task is not reopened — it records the history as it was; touching it would scramble that.
 
-**Review only the change.** The review (1.5) does not re-review the whole project; it walks the change checklist item by item:
+**Self-check the landing spots, then start.** Development-first has no review; the agent walks the change's landing spots item by item, and once they check out, work starts:
 
-> **You:** The change is done — please follow the Sunshine workflow and review it, reviewing only the changed part.
->
-> **Claude Code:** Reviewing only the change, then — all four items check out: the `[Change]` entry is recorded; the spec is updated; the rework task's acceptance criteria and context are ready; the unaffected order task is untouched. Shall I start?
+> **Claude Code:** I have checked where the change lands — all four items check out: the `[Change]` entry is recorded; the spec is updated; the rework task's acceptance criteria and context are ready; the unaffected order task is untouched. Starting now.
 >
 > **You:** Go.
 
@@ -1140,9 +1130,9 @@ Here is how the session continues (illustrative dialogue).
 
 > **Claude Code:** Two things on the task side. One: the product sub-task is archived — not reopened; a new rework sub-task goes under the parent, its description naming the original task and the reason for the change, and it changes that one spot following the new prototype. Two: the order sub-task is not affected and keeps going. One rule worth stating: an in-progress task that *is* affected stops its current work, goes back through the loop, and then continues, status unchanged — not needed this time, since it isn't affected.
 
-**The rework sub-task runs its own line.** Like every sub-task: its own review → implement → check (against the new prototype and the new wording) → spec write-back → commit → archive. Once it is archived, the change has fully landed.
+**The rework sub-task runs its own line.** Like every sub-task: clarify → implement → check (against the new prototype and the new wording) → spec write-back → commit → archive. Once it is archived, the change has fully landed.
 
-**Where the two modes differ.** The common ground first: both ask only about the delta, both fix the blast radius first, both record a `[Change]`, both review only the changed part, neither reopens archived work, neither stops unaffected work, and an affected in-progress task pauses, loops back, and continues. The single difference is where the change lands first — development-first has no design pack, so the change goes straight onto the task and PRD; design-first has one, so the change lands in the design pack first (requirements list + prototype), the review reviews the design pack, and affected sub-tasks are brought in line before that review. A brand-new requirement runs the same play in miniature: a small round of clarify → break down → curate context → review, and the new task hangs off the same structure.
+**Where the two modes differ.** The common ground first: both ask only about the delta, both fix the blast radius first, both record a `[Change]`, neither reopens archived work, neither stops unaffected work, and an affected in-progress task pauses, loops back, and continues. Two differences: where the change lands first — development-first has no design pack, so the change goes straight onto the task and PRD, and the agent self-checks the landing spots and starts; design-first has one, so the change lands in the design pack first (requirements list + prototype) and then passes a review of just the change, with affected sub-tasks brought in line before that review. A brand-new requirement runs the same play in miniature: a small round of clarify → break down → curate context → start, and the new task hangs off the same structure.
 
 ### 9.4 Refactoring a legacy module: pin the behavior first, then change the code
 
@@ -1166,7 +1156,7 @@ Here is how the session continues (illustrative dialogue).
 
 **The PRD's acceptance rests on a baseline.** The agent creates the task and writes the PRD: the scenarios to pin are listed first (four families: plain orders, threshold discounts, shipping fees, partial refunds); the refactor's acceptance is a single line — after the refactor, the same batch matches the baseline item by item, and only one implementation remains across the three call sites. Context is curated (implement.jsonl lists the three copies and the spec's price convention: stored in cents, divided by 100 for display). TDD mode adds its planning gate: before `task start`, the behavior slices are written down — which interface each of the three call sites uses to compute amounts, with what inputs and expected outputs; those slices are the input for the test-writing step that follows.
 
-**The review checks whether the test list is complete.** At the review (1.5), beyond checking the PRD, the audit scan finds one unpinned scenario family: orders where a coupon and a threshold discount apply together. It goes into the baseline list, you confirm, and only then `task start`.
+**One more pass over the scenarios before starting.** While writing the behavior slices, the agent works through the PRD once more and finds one unpinned scenario family: orders where a coupon and a threshold discount apply together. It goes into the baseline list, you confirm, and only then `task start`.
 
 **Implementation comes in two steps; step one only pins.** After `task start`, the outer loop goes first: a test-writing sub-agent is dispatched with only the PRD and the behavior slices, and writes the characterization tests for the four scenario families (it has never seen the refactored code — that code does not exist yet); the tests then run against all three existing copies, and their outputs are the baseline. These tests pin behavior that already exists, so they count as regression guards and are exempt from the must-be-red-first rule; once run, the set is locked — nobody edits the tests from here on, and implement only measures against them. The test-writing report brings back one finding:
 
@@ -1212,7 +1202,7 @@ Here is how the session continues (illustrative dialogue).
 
 (mem never appears in this section: it only digs up this machine's session transcripts. Memory alone picked the thread up this time; only if memory had no such entry, and it happened to be the same machine, would mem be the fallback for the original transcript — in that order, not the reverse.)
 
-**The task's acceptance is written for the class.** On confirmation: task created, PRD written — root cause stated plainly (deduction has no idempotency check); the acceptance is not merely "payment callbacks no longer double-deduct", but: one order, from any entry point, triggered any number of times, deducts exactly once. The memory entry is listed into the context, so implement does not re-derive it. At the review, the audit scan walks the deduction entry points once more and confirms there are exactly two (order placement, payment callback); the inventory page's manual adjustment is a human operation, not automatic deduction, and is explicitly out of scope.
+**The task's acceptance is written for the class.** On confirmation: task created, PRD written — root cause stated plainly (deduction has no idempotency check); the acceptance is not merely "payment callbacks no longer double-deduct", but: one order, from any entry point, triggered any number of times, deducts exactly once. The memory entry is listed into the context, so implement does not re-derive it. The agent also walks the deduction entry points once more and confirms there are exactly two (order placement, payment callback); the inventory page's manual adjustment is a human operation, not automatic deduction, and is explicitly out of scope.
 
 **Implementation closes the class off.** implement extracts a shared deduction function, `src/lib/stock.js`: the order number is the idempotency key — already deducted means return immediately, no second deduction; both entry points are switched to call it. The duplicate guard added at the order entry point last time is deleted in passing — the rule now lives in exactly one place, so the two can never disagree again.
 
@@ -1276,7 +1266,7 @@ doc/prototype/R-001-product list page.html, R-003-order list page.html, R-003-or
 
 **Only after the review, the breakdown.** Breakdown (1.2) makes one sub-task per requirement, with a "technical selection and scaffolding" sub-task in front: the selection items (front/back-end stack, database, cache) are marked `[To be decided]` in the PRD, left for that sub-task's own 1.1 — breakdown does not write back into the spec. The agent presents the list for your confirmation: 6 sub-tasks with their modes (the order-status one runs in default mode, the rest in fast mode), all in planning, none starting on its own.
 
-**Development takes over, one sub-task at a time.** Starting with the first, and the next starts only when the previous one is fully done. Selection and scaffolding goes first: its own 1.1 settles the selection with you (Node + Express, SQLite for now, your confirmation), its own 1.5 passes, `task start`, a runnable skeleton goes up (page opens, APIs answer, database connected), check, spec write-back (the settled selection is only now written into system / frontend / backend), commit, archive. Then the R-001 navigation sub-task runs the same line: its own review → implement → check → write-back → commit → archive. The remaining four follow one by one.
+**Development takes over, one sub-task at a time.** Starting with the first, and the next starts only when the previous one is fully done. Selection and scaffolding goes first: its own 1.1 settles the selection with you (Node + Express, SQLite for now, your confirmation), `task start`, a runnable skeleton goes up (page opens, APIs answer, database connected), check, spec write-back (the settled selection is only now written into system / frontend / backend), commit, archive. Then the R-001 navigation sub-task runs the same line: clarify → implement → check → write-back → commit → archive. The remaining four follow one by one.
 
 **The parent task wraps up.** With all six sub-tasks archived, the parent does a final integration review: the five modules clicked through together, each requirement signed off against the requirements list. Last, the delivery documents: the seven placeholders generated at init sit in `doc/delivery/`; the agent lists them and asks which to generate — you pick the high-level design and the deployment guide, it generates those two, and the rest stay placeholders. The parent task archives; the project is closed.
 

@@ -224,7 +224,7 @@ Every task picks one of three **modes** when it is created:
 | Mode | How it runs |
 | --- | --- |
 | Fast mode | Same as default mode, just no interrogation. For small changes you have already thought through. |
-| Default mode (recommended) | Clarify and review first, then build, then check item by item. For most tasks. |
+| Default mode (recommended) | Clarify first, then build, then check item by item. For most tasks. |
 | TDD mode | Acceptance tests written and locked first, then code written to pass them. For complex logic — most solid, slowest. |
 
 In dev-first, the agent pops up the choice before creating the task (if you already named a mode in your opening line, it does not ask); in design-first, the mode is set per sub-task as part of the breakdown list, and you confirm them all at once. The mode is recorded on the task: `task list` tags fast tasks `[快速]` and TDD tasks `[TDD]`, and all three kinds can run side by side in one project. Before work starts you can change it freely; after start, fast can only upgrade to default — never to TDD (the tests have to come before the code) — and no mode can be downgraded.

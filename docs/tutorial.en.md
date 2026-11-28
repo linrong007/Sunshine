@@ -233,6 +233,8 @@ In dev-first, the agent pops up the choice before creating the task (if you alre
 
 **Fast mode** fits small changes like display-only work, copy, styling, and config defaults: its only difference from default mode is the missing interrogation — the requirement goes into the PRD in one line with no multi-round questioning; context assembly, the implement subagent and the check subagent all run as usual, and verification slips still apply. If halfway through it turns out to touch data or judgement logic, it upgrades to default mode on the spot and the clarification is made up.
 
+**One last question before archiving (minor fixes)**: once the check has fully passed and the code is committed, right before the task is actually archived, the agent must pop one question: is there anything to fix in a minor way? A single-spot blemish that touches neither data nor judgement logic is fixed directly by the main session, with check re-verifying only the changed spots — no full round repeated (it lands as one extra fix commit). Only when you answer "nothing" does the archive run. On the third minor fix in the same task, the popup stops offering the option and it becomes a regular rework.
+
 ### Switching workflow templates
 
 The default workflow is native (that is what section 1 walked through). Only two workflow templates remain, and they differ only in how phase 2 dispatches sub-agents: native uses the host's native dispatch, channel-driven coordinates worker threads through Sunshine channels. To switch, ask the agent in the UI ("Switch to the channel workflow"), and the agent runs the command; running it yourself in the terminal works the same way:
